@@ -48,3 +48,22 @@ static func set_locale(locale: String) -> void:
 	var cfg := _load()
 	cfg.set_value("app", "locale", locale)
 	cfg.save(PATH)
+
+
+## Active card skin id. The default flips to the "Mariáš dvojhlavý" set for
+## everyone (new and existing players) once its assets land — existing saves
+## only pin a skin after an explicit pick in the UI.
+static func get_card_skin() -> String:
+	return _load().get_value("app", "card_skin", "dev_preview")
+
+
+static func set_card_skin(skin_id: String) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "card_skin", skin_id)
+	cfg.save(PATH)
+
+
+## Dev feature flag: hidden skins (dev_preview) appear in the picker only
+## when [dev] show_dev_skins=true is set manually in settings.cfg.
+static func dev_skins_enabled() -> bool:
+	return _load().get_value("dev", "show_dev_skins", false)

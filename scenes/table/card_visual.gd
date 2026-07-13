@@ -6,7 +6,6 @@ extends Control
 
 signal tapped(card: CardVisual)
 
-const BACK_TEXTURE := "res://assets/cards/back.png"
 
 var card_id := "" # "" = face down (back shown)
 var base_width := 120.0
@@ -83,8 +82,7 @@ func set_card(id: String) -> void:
 
 
 func _refresh_texture() -> void:
-	var path := FaraonCard.texture_path(card_id) if card_id != "" else BACK_TEXTURE
-	_face.texture = load(path)
+	_face.texture = load(CardSkin.active().texture_path(card_id))
 
 
 func _update_selection() -> void:

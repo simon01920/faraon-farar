@@ -43,7 +43,7 @@ func _ready() -> void:
 	add_child(glow)
 
 	var back_art := TextureRect.new()
-	back_art.texture = load("res://assets/cards/back.png")
+	back_art.texture = load(CardSkin.active().back_path())
 	back_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	back_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	back_art.modulate = Color(1, 1, 1, 0.10)

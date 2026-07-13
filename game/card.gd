@@ -57,8 +57,6 @@ static func display_name(id: String) -> String:
 	return "%s %s" % [SUIT_NAMES[suit_of(id)], RANK_NAMES[rank_of(id)]]
 
 
-## Path of the processed art asset for this card id.
+## Path of the art asset for this card id, resolved via the active CardSkin.
 static func texture_path(id: String) -> String:
-	var suit_dirs := ["zalud", "cerven", "zelen", "gula"]
-	var rank_files := ["VII", "VIII", "IX", "X", "dolnik", "hornik", "krali", "stopky"]
-	return "res://assets/cards/%s/%s.png" % [suit_dirs[suit_of(id)], rank_files[rank_of(id)]]
+	return CardSkin.active().texture_path(id)
