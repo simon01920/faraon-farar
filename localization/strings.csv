@@ -10,7 +10,7 @@ MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards
 MENU_MULTIPLAYER,Multiplayer,Multiplayer
 MENU_SOON,(čoskoro),(soon)
 MENU_SETTINGS,Nastavenia,Settings
-MENU_RULES,Pravidlá hry,House rules
+MENU_RULES,Domáce pravidlá,House rules
 MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.
 MENU_BACK,Späť do menu,Back to menu
 MENU_BACK_SHORT,Späť,Back
