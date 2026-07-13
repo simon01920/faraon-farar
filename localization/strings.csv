@@ -1,0 +1,64 @@
+keys,sk,en
+APP_NAME,Faraón,Faraon
+MENU_SUBTITLE,Slovenská kartová klasika,The Slovak card classic
+MENU_PLAY,Hrať,Play
+MENU_OPPONENTS,Hrať proti súperom:,Play against opponents:
+MENU_CREATE_ROOM,Vytvoriť miestnosť,Create room
+MENU_JOIN_ROOM,Pripojiť sa,Join room
+MENU_JOIN_AS_DECK,Pripojiť ako zdieľaný balíček,Join as shared deck
+MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards
+MENU_MULTIPLAYER,Multiplayer,Multiplayer
+MENU_SOON,(čoskoro),(soon)
+MENU_SETTINGS,Nastavenia,Settings
+MENU_RULES,Pravidlá hry,House rules
+MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.
+MENU_BACK,Späť do menu,Back to menu
+MENU_BACK_SHORT,Späť,Back
+MENU_QUIT,Koniec,Quit
+SETTINGS_LANGUAGE,Jazyk,Language
+SETTINGS_MASTER_VOLUME,Hlavná hlasitosť,Master volume
+SETTINGS_SFX_VOLUME,Zvukové efekty,Sound effects
+SETTINGS_MUSIC_VOLUME,Hudba,Music
+RULE_FARAON_BLOCKS_ESO,Zelený dolník na všetko,Green dolník blocks everything
+RULE_FARAON_BLOCKS_ESO_DESC,Faraón zablokuje okrem sedmičiek aj esá — reťaz stopiek sa ním dá zrušiť.,The faraon also blocks aces — an ace chain can be cancelled with it.
+RULE_HORNIK_STRICT,Horník len na farbu a typ,Hornik only on suit or rank
+RULE_HORNIK_STRICT_DESC,Horník sa dá položiť len ak sedí farba alebo znak; až potom mení farbu.,The hornik can only be played on a matching suit or rank; only then it changes the suit.
+RULE_ESO_ROUND_ROBIN,Stopovanie esami dookola,Ace stops go around
+RULE_ESO_ROUND_ROBIN_DESC,"Stopy z es sa rozdávajú v poradí vrátane teba: pri dvoch esách stojí súper, stojíš ty a hrá súper.","Ace stops are dealt around the table including you: with two aces the opponent stands, you stand, the opponent plays."
+RULE_SPALENA_MULTIPLY,Násobenie spálenej,Burned multiplication
+RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — aj dve rôzne karty samostatne.,A second burned four-of-a-kind in a row grants two extra moves — even two different cards separately.
+GAME_YOUR_TURN,Si na ťahu,Your turn
+GAME_TURN_OF,Na ťahu: %s,Turn: %s
+GAME_DRAW_CARD,Ťahaj,Draw
+GAME_PLAY,Zahrať,Play
+GAME_PASS,Stojím,Stand
+GAME_RETURN_PLAYER,Vrátiť hráča,Return player
+GAME_DECLARE_SUIT,Vyber farbu,Choose a suit
+GAME_ESO_STOP,STOP!,STOP!
+GAME_STOPPED_BADGE,STOJÍ,STOPPED
+GAME_WINNER,Dohral,Finished
+GAME_FINISHED_MARK,Dohral!,Done!
+GAME_CARD_COUNT,%d kariet,%d cards
+GAME_PENDING_DRAW,Sedma! Ťaháš +%d,Seven! Draw +%d
+GAME_OVER_WIN,Vyhral si!,You win!
+GAME_OVER_LOSE,Prehral si,You lost
+GAME_NEW,Nová hra,New game
+PLAYER_YOU,Ty,You
+BOT_NAME,Robo %s,Bot %s
+TOAST_RETURNED,%s je späť v hre!,%s is back in the game!
+TOAST_SPALENA,Spálená! Extra ťah,Burned! Extra turn
+TOAST_ESO_CONTINUE,%s pokračuje po esách,%s continues after aces
+TOAST_DECK_EMPTY,Balíček je prázdny,The deck is empty
+ERR_GENERIC,Neplatný ťah,Illegal move
+ERR_CARD_DOES_NOT_MATCH,Karta nesedí farbou ani znakom,Card matches neither suit nor rank
+ERR_MUST_ANSWER_WITH_ESO,Musíš odpovedať esom alebo stáť,Answer with an ace or stand
+ERR_MUST_ANSWER_ESO_OR_PASS,Musíš odpovedať esom alebo stáť,Answer with an ace or stand
+ERR_MUST_ANSWER_WITH_SEDMA_OR_FARAON,Iba sedma alebo faraón,Only a seven or the faraon
+ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same rank
+ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit
+ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn
+ERR_RETURN_REQUIRES_RED_SEVEN,Na vrátenie treba červenú sedmu,Returning needs the red seven
+SUIT_ZALUD,Žaluď,Acorns
+SUIT_CERVEN,Červeň,Hearts
+SUIT_ZELEN,Zeleň,Leaves
+SUIT_GULA,Guľa,Bells

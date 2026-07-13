@@ -1,0 +1,12 @@
+# Godot
+.godot/
+build/
+*.translation.uid
+
+# Dev artifacts
+tools/ui_*.png
+tools/pipeline_report.jpg
+
+# OS
+Thumbs.db
+.DS_Store
