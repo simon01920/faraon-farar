@@ -15,6 +15,7 @@ signal restart_requested
 var server: LocalGameServer
 var _selected: Array[String] = []
 var _seats := {} # player_id -> PlayerSeat
+var _opponent_ids: Array[String] = [] # seat order for re-layout
 var _queue: Array[Callable] = []
 var _busy := false
 
@@ -51,6 +52,11 @@ func setup(game_server: LocalGameServer) -> void:
 
 func _state() -> GameState:
 	return server.rules.state
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and is_node_ready():
+		_layout_table()
 
 
 func _ready() -> void:
@@ -288,38 +294,61 @@ func _setup_seats() -> void:
 	for seat in _seats.values():
 		seat.queue_free()
 	_seats.clear()
+	_opponent_ids.clear()
 	var s := _state()
-	var opponents: Array = []
 	for p in s.players:
 		if p.id != LocalGameServer.HUMAN_ID:
-			opponents.append(p)
+			_opponent_ids.append(p.id)
 
-	var slots: Array = []
-	match opponents.size():
-		1: slots = [Vector2(0.5, 0.11)]
-		2: slots = [Vector2(0.3, 0.11), Vector2(0.7, 0.11)]
-		_: slots = [Vector2(0.16, 0.16), Vector2(0.5, 0.09), Vector2(0.84, 0.16)]
-
-	for i in opponents.size():
-		var p: GameState.PlayerState = opponents[i]
-		var seat := PlayerSeat.new(p.id, _display_name(p.id),
+	for i in _opponent_ids.size():
+		var seat := PlayerSeat.new(_opponent_ids[i], _display_name(_opponent_ids[i]),
 				UIKit.AVATAR_COLORS[(i + 1) % UIKit.AVATAR_COLORS.size()])
-		var c: Vector2 = slots[i]
-		seat.position = Vector2(size.x * c.x - 90, size.y * c.y - 30)
 		add_child(seat)
-		_seats[p.id] = seat
+		_seats[_opponent_ids[i]] = seat
 
 	var me := PlayerSeat.new(LocalGameServer.HUMAN_ID,
 			_display_name(LocalGameServer.HUMAN_ID), UIKit.AVATAR_COLORS[0], true)
-	me.position = Vector2(size.x * 0.075 - 90, size.y * 0.80 - 40)
 	add_child(me)
 	_seats[LocalGameServer.HUMAN_ID] = me
+	_layout_table()
 
-	# Center piles between the seats and the hand.
-	_deck.position = Vector2(size.x * 0.42 - 62, size.y * 0.40 - 93)
-	_discard.position = Vector2(size.x * 0.56 - 70, size.y * 0.40 - 100)
-	_declared_chip.position = Vector2(size.x * 0.56 - 34, size.y * 0.40 + 96)
-	_pending_badge.position = Vector2(size.x * 0.685, size.y * 0.40 - 22)
+
+## Positions everything that depends on the window size. Runs again on every
+## resize (desktop window drag, mobile rotation via the orientation sensor),
+## with portrait-specific slots so the piles never collide on narrow screens.
+func _layout_table() -> void:
+	if _seats.is_empty() or _deck == null:
+		return
+	var portrait := size.y > size.x
+
+	var slots: Array = []
+	match _opponent_ids.size():
+		1: slots = [Vector2(0.5, 0.10)]
+		2: slots = [Vector2(0.26, 0.10), Vector2(0.74, 0.10)] if portrait \
+				else [Vector2(0.3, 0.11), Vector2(0.7, 0.11)]
+		_: slots = [Vector2(0.16, 0.17), Vector2(0.5, 0.07), Vector2(0.84, 0.17)] if portrait \
+				else [Vector2(0.16, 0.16), Vector2(0.5, 0.09), Vector2(0.84, 0.16)]
+	for i in _opponent_ids.size():
+		var seat: PlayerSeat = _seats.get(_opponent_ids[i])
+		if seat != null and i < slots.size():
+			var c: Vector2 = slots[i]
+			seat.position = Vector2(size.x * c.x - 90, size.y * c.y - 30)
+	var me: PlayerSeat = _seats.get(LocalGameServer.HUMAN_ID)
+	if me != null:
+		me.position = Vector2(maxf(size.x * 0.075 - 90, 4.0), size.y * 0.80 - 40)
+
+	# Center piles: side by side, spread wider apart in portrait so the
+	# 110-120px cards don't overlap on narrow screens.
+	var deck_x := 0.28 if portrait else 0.42
+	var disc_x := 0.72 if portrait else 0.56
+	var pile_y := 0.38 if portrait else 0.40
+	_deck.position = Vector2(size.x * deck_x - 62, size.y * pile_y - 93)
+	_discard.position = Vector2(size.x * disc_x - 70, size.y * pile_y - 100)
+	_declared_chip.position = Vector2(size.x * disc_x - 34, size.y * pile_y + 96)
+	_pending_badge.position = Vector2(size.x * (0.88 if portrait else 0.685),
+			size.y * pile_y - 22)
+	if _state() != null:
+		_refresh_hand(_state())
 
 
 # --- state -> UI ----------------------------------------------------------
@@ -462,7 +491,9 @@ func _refresh_hand(s: GameState) -> void:
 	var n := hand.size()
 	if n == 0:
 		return
-	var spacing := minf(94.0, (size.x - 420.0) / maxf(n, 1))
+	# Narrow (portrait) screens reserve less side margin for the fan.
+	var reserve := 420.0 if size.x > size.y else 150.0
+	var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
 	var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
 	for i in n:
 		var cv := CardVisual.new(hand[i])
