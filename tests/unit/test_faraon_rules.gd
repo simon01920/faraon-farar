@@ -409,6 +409,36 @@ func test_draw_pile_reflip_when_exhausted() -> void:
 	assert_eq(r.state.draw_pile.size(), 1, "one flipped card left after drawing one")
 
 
+# --- finish positions -----------------------------------------------------
+
+func test_finish_positions_recorded_in_order() -> void:
+	# 3 players: first to finish = 1st place, second = 2nd, the one left
+	# holding cards = last place. Only 1st counts as the win.
+	var r := make_rules([["9Z"], ["9C"], ["8G", "8C"]], "8Z")
+	assert_true(play(r, "P0", ["9Z"]).ok)
+	assert_true(play(r, "P1", ["9C"]).ok)
+	assert_eq(r.state.players[0].finish_position, 1)
+	assert_eq(r.state.players[1].finish_position, 2)
+	assert_eq(r.state.phase, GameState.Phase.GAME_OVER)
+	assert_eq(r.state.players[2].finish_position, 3, "loser takes the last place")
+
+
+func test_red_seven_return_clears_finish_position() -> void:
+	var r := make_rules([["9Z"], ["7C", "8G"]], "8Z", ["KZ", "KG", "KE", "XC"])
+	play(r, "P0", ["9Z"])
+	assert_eq(r.state.players[0].finish_position, 1)
+	play(r, "P1", ["7C"])
+	assert_eq(r.state.players[0].finish_position, -1,
+			"a returned player has no placement until finishing again")
+
+
+func test_eso_auto_win_assigns_both_positions() -> void:
+	var r := make_rules([["AZ"], ["7C", "8G"]], "8Z")
+	play(r, "P0", ["AZ"])
+	assert_eq(r.state.players[0].finish_position, 1)
+	assert_eq(r.state.players[1].finish_position, 2)
+
+
 # --- state snapshots ------------------------------------------------------
 
 func test_view_hides_other_hands_and_draw_pile() -> void:

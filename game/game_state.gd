@@ -18,6 +18,11 @@ class PlayerState:
 	var finished_at: int = -1
 	## True when the hand was emptied with an eso as (part of) the last play.
 	var finished_with_eso: bool = false
+	## Final placement for this round: 1 = first to finish (the only win),
+	## players.size() = the loser; -1 = still playing. Cleared again when a
+	## červená sedma returns the player. Pure data output of one game —
+	## groundwork for the future scoring system.
+	var finish_position: int = -1
 
 	func to_dict() -> Dictionary:
 		return {
@@ -26,6 +31,7 @@ class PlayerState:
 			"status": status,
 			"finished_at": finished_at,
 			"finished_with_eso": finished_with_eso,
+			"finish_position": finish_position,
 		}
 
 	static func from_dict(d: Dictionary) -> PlayerState:
@@ -35,6 +41,7 @@ class PlayerState:
 		p.status = d.get("status", PlayerStatus.ACTIVE)
 		p.finished_at = d.get("finished_at", -1)
 		p.finished_with_eso = d.get("finished_with_eso", false)
+		p.finish_position = d.get("finish_position", -1)
 		return p
 
 

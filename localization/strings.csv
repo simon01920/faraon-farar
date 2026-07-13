@@ -41,6 +41,7 @@ GAME_CARD_COUNT,%d kariet,%d cards
 GAME_PENDING_DRAW,Sedma! Ťaháš +%d,Seven! Draw +%d
 GAME_OVER_WIN,Vyhral si!,You win!
 GAME_OVER_LOSE,Prehral si,You lost
+GAME_OVER_PLACE,Skončil si na %d. mieste,You finished in place %d
 GAME_NEW,Nová hra,New game
 PLAYER_YOU,Ty,You
 BOT_NAME,Robo %s,Bot %s

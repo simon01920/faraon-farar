@@ -218,6 +218,7 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	victim.status = Status.ACTIVE
 	victim.finished_at = -1
 	victim.finished_with_eso = false
+	victim.finish_position = -1
 	var drawn := _draw_cards(victim, total)
 
 	var events: Array = [
@@ -317,14 +318,29 @@ func _handle_possible_finish(idx: int, cards: Array, events: Array) -> bool:
 	player.status = Status.FINISHED
 	player.finished_at = state.turn_counter
 	player.finished_with_eso = FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.ESO
+	player.finish_position = _next_finish_position()
 	events.append({"type": "PLAYER_FINISHED", "player": player.id,
-			"with_eso": player.finished_with_eso})
+			"with_eso": player.finished_with_eso,
+			"position": player.finish_position})
 	if player.finished_with_eso and state.players.size() == 2:
 		# Auto-win: the opponent loses immediately, no return possible.
 		state.phase = Phase.GAME_OVER
 		state.loser_index = state.next_active_index(idx)
+		state.players[state.loser_index].finish_position = state.players.size()
 		events.append({"type": "GAME_OVER", "loser": state.players[state.loser_index].id})
 	return true
+
+
+## 1-based placement for the player finishing right now: one past the number
+## of placements already handed out. Deterministic even across červená-sedma
+## returns — the returned player is always the latest finisher, so clearing
+## their position never leaves a gap.
+func _next_finish_position() -> int:
+	var taken := 0
+	for p in state.players:
+		if p.finish_position != -1:
+			taken += 1
+	return taken + 1
 
 
 # --- DRAW / PASS ---------------------------------------------------------
@@ -425,6 +441,7 @@ func _check_game_over(events: Array) -> void:
 	if not rescue:
 		state.phase = Phase.GAME_OVER
 		state.loser_index = sole_idx
+		sole.finish_position = state.players.size()
 		events.append({"type": "GAME_OVER", "loser": sole.id})
 	else:
 		state.current_index = sole_idx

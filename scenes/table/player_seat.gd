@@ -91,10 +91,11 @@ func set_count(n: int) -> void:
 		_fan.add_child(cv)
 
 
-func set_finished(finished: bool) -> void:
+func set_finished(finished: bool, place: int = 0) -> void:
 	_finished = finished
 	if finished:
-		_name_label.text = display_name + " ✓"
+		_name_label.text = "%s ✓ %d." % [display_name, place] if place > 0 \
+				else display_name + " ✓"
 		set_count(0)
 	else:
 		_name_label.text = display_name

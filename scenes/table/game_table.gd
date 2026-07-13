@@ -33,6 +33,7 @@ var _suit_popup: PopupPanel
 var _fx: Control
 var _game_over_layer: Control
 var _game_over_label: Label
+var _ranking_box: VBoxContainer
 var _pending_play: Array = []
 
 
@@ -210,6 +211,12 @@ func _build_game_over_layer() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_game_over_layer.add_child(dim)
 
+	# CenterContainer keeps the panel centered even as the standings list
+	# grows its minimum size (PRESET_CENTER would drift bottom-right).
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_game_over_layer.add_child(center)
+
 	var panel := PanelContainer.new()
 	var sb := UIKit.panel_style(UIKit.TABLE_MID, 20, UIKit.GOLD, 2)
 	sb.content_margin_left = 48
@@ -217,8 +224,7 @@ func _build_game_over_layer() -> void:
 	sb.content_margin_top = 32
 	sb.content_margin_bottom = 32
 	panel.add_theme_stylebox_override("panel", sb)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	_game_over_layer.add_child(panel)
+	center.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -227,6 +233,11 @@ func _build_game_over_layer() -> void:
 
 	_game_over_label = UIKit.heading("", 38)
 	box.add_child(_game_over_label)
+
+	_ranking_box = VBoxContainer.new()
+	_ranking_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_ranking_box.add_theme_constant_override("separation", 6)
+	box.add_child(_ranking_box)
 
 	var again := UIKit.pill_button(tr("GAME_NEW"), Color("2e7d4f"), Vector2(260, 54))
 	again.pressed.connect(func(): new_game_requested.emit())
@@ -317,7 +328,7 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(func():
 				_seat_flash(e.player, tr("GAME_FINISHED_MARK"), Color("2e7d4f"))
 				if _seats.has(e.player):
-					_seats[e.player].set_finished(true)
+					_seats[e.player].set_finished(true, e.get("position", 0))
 				await _sleep(0.5))
 		"PLAYER_RETURNED":
 			_enqueue(func():
@@ -365,7 +376,8 @@ func _refresh_all() -> void:
 		var seat: PlayerSeat = _seats.get(p.id)
 		if seat == null:
 			continue
-		seat.set_finished(p.status == GameState.PlayerStatus.FINISHED)
+		seat.set_finished(p.status == GameState.PlayerStatus.FINISHED,
+				p.finish_position)
 		seat.set_count(p.hand.size())
 		seat.set_active(s.phase == GameState.Phase.PLAYING
 				and s.players[s.current_index].id == p.id)
@@ -670,11 +682,34 @@ func _on_action_rejected(player_id: String, error: String) -> void:
 	_toast(tr(key) if tr(key) != key else tr("ERR_GENERIC"))
 
 
-func _show_game_over(loser_id: String) -> void:
+func _show_game_over(_loser_id: String) -> void:
 	_game_over_layer.visible = true
-	if loser_id == LocalGameServer.HUMAN_ID:
+	var s := _state()
+	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var last := s.players.size()
+
+	# Only 1st place counts as a win; last place is the explicit loss;
+	# anything between is an informative placement.
+	if me.finish_position == 1:
+		_game_over_label.text = tr("GAME_OVER_WIN")
+		_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
+	elif me.finish_position == last or me.finish_position == -1:
 		_game_over_label.text = tr("GAME_OVER_LOSE")
 		_game_over_label.add_theme_color_override("font_color", UIKit.RED.lightened(0.2))
 	else:
-		_game_over_label.text = tr("GAME_OVER_WIN")
-		_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
+		_game_over_label.text = tr("GAME_OVER_PLACE") % me.finish_position
+		_game_over_label.add_theme_color_override("font_color", UIKit.GOLD)
+
+	# Full standings, best placement first.
+	for c in _ranking_box.get_children():
+		c.queue_free()
+	var ranked := s.players.duplicate()
+	ranked.sort_custom(func(a, b):
+		var pa: int = a.finish_position if a.finish_position != -1 else last + 1
+		var pb: int = b.finish_position if b.finish_position != -1 else last + 1
+		return pa < pb)
+	for p in ranked:
+		var place := str(p.finish_position) + "." if p.finish_position != -1 else "–"
+		var row := UIKit.heading("%s %s" % [place, _display_name(p.id)], 21,
+				UIKit.GOLD if p.finish_position == 1 else UIKit.CREAM)
+		_ranking_box.add_child(row)
