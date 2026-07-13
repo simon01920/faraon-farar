@@ -83,6 +83,7 @@ func _build_menu() -> void:
 		b.pressed.connect(func(): local_game_requested.emit(n))
 		row.add_child(b)
 	box.add_child(row)
+	box.add_child(_difficulty_row())
 	box.add_child(_spacer(8))
 
 	var mp := UIKit.pill_button(tr("MENU_MULTIPLAYER") + " " + tr("MENU_SOON"),
@@ -148,6 +149,32 @@ func _build_settings_screen() -> void:
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
 	box.add_child(back_row)
+
+
+## Easy/Medium/Hard segmented picker; persists via GameSettings and colors
+## the active segment gold. Cosmetic only for the menu — the difficulty is
+## applied when the next local game starts.
+func _difficulty_row() -> Control:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	var options := [["easy", "DIFF_EASY"], ["medium", "DIFF_MEDIUM"], ["hard", "DIFF_HARD"]]
+	var buttons := {}
+	var recolor := func():
+		for key in buttons:
+			var b: Button = buttons[key]
+			var active: bool = GameSettings.get_bot_difficulty() == key
+			b.modulate = Color(1, 1, 1, 1.0 if active else 0.45)
+	for opt in options:
+		var b := UIKit.pill_button(tr(opt[1]), UIKit.GOLD.darkened(0.35),
+				Vector2(104, 40), 16)
+		b.pressed.connect(func():
+			GameSettings.set_bot_difficulty(opt[0])
+			recolor.call())
+		buttons[opt[0]] = b
+		row.add_child(b)
+	recolor.call()
+	return row
 
 
 func _language_row() -> Control:

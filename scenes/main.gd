@@ -33,7 +33,8 @@ func _start_local_game(bot_count: int) -> void:
 	table.new_game_requested.connect(func(): _start_local_game(_last_bot_count))
 	_current_screen = table
 	add_child(table)
-	_server.start_game(bot_count, GameSettings.build_variant())
+	_server.start_game(bot_count, GameSettings.build_variant(), 0,
+			BotStrategy.difficulty_from_string(GameSettings.get_bot_difficulty()))
 
 
 func _clear_screen() -> void:

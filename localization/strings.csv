@@ -8,6 +8,9 @@ MENU_JOIN_ROOM,Pripojiť sa,Join room
 MENU_JOIN_AS_DECK,Pripojiť ako zdieľaný balíček,Join as shared deck
 MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards
 MENU_MULTIPLAYER,Multiplayer,Multiplayer
+DIFF_EASY,Ľahkí,Easy
+DIFF_MEDIUM,Strední,Medium
+DIFF_HARD,Ťažkí,Hard
 MENU_SOON,(čoskoro),(soon)
 MENU_SETTINGS,Nastavenia,Settings
 MENU_RULES,Domáce pravidlá,House rules

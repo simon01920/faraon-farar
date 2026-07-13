@@ -67,3 +67,14 @@ static func set_card_skin(skin_id: String) -> void:
 ## when [dev] show_dev_skins=true is set manually in settings.cfg.
 static func dev_skins_enabled() -> bool:
 	return _load().get_value("dev", "show_dev_skins", false)
+
+
+## Bot difficulty for local games: "easy" | "medium" | "hard".
+static func get_bot_difficulty() -> String:
+	return _load().get_value("app", "bot_difficulty", "medium")
+
+
+static func set_bot_difficulty(d: String) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "bot_difficulty", d)
+	cfg.save(PATH)

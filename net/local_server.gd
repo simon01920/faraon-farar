@@ -18,17 +18,18 @@ var bot_delay := 1.2
 ## their thinking pauses (and the table's animations) are cut short. Reset by
 ## start_game and whenever the human returns to the game.
 var fast_forward := false
-var _bot := BotPlayer.new()
+var _bot := BotStrategy.new()
 var _bot_ids: Array[String] = []
 
 
 func start_game(bot_count: int, variant: RulesVariant = null,
-		seed_value: int = 0) -> void:
+		seed_value: int = 0, bot_difficulty: int = BotStrategy.Difficulty.MEDIUM) -> void:
 	if variant == null:
 		variant = RulesVariant.classic()
 	if seed_value == 0:
 		seed_value = randi()
 	fast_forward = false
+	_bot = BotStrategy.new(bot_difficulty)
 	var ids: Array = [HUMAN_ID]
 	_bot_ids.clear()
 	for i in bot_count:

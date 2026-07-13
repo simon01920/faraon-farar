@@ -1,14 +1,16 @@
 extends GutTest
-## Integration: BotPlayer vs BotPlayer driving the full rules engine to game
-## over across many seeds and player counts. Catches deadlocks, illegal-move
-## loops and unreachable game ends that unit tests cannot.
+## Integration: BotStrategy vs BotStrategy driving the full rules engine to
+## game over across many seeds, player counts and difficulties. Catches
+## deadlocks, illegal-move loops and unreachable game ends that unit tests
+## cannot.
 
 const MAX_ACTIONS := 3000
 
 
-func _play_full_game(player_count: int, seed_value: int) -> GameState:
+func _play_full_game(player_count: int, seed_value: int,
+		diff: int = BotStrategy.Difficulty.MEDIUM) -> GameState:
 	var rules := FaraonRules.new()
-	var bot := BotPlayer.new()
+	var bot := BotStrategy.new(diff, seed_value)
 	var ids: Array = []
 	for i in player_count:
 		ids.append("B%d" % i)
@@ -47,9 +49,18 @@ func test_four_bots_finish_every_game() -> void:
 				"4p game with seed %d must end" % seed_value)
 
 
+func test_every_difficulty_finishes_games() -> void:
+	for diff in [BotStrategy.Difficulty.EASY, BotStrategy.Difficulty.MEDIUM,
+			BotStrategy.Difficulty.HARD]:
+		for seed_value in range(200, 208):
+			var s := _play_full_game(3, seed_value, diff)
+			assert_eq(s.phase, GameState.Phase.GAME_OVER,
+					"difficulty %d seed %d must end" % [diff, seed_value])
+
+
 func test_card_conservation_holds_all_game() -> void:
 	var rules := FaraonRules.new()
-	var bot := BotPlayer.new()
+	var bot := BotStrategy.new(BotStrategy.Difficulty.MEDIUM, 777)
 	rules.start(["B0", "B1", "B2"], RulesVariant.classic(), 777)
 	var actions := 0
 	while rules.state.phase == GameState.Phase.PLAYING and actions < MAX_ACTIONS:
