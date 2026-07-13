@@ -68,6 +68,94 @@ static func dev_skins_enabled() -> bool:
 	return _load().get_value("dev", "show_dev_skins", false)
 
 
+## Active table look id (TableLook registry).
+static func get_table_look() -> String:
+	return _load().get_value("app", "table_look", "felt_green")
+
+
+static func set_table_look(look_id: String) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "table_look", look_id)
+	cfg.save(PATH)
+
+
+## Audio/haptics toggles (defaults on). Sound/music mute their AudioServer
+## buses through apply_audio(), so future sfx/music tracks obey them without
+## extra plumbing; vibrations are read by Haptics on every buzz.
+static func get_sound_on() -> bool:
+	return _load().get_value("app", "sound_on", true)
+
+
+static func set_sound_on(on: bool) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "sound_on", on)
+	cfg.save(PATH)
+	apply_audio()
+
+
+static func get_music_on() -> bool:
+	return _load().get_value("app", "music_on", true)
+
+
+static func set_music_on(on: bool) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "music_on", on)
+	cfg.save(PATH)
+	apply_audio()
+
+
+static func get_vibrations_on() -> bool:
+	return _load().get_value("app", "vibrations_on", true)
+
+
+static func set_vibrations_on(on: bool) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "vibrations_on", on)
+	cfg.save(PATH)
+
+
+## Pushes the persisted toggles onto the AudioServer buses. Sound off mutes
+## Master; music additionally has its own bus when one exists in the layout.
+static func apply_audio() -> void:
+	AudioServer.set_bus_mute(0, not get_sound_on())
+	var music_bus := AudioServer.get_bus_index("Music")
+	if music_bus != -1:
+		AudioServer.set_bus_mute(music_bus, not get_music_on())
+
+
+## Player display name; "" = use the localized default ("Ty"/"You").
+static func get_player_name() -> String:
+	return _load().get_value("app", "player_name", "")
+
+
+static func set_player_name(p_name: String) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "player_name", p_name.strip_edges().left(16))
+	cfg.save(PATH)
+
+
+## Game mode: "normal" | "olympic" | "reverse".
+static func get_game_mode() -> String:
+	return _load().get_value("app", "game_mode", "normal")
+
+
+static func set_game_mode(m: String) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "game_mode", m)
+	cfg.save(PATH)
+
+
+## Opponent (bot) count selected in the menu.
+static func get_opponents() -> int:
+	return _load().get_value("app", "opponents", 3)
+
+
+static func set_opponents(n: int) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "opponents", n)
+	cfg.save(PATH)
+
+
 ## Bot difficulty for local games: "easy" | "medium" | "hard".
 static func get_bot_difficulty() -> String:
 	return _load().get_value("app", "bot_difficulty", "medium")

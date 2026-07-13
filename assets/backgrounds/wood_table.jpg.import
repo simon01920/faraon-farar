@@ -2,12 +2,12 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://8mk58moyfayq"
+uid="uid://cqjomcv5uvyld"
 valid=false
 
 [deps]
 
-source_file="res://game_bg/pngtree-background-texture-of-wooden-table-picture-image_15283255.jpg"
+source_file="res://assets/backgrounds/wood_table.jpg"
 
 [params]
 

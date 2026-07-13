@@ -8,11 +8,35 @@ MENU_JOIN_ROOM,Pripojiť sa,Join room
 MENU_JOIN_AS_DECK,Pripojiť ako zdieľaný balíček,Join as shared deck
 MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards
 MENU_MULTIPLAYER,Multiplayer,Multiplayer
+MENU_START,▶ Spustiť hru,▶ Start game
+MODE_NORMAL,Klasický,Classic
+MODE_OLYMPIC,Olympijský,Olympic
+MODE_REVERSE,Reverzný ol.,Reverse Ol.
+GAME_NEXT_ROUND,Ďalšie kolo,Next round
+ROUND_OVER,Koniec kola,Round over
+MATCH_ROUND,Kolo %d,Round %d
+MATCH_STANDINGS,Stav zápasu,Match standings
+MATCH_WIN,Vyhral si zápas! 🏆,You won the match! 🏆
+MATCH_LOSE,Zápas vyhral %s,%s won the match
+MATCH_OUT,vypadol,out
+MATCH_CARDS,%d kariet,%d cards
+POINTS_EARNED,+%d bodov,+%d points
+LEVEL_UP,Level %d! 🎉,Level %d! 🎉
+PROFILE_LEVEL,Level %d,Level %d
+PROFILE_NAME,Tvoje meno,Your name
 DIFF_EASY,Ľahkí,Easy
 DIFF_MEDIUM,Strední,Medium
 DIFF_HARD,Ťažkí,Hard
 MENU_SOON,(čoskoro),(soon)
 MENU_SETTINGS,Nastavenia,Settings
+MENU_APPEARANCE,Vzhľad,Appearance
+APPEARANCE_CARDS,Kartový štýl,Card style
+APPEARANCE_TABLE,Vzhľad stola,Table look
+TABLE_FELT,Zelené plátno (klasika),Green felt (classic)
+TABLE_WOOD,Svetlé drevo,Light wood
+TABLE_DARK_WOOD,Tmavé drevo,Dark wood
+TABLE_GREEN_CLOTH,Zelená látka,Green cloth
+LOCKED_LEVEL,Level %d 🔒,Level %d 🔒
 MENU_RULES,Domáce pravidlá,House rules
 MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.
 MENU_BACK,Späť do menu,Back to menu
@@ -30,6 +54,12 @@ RULE_ESO_ROUND_ROBIN,Stopovanie esami dookola,Ace stops go around
 RULE_ESO_ROUND_ROBIN_DESC,"Stopy z es sa rozdávajú v poradí vrátane teba: pri dvoch esách stojí súper, stojíš ty a hrá súper.","Ace stops are dealt around the table including you: with two aces the opponent stands, you stand, the opponent plays."
 RULE_SPALENA_MULTIPLY,Násobenie spálenej,Burned multiplication
 RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — aj dve rôzne karty samostatne.,A second burned four-of-a-kind in a row grants two extra moves — even two different cards separately.
+GAME_MENU,Menu,Menu
+GAME_RESUME,Pokračovať,Resume
+GAME_RESTART,Reštart hry,Restart game
+SETTINGS_SOUND,Zvuky,Sounds
+SETTINGS_MUSIC,Hudba,Music
+SETTINGS_VIBRATIONS,Vibrácie,Vibrations
 GAME_YOUR_TURN,Si na ťahu,Your turn
 GAME_TURN_OF,Na ťahu: %s,Turn: %s
 GAME_DRAW_CARD,Ťahaj,Draw

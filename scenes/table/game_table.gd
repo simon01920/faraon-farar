@@ -10,6 +10,7 @@ const SUIT_KEYS := ["SUIT_ZALUD", "SUIT_CERVEN", "SUIT_ZELEN", "SUIT_GULA"]
 
 signal exit_to_menu_requested
 signal new_game_requested
+signal restart_requested
 
 var server: LocalGameServer
 var _selected: Array[String] = []
@@ -35,6 +36,8 @@ var _fx: Control
 var _game_over_layer: Control
 var _game_over_label: Label
 var _ranking_box: VBoxContainer
+var _btn_again: Button
+var _pause_layer: Control
 var _pending_play: Array = []
 
 
@@ -57,6 +60,7 @@ func _ready() -> void:
 	_build_suit_popup()
 	_build_fx_layer()
 	_build_game_over_layer()
+	_build_pause_layer()
 	if server != null and _state() != null:
 		_setup_seats()
 		_refresh_all()
@@ -70,6 +74,19 @@ func _build_background() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
+
+	# Photo table looks sit between the base color and the light overlays,
+	# slightly darkened so cards and badges keep their contrast.
+	var look := TableLook.active()
+	if look.texture_path != "" and ResourceLoader.exists(look.texture_path):
+		var photo := TextureRect.new()
+		photo.texture = load(look.texture_path)
+		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		photo.modulate = Color(0.82, 0.82, 0.82)
+		photo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(photo)
 
 	# Warm pool of light in the middle of the felt.
 	var glow := TextureRect.new()
@@ -254,9 +271,9 @@ func _build_game_over_layer() -> void:
 	_ranking_box.add_theme_constant_override("separation", 6)
 	box.add_child(_ranking_box)
 
-	var again := UIKit.pill_button(tr("GAME_NEW"), Color("2e7d4f"), Vector2(260, 54))
-	again.pressed.connect(func(): new_game_requested.emit())
-	box.add_child(again)
+	_btn_again = UIKit.pill_button(tr("GAME_NEW"), Color("2e7d4f"), Vector2(260, 54))
+	_btn_again.pressed.connect(func(): new_game_requested.emit())
+	box.add_child(_btn_again)
 
 	var menu := UIKit.pill_button(tr("MENU_BACK"), UIKit.BLUE, Vector2(260, 54))
 	menu.pressed.connect(func(): exit_to_menu_requested.emit())
@@ -308,8 +325,11 @@ func _setup_seats() -> void:
 func _on_state_updated(events: Array) -> void:
 	if not is_node_ready():
 		await ready
-	if _seats.is_empty():
-		_setup_seats()
+	var new_round := events.any(func(e): return e.get("type", "") == "DEALT")
+	if _seats.is_empty() or new_round:
+		_setup_seats() # a new round may have a different set of players
+	if new_round:
+		_game_over_layer.visible = false
 	_selected.clear()
 	var had_anims := false
 	for e in events:
@@ -324,7 +344,7 @@ func _on_state_updated(events: Array) -> void:
 func _enqueue_event(e: Dictionary) -> bool:
 	match e.get("type", ""):
 		"DEALT":
-			_enqueue(_anim_deal.bind(e.hand_size))
+			_enqueue(_anim_deal.bind(e.hands))
 		"START_CARD":
 			_enqueue(_anim_start_card.bind(e.card))
 		"CARDS_PLAYED":
@@ -536,19 +556,29 @@ func _spawn_overlay(card_id: String, width: float, at: Vector2) -> CardVisual:
 	return cv
 
 
-func _anim_deal(hand_size: int) -> void:
+## Deals per-player hand sizes (Olympic rounds shrink them); the draw pile
+## badge and layers thin out in real time with every card that leaves it.
+func _anim_deal(hands: Dictionary) -> void:
 	var s := _state()
 	for seat in _seats.values():
 		seat.set_count(0)
-	_deck.set_count(32)
+	var remaining := 32
+	_deck.set_count(remaining)
 	await _sleep(0.25)
-	for _round in hand_size:
+	var max_size := 0
+	for id in hands:
+		max_size = maxi(max_size, hands[id])
+	for round_i in max_size:
 		for p in s.players:
+			if round_i >= int(hands.get(p.id, 0)):
+				continue
 			var seat: PlayerSeat = _seats[p.id]
 			var cv := _spawn_overlay("", 72, _deck.top_anchor())
 			await _fly(cv, _deck.top_anchor(), seat.card_anchor(), 0.16, 40.0)
 			cv.queue_free()
 			seat.set_count(seat._shown_count + 1)
+			remaining -= 1
+			_deck.set_count(remaining)
 
 
 func _anim_start_card(card: String) -> void:
@@ -558,6 +588,7 @@ func _anim_start_card(card: String) -> void:
 			DiscardStack.rot_for(card))
 	cv.queue_free()
 	_discard.push_card(card)
+	_deck.set_count(maxi(_deck_shown() - 1, 0))
 	await _sleep(0.15)
 
 
@@ -586,6 +617,85 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 		_discard.push_card(card)
 		await _sleep(0.12)
 	await _sleep(0.1)
+
+
+## In-game menu (☰, top-left): resume, restart, audio/vibration toggles and
+## the way back to the main menu — the table is no longer a dead end.
+func _build_pause_layer() -> void:
+	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
+	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	btn.offset_left = 16
+	btn.offset_right = 72
+	btn.offset_top = 14
+	btn.offset_bottom = 60
+	btn.pressed.connect(func(): _pause_layer.visible = true)
+	add_child(btn)
+
+	_pause_layer = Control.new()
+	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.visible = false
+	add_child(_pause_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	var sb := UIKit.panel_style(UIKit.TABLE_MID, 20, UIKit.GOLD, 2)
+	sb.content_margin_left = 40
+	sb.content_margin_right = 40
+	sb.content_margin_top = 26
+	sb.content_margin_bottom = 26
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 12)
+	panel.add_child(box)
+
+	box.add_child(UIKit.heading(tr("GAME_MENU"), 28, UIKit.GOLD))
+
+	var resume := UIKit.pill_button(tr("GAME_RESUME"), Color("2e7d4f"), Vector2(280, 50))
+	resume.pressed.connect(func(): _pause_layer.visible = false)
+	box.add_child(resume)
+
+	var restart := UIKit.pill_button(tr("GAME_RESTART"), UIKit.BLUE, Vector2(280, 50))
+	restart.pressed.connect(func(): restart_requested.emit())
+	box.add_child(restart)
+
+	box.add_child(_pause_toggle("SETTINGS_SOUND",
+			GameSettings.get_sound_on, GameSettings.set_sound_on))
+	box.add_child(_pause_toggle("SETTINGS_MUSIC",
+			GameSettings.get_music_on, GameSettings.set_music_on))
+	box.add_child(_pause_toggle("SETTINGS_VIBRATIONS",
+			GameSettings.get_vibrations_on, GameSettings.set_vibrations_on))
+
+	var quit := UIKit.pill_button(tr("MENU_BACK"), UIKit.RED, Vector2(280, 50))
+	quit.pressed.connect(func(): exit_to_menu_requested.emit())
+	box.add_child(quit)
+
+
+func _pause_toggle(label_key: String, getter: Callable, setter: Callable) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	var label := Label.new()
+	label.text = tr(label_key)
+	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_color_override("font_color", UIKit.CREAM)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(label)
+	var toggle := CheckButton.new()
+	toggle.button_pressed = getter.call()
+	toggle.toggled.connect(func(on: bool): setter.call(on))
+	h.add_child(toggle)
+	return h
 
 
 ## Preshuffle: the discard's top card steps aside, the spent pile flips over
@@ -705,7 +815,8 @@ func _is_my_turn(s: GameState) -> bool:
 
 func _display_name(id: String) -> String:
 	if id == LocalGameServer.HUMAN_ID:
-		return tr("PLAYER_YOU")
+		var custom := GameSettings.get_player_name()
+		return custom if custom != "" else tr("PLAYER_YOU")
 	if id.begins_with("BOT"):
 		return tr("BOT_NAME") % id.trim_prefix("BOT")
 	return id
@@ -788,10 +899,23 @@ func _show_game_over(_loser_id: String) -> void:
 	var s := _state()
 	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
 	var last := s.players.size()
+	var m := server.match_state
 
-	# Only 1st place counts as a win; last place is the explicit loss;
-	# anything between is an informative placement.
-	if me.finish_position == 1:
+	# Headline. Match end beats round placement; a spectating human (already
+	# eliminated from an Olympic match) gets a neutral round-over line. For a
+	# single round: only 1st place is a win, last place is the explicit loss,
+	# anything between is informative.
+	if m != null and m.finished:
+		if m.champion == LocalGameServer.HUMAN_ID:
+			_game_over_label.text = tr("MATCH_WIN")
+			_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
+		else:
+			_game_over_label.text = tr("MATCH_LOSE") % _display_name(m.champion)
+			_game_over_label.add_theme_color_override("font_color", UIKit.RED.lightened(0.2))
+	elif me == null:
+		_game_over_label.text = tr("ROUND_OVER")
+		_game_over_label.add_theme_color_override("font_color", UIKit.CREAM)
+	elif me.finish_position == 1:
 		_game_over_label.text = tr("GAME_OVER_WIN")
 		_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
 	elif me.finish_position == last or me.finish_position == -1:
@@ -801,7 +925,7 @@ func _show_game_over(_loser_id: String) -> void:
 		_game_over_label.text = tr("GAME_OVER_PLACE") % me.finish_position
 		_game_over_label.add_theme_color_override("font_color", UIKit.GOLD)
 
-	# Full standings, best placement first.
+	# Full round standings, best placement first.
 	for c in _ranking_box.get_children():
 		c.queue_free()
 	var ranked := s.players.duplicate()
@@ -814,3 +938,28 @@ func _show_game_over(_loser_id: String) -> void:
 		var row := UIKit.heading("%s %s" % [place, _display_name(p.id)], 21,
 				UIKit.GOLD if p.finish_position == 1 else UIKit.CREAM)
 		_ranking_box.add_child(row)
+
+	# Olympic modes: match state (cards next round / out) under the round.
+	if m != null:
+		_ranking_box.add_child(UIKit.heading(
+				tr("MATCH_STANDINGS") + "  ·  " + tr("MATCH_ROUND") % m.round_number,
+				17, UIKit.CREAM.darkened(0.2)))
+		for id in m.allotments:
+			var n: int = m.allotments[id]
+			var text := "%s — %s" % [_display_name(id),
+					tr("MATCH_CARDS") % n if n > 0 else tr("MATCH_OUT")]
+			_ranking_box.add_child(UIKit.heading(text, 16,
+					UIKit.CREAM if n > 0 else UIKit.CREAM.darkened(0.45)))
+	_btn_again.text = tr("GAME_NEXT_ROUND") if m != null and not m.finished \
+			else tr("GAME_NEW")
+
+	# Progression: award the round once (only when the human played in it).
+	if me != null and me.finish_position != -1:
+		var award := Progression.record_round(s.players.size(),
+				me.finish_position, GameSettings.get_bot_difficulty())
+		if award.points > 0:
+			_ranking_box.add_child(UIKit.heading(
+					tr("POINTS_EARNED") % award.points, 19, UIKit.GOLD))
+		if award.level_after > award.level_before:
+			_ranking_box.add_child(UIKit.heading(
+					tr("LEVEL_UP") % award.level_after, 21, Color("6fd08c")))

@@ -18,17 +18,20 @@ var bot_delay := 1.2
 ## their thinking pauses (and the table's animations) are cut short. Reset by
 ## start_game and whenever the human returns to the game.
 var fast_forward := false
+## Olympic-mode match layer; null for a normal single-round game.
+var match_state: FaraonMatch = null
 var _bot := BotStrategy.new()
 var _bot_ids: Array[String] = []
+var _variant: RulesVariant
+var _round_settled := false
 
 
 func start_game(bot_count: int, variant: RulesVariant = null,
-		seed_value: int = 0, bot_difficulty: int = BotStrategy.Difficulty.MEDIUM) -> void:
+		seed_value: int = 0, bot_difficulty: int = BotStrategy.Difficulty.MEDIUM,
+		mode: int = FaraonMatch.Mode.NORMAL) -> void:
 	if variant == null:
 		variant = RulesVariant.classic()
-	if seed_value == 0:
-		seed_value = randi()
-	fast_forward = false
+	_variant = variant
 	_bot = BotStrategy.new(bot_difficulty)
 	var ids: Array = [HUMAN_ID]
 	_bot_ids.clear()
@@ -36,7 +39,24 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 		var bid := "BOT%d" % (i + 1)
 		ids.append(bid)
 		_bot_ids.append(bid)
-	var events := rules.start(ids, variant, seed_value)
+	match_state = null if mode == FaraonMatch.Mode.NORMAL \
+			else FaraonMatch.new(mode, ids)
+	_start_round(ids, {}, seed_value)
+
+
+## Deals the next round of a running Olympic match with the shrunken hands.
+func next_round() -> void:
+	if match_state == null or match_state.finished:
+		return
+	_start_round(match_state.participants(), match_state.hand_sizes())
+
+
+func _start_round(ids: Array, hand_sizes: Dictionary, seed_value: int = 0) -> void:
+	if seed_value == 0:
+		seed_value = randi()
+	fast_forward = false
+	_round_settled = false
+	var events := rules.start(ids, _variant, seed_value, hand_sizes)
 	state_updated.emit(events)
 	_schedule_bot()
 
@@ -44,6 +64,13 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 func propose(player_id: String, action: Dictionary) -> Dictionary:
 	var res := rules.apply(player_id, action)
 	if res.ok:
+		# A finished round settles the match exactly once, before clients
+		# render the game-over screen from the same event batch.
+		if rules.state.phase == GameState.Phase.GAME_OVER \
+				and match_state != null and not _round_settled:
+			_round_settled = true
+			var info := match_state.apply_round_result(rules.state)
+			res.events.append({"type": "MATCH_UPDATE", "info": info})
 		state_updated.emit(res.events)
 		_schedule_bot()
 	else:

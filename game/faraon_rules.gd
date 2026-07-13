@@ -32,8 +32,11 @@ const Phase := GameState.Phase
 var state: GameState
 
 
-## Starts a new round. Returns the events produced by setup.
-func start(player_ids: Array, variant: RulesVariant, seed_value: int) -> Array:
+## Starts a new round. `hand_sizes` optionally overrides the dealt hand size
+## per player id (Olympic modes deal shrinking hands); players without an
+## entry get variant.initial_hand_size. Returns the events produced by setup.
+func start(player_ids: Array, variant: RulesVariant, seed_value: int,
+		hand_sizes: Dictionary = {}) -> Array:
 	assert(player_ids.size() >= 2 and player_ids.size() <= 5)
 	state = GameState.new()
 	state.variant = variant
@@ -45,10 +48,16 @@ func start(player_ids: Array, variant: RulesVariant, seed_value: int) -> Array:
 	state.rng_seed = seed_value
 	state.draw_pile = FaraonDeck.shuffled(seed_value)
 	var events: Array = []
-	for _i in variant.initial_hand_size:
+	var dealt := {}
+	var max_size := 0
+	for p in state.players:
+		dealt[p.id] = hand_sizes.get(p.id, variant.initial_hand_size)
+		max_size = maxi(max_size, dealt[p.id])
+	for _i in max_size:
 		for p in state.players:
-			p.hand.append(state.draw_pile.pop_back())
-	events.append({"type": "DEALT", "hand_size": variant.initial_hand_size})
+			if p.hand.size() < dealt[p.id]:
+				p.hand.append(state.draw_pile.pop_back())
+	events.append({"type": "DEALT", "hands": dealt})
 
 	var start_card: String = state.draw_pile.pop_back()
 	state.discard_pile.append(start_card)
