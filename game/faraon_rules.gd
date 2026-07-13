@@ -219,12 +219,10 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	victim.finished_at = -1
 	victim.finished_with_eso = false
 	victim.finish_position = -1
-	var drawn := _draw_cards(victim, total)
-
-	var events: Array = [
-		{"type": "CARDS_PLAYED", "player": player.id, "cards": cards},
-		{"type": "PLAYER_RETURNED", "player": victim.id, "by": player.id, "drew": drawn},
-	]
+	var events: Array = [{"type": "CARDS_PLAYED", "player": player.id, "cards": cards}]
+	var drawn := _draw_cards(victim, total, events)
+	events.append({"type": "PLAYER_RETURNED", "player": victim.id,
+			"by": player.id, "drew": drawn})
 	_handle_possible_finish(idx, cards, events)
 	if state.phase == Phase.PLAYING:
 		# Turn continues after the victim's seat (PDF: "je na ťahu hráč a až
@@ -351,9 +349,10 @@ func _apply_draw(idx: int) -> Dictionary:
 	var player := state.players[idx]
 	var amount: int = state.pending_sevens_draw if state.pending_sevens_draw > 0 else 1
 	state.pending_sevens_draw = 0
-	var drawn := _draw_cards(player, amount)
-	var events: Array = [{"type": "DREW", "player": player.id, "count": drawn,
-			"penalty": amount > 1}]
+	var events: Array = []
+	var drawn := _draw_cards(player, amount, events)
+	events.append({"type": "DREW", "player": player.id, "count": drawn,
+			"penalty": amount > 1})
 	if drawn == 0:
 		events.append({"type": "DECK_EXHAUSTED", "player": player.id})
 	_advance_turn(idx)
@@ -381,13 +380,20 @@ func _apply_pass(idx: int) -> Dictionary:
 
 ## Draws up to `amount` cards, recycling the discard pile when the draw pile
 ## runs out (top card stays, the rest is shuffled face-down — house-standard,
-## keeps card order unpredictable). Returns how many could actually be drawn;
-## 0 means every other card is in hands and drawing is physically impossible.
-func _draw_cards(player: GameState.PlayerState, amount: int) -> int:
+## keeps card order unpredictable). A successful recycle appends a
+## PILE_REFLIPPED event to `events` so the client can animate it. Returns how
+## many cards could actually be drawn; 0 means every other card is in hands
+## and drawing is physically impossible.
+func _draw_cards(player: GameState.PlayerState, amount: int,
+		events: Array = []) -> int:
 	var drawn := 0
 	for _i in amount:
 		if state.draw_pile.is_empty():
 			_reflip_discard()
+			if not state.draw_pile.is_empty():
+				events.append({"type": "PILE_REFLIPPED",
+						"top": state.top_card(),
+						"remaining": state.draw_pile.size()})
 		if state.draw_pile.is_empty():
 			break # every card is in hands — physically impossible to draw
 		player.hand.append(state.draw_pile.pop_back())

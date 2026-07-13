@@ -407,6 +407,12 @@ func test_draw_pile_reflip_when_exhausted() -> void:
 	assert_eq(r.state.discard_pile, ["8Z"] as Array[String],
 			"top card must survive the reflip")
 	assert_eq(r.state.draw_pile.size(), 1, "one flipped card left after drawing one")
+	var reflips: Array = res.events.filter(
+			func(e): return e.type == "PILE_REFLIPPED")
+	assert_eq(reflips.size(), 1, "the recycle must announce itself for the UI")
+	assert_eq(reflips[0].top, "8Z")
+	assert_eq(reflips[0].remaining, 2, "both recycled cards before the draw")
+	assert_eq(res.events.back().type, "DREW", "reflip precedes the draw event")
 
 
 # --- finish positions -----------------------------------------------------

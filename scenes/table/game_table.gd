@@ -331,6 +331,8 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_play_cards.bind(e.player, e.cards))
 		"DREW":
 			_enqueue(_anim_draw.bind(e.player, e.count, e.get("penalty", false)))
+		"PILE_REFLIPPED":
+			_enqueue(_anim_reflip.bind(e.top, e.remaining))
 		"STOPPED":
 			_enqueue(func():
 				_seat_flash(e.player, tr("GAME_STOPPED_BADGE"), UIKit.RED)
@@ -399,6 +401,7 @@ func _refresh_all() -> void:
 	_deck.set_count(s.draw_pile.size())
 	var tail := s.discard_pile.slice(maxi(0, s.discard_pile.size() - 4))
 	_discard.rebuild(tail)
+	_discard.set_depth(s.discard_pile.size())
 	_refresh_center_chips(s)
 	_refresh_hand(s)
 	_refresh_actions()
@@ -582,6 +585,72 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 		cv.queue_free()
 		_discard.push_card(card)
 		await _sleep(0.12)
+	await _sleep(0.1)
+
+
+## Preshuffle: the discard's top card steps aside, the spent pile flips over
+## as one block (pseudo-3D squeeze on the whole holder) and slides onto the
+## draw-pile spot with fresh depth, then the kept card settles back as the
+## thin new discard. ~1.1s at normal pace; fast-forward compresses it via
+## _anim_scale like every other animation.
+func _anim_reflip(top_id: String, remaining: int) -> void:
+	var k := _anim_scale()
+	var discard_at := _discard.landing_anchor()
+
+	# Capture the visible tail faces before clearing — they become the block
+	# that flips; the kept top card becomes its own overlay.
+	var tail_ids: Array = []
+	for c in _discard._cards:
+		if c.card_id != "":
+			tail_ids.append(c.card_id)
+	if not tail_ids.is_empty():
+		tail_ids.pop_back() # the top card is animated separately
+	if tail_ids.is_empty():
+		tail_ids.append("") # face-down filler when nothing else was visible
+
+	var kept := _spawn_overlay(top_id, 120, discard_at)
+	kept.rotation = DiscardStack.rot_for(top_id)
+	_discard.rebuild([])
+	_discard.set_depth(0)
+
+	var pile := Control.new()
+	pile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pile.size = Vector2(120, 180)
+	pile.pivot_offset = pile.size / 2.0
+	_fx.add_child(pile)
+	pile.global_position = discard_at
+	var block: Array = []
+	for i in mini(tail_ids.size(), 3):
+		var cv := CardVisual.new(tail_ids[i], 120)
+		cv.position = Vector2(-i * 2.0, -i * 2.0)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pile.add_child(cv)
+		block.append(cv)
+
+	# 1. The kept card slides aside toward the player.
+	await _fly(kept, discard_at, discard_at + Vector2(-26.0, 96.0), 0.22, 30.0)
+
+	# 2. The whole block flips face-down at once (squeeze -> swap -> unsqueeze).
+	var tw := create_tween()
+	tw.tween_property(pile, "scale:x", 0.0, 0.14 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		for cv in block:
+			cv.set_card(""))
+	tw.tween_property(pile, "scale:x", 1.0, 0.14 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await tw.finished
+
+	# 3. ...and glides onto the draw-pile spot, which regains full depth.
+	await _fly(pile, pile.global_position, _deck.top_anchor(), 0.3, 60.0)
+	pile.queue_free()
+	_deck.set_count(remaining)
+
+	# 4. The kept card settles back as the start of the new, thin discard.
+	await _fly(kept, kept.global_position, _discard.landing_anchor(), 0.2, 24.0,
+			DiscardStack.rot_for(top_id))
+	kept.queue_free()
+	_discard.push_card(top_id)
 	await _sleep(0.1)
 
 
