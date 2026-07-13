@@ -54,6 +54,7 @@ ERR_MUST_ANSWER_WITH_ESO,Musíš odpovedať esom alebo stáť,Answer with an ace
 ERR_MUST_ANSWER_ESO_OR_PASS,Musíš odpovedať esom alebo stáť,Answer with an ace or stand
 ERR_MUST_ANSWER_WITH_SEDMA_OR_FARAON,Iba sedma alebo faraón,Only a seven or the faraon
 ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same rank
+ERR_FIRST_CARD_ORDER,Takto karty položiť nejdú — karta č. 1 musí sedieť na kôpku,These cards can't go down like this — card no. 1 must match the pile
 ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit
 ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn
 SUIT_ZALUD,Žaluď,Acorns

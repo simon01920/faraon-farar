@@ -17,6 +17,7 @@ var selected := false:
 
 var _shadow: Panel
 var _face: TextureRect
+var _order_badge: Label
 var _lift := 0.0
 
 
@@ -48,6 +49,26 @@ func _init(id: String = "", width: float = 120.0) -> void:
 	add_child(_face)
 	_refresh_texture()
 
+	# Play-order badge (child of the face so it rides the selection lift).
+	_order_badge = Label.new()
+	_order_badge.visible = false
+	_order_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_order_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_order_badge.add_theme_font_size_override("font_size", int(20 * k))
+	_order_badge.add_theme_color_override("font_color", Color("1c2b1f"))
+	var bsb := StyleBoxFlat.new()
+	bsb.bg_color = Color("e0b64d")
+	bsb.set_corner_radius_all(int(14 * k))
+	bsb.border_color = Color("1c2b1f")
+	bsb.set_border_width_all(int(2 * k))
+	_order_badge.add_theme_stylebox_override("normal", bsb)
+	_order_badge.custom_minimum_size = Vector2(28 * k, 28 * k)
+	# Top-left: in the fanned hand cards overlap from the right, so only the
+	# left edge of every card is guaranteed visible.
+	_order_badge.position = Vector2(6 * k, 6 * k)
+	_order_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_face.add_child(_order_badge)
+
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed \
@@ -69,6 +90,13 @@ func _refresh_texture() -> void:
 func _update_selection() -> void:
 	# The hand layout owns the position; selection just lifts the art.
 	set_lift(16.0 if selected else 0.0)
+
+
+## Shows the 1-based play-order number on the card; n <= 0 hides the badge.
+func set_order(n: int) -> void:
+	_order_badge.visible = n > 0
+	if n > 0:
+		_order_badge.text = str(n)
 
 
 ## Raises the art above the table: bigger, softer, offset shadow sells the

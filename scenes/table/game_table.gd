@@ -419,6 +419,7 @@ func _refresh_hand(s: GameState) -> void:
 		cv.position = Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
 		cv.rotation = off * 0.032
 		cv.selected = _selected.has(hand[i])
+		cv.set_order(_selected.find(hand[i]) + 1)
 		cv.tapped.connect(_on_card_tapped)
 		_hand_area.add_child(cv)
 
@@ -624,7 +625,10 @@ func _on_card_tapped(cv: CardVisual) -> void:
 func _do_play() -> void:
 	if _busy or _selected.is_empty():
 		return
-	var ordered := _order_for_play(_selected)
+	# Cards go to the server exactly in the order the player numbered them
+	# (1 = first on the pile, last = new top). No silent reordering — an
+	# invalid order comes back as a rejection toast and the player fixes it.
+	var ordered: Array = _selected.duplicate()
 	if FaraonCard.is_hornik(ordered.back()):
 		_pending_play = ordered
 		_suit_popup.popup_centered()
@@ -654,37 +658,13 @@ func _on_suit_chosen(suit: int) -> void:
 	_pending_play = []
 
 
-## Orders a same-rank selection so a matching card opens (the engine checks
-## the first card) and the faraón avoids the last slot when possible.
-func _order_for_play(cards: Array) -> Array:
-	var s := _state()
-	var top := s.top_card()
-	var required := s.declared_suit if s.declared_suit != -1 else FaraonCard.suit_of(top)
-	var neutral := FaraonCard.is_faraon(top)
-	var opener := ""
-	for c in cards:
-		if FaraonCard.is_faraon(c):
-			continue
-		if neutral or FaraonCard.rank_of(c) == FaraonCard.rank_of(top) \
-				or FaraonCard.suit_of(c) == required \
-				or (FaraonCard.is_hornik(c) and not s.variant.hornik_strict):
-			opener = c
-			break
-	if opener == "" and cards.has("DE"):
-		opener = "DE"
-	if opener == "":
-		opener = cards[0] # engine will reject with a clear error
-	var ordered: Array = [opener]
-	if opener != "DE" and cards.has("DE"):
-		ordered.append("DE") # keep the wild off the last slot
-	for c in cards:
-		if c != opener and c != "DE":
-			ordered.append(c)
-	return ordered
-
-
 func _on_action_rejected(player_id: String, error: String) -> void:
 	if player_id != LocalGameServer.HUMAN_ID:
+		return
+	if error == "card_does_not_match" and _selected.size() > 1:
+		# Multi-card play rejected on the opener: the combination/order is
+		# the problem, tell the player instead of silently reordering.
+		_toast(tr("ERR_FIRST_CARD_ORDER"))
 		return
 	var key := "ERR_" + error.to_upper()
 	_toast(tr(key) if tr(key) != key else tr("ERR_GENERIC"))
