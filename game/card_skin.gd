@@ -14,13 +14,14 @@ var name_key: String
 var hidden := false
 var _base_dir: String
 ## Layout of files under _base_dir:
-##  "suit_dirs" — <base>/<suit_dir>/<rank_file>.png (the dev_preview layout).
-## Future sets with a flat, single-directory naming (e.g. "Mariáš dvojhlavý"
-## from cards-large/) add their own layout entry + mapping here.
+##  "suit_dirs" — <base>/<suit_dir>/<rank_file>.png (the dev_preview layout)
+##  "flat_en"   — <base>/<suit>-<rank>.png, English names (cards-large sets)
 var _layout: String
 
 const _SUIT_DIRS := ["zalud", "cerven", "zelen", "gula"]
 const _RANK_FILES := ["VII", "VIII", "IX", "X", "dolnik", "hornik", "krali", "stopky"]
+const _SUITS_EN := ["acorn", "heart", "leaf", "bell"]
+const _RANKS_EN := ["seven", "eight", "nine", "ten", "unter", "ober", "king", "ace"]
 
 
 func _init(p_id: String, p_name_key: String, base_dir: String,
@@ -41,6 +42,10 @@ func texture_path(card_id: String) -> String:
 			return "%s/%s/%s.png" % [_base_dir,
 					_SUIT_DIRS[FaraonCard.suit_of(card_id)],
 					_RANK_FILES[FaraonCard.rank_of(card_id)]]
+		"flat_en":
+			return "%s/%s-%s.png" % [_base_dir,
+					_SUITS_EN[FaraonCard.suit_of(card_id)],
+					_RANKS_EN[FaraonCard.rank_of(card_id)]]
 	return back_path()
 
 
@@ -50,11 +55,12 @@ func back_path() -> String:
 
 # --- registry ---------------------------------------------------------------
 
-## All known skins. Order = display order in a future picker.
-## NOTE: the "Mariáš dvojhlavý" set (cards-large/) will register here as the
-## new default once its assets are delivered into the project.
+## All known skins. Order = display order in the picker; the first entry is
+## the fallback/default ("Mariáš dvojhlavý").
 static func all() -> Array[CardSkin]:
 	var skins: Array[CardSkin] = [
+		CardSkin.new("marias_dvojhlavy", "SKIN_MARIAS", "res://assets/cards_marias",
+				"flat_en"),
 		CardSkin.new("dev_preview", "SKIN_DEV_PREVIEW", "res://assets/cards",
 				"suit_dirs", true),
 	]

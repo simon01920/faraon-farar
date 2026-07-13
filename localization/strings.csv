@@ -62,6 +62,7 @@ ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same
 ERR_FIRST_CARD_ORDER,Takto karty položiť nejdú — karta č. 1 musí sedieť na kôpku,These cards can't go down like this — card no. 1 must match the pile
 ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit
 ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn
+SKIN_MARIAS,Mariáš dvojhlavý,Mariáš double-headed
 SKIN_DEV_PREVIEW,Dev náhľad,Dev preview
 SUIT_ZALUD,Žaluď,Acorns
 SUIT_CERVEN,Červeň,Hearts

@@ -50,11 +50,10 @@ static func set_locale(locale: String) -> void:
 	cfg.save(PATH)
 
 
-## Active card skin id. The default flips to the "Mariáš dvojhlavý" set for
-## everyone (new and existing players) once its assets land — existing saves
-## only pin a skin after an explicit pick in the UI.
+## Active card skin id. "Mariáš dvojhlavý" is the default for new AND
+## existing players — saves only pin a skin after an explicit pick in the UI.
 static func get_card_skin() -> String:
-	return _load().get_value("app", "card_skin", "dev_preview")
+	return _load().get_value("app", "card_skin", "marias_dvojhlavy")
 
 
 static func set_card_skin(skin_id: String) -> void:
