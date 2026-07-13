@@ -32,6 +32,7 @@ GAME_TURN_OF,Na ťahu: %s,Turn: %s
 GAME_DRAW_CARD,Ťahaj,Draw
 GAME_PLAY,Zahrať,Play
 GAME_PASS,Stojím,Stand
+GAME_FAST_FORWARD,Zrýchliť ⏩,Speed up ⏩
 GAME_DECLARE_SUIT,Vyber farbu,Choose a suit
 GAME_ESO_STOP,STOP!,STOP!
 GAME_STOPPED_BADGE,STOJÍ,STOPPED

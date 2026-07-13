@@ -14,6 +14,10 @@ var rules := FaraonRules.new()
 ## Thinking pause before a bot moves; the table's card animations add to the
 ## perceived pace on top of this.
 var bot_delay := 1.2
+## One-shot fast-forward for a finished human: bots keep playing visibly but
+## their thinking pauses (and the table's animations) are cut short. Reset by
+## start_game and whenever the human returns to the game.
+var fast_forward := false
 var _bot := BotPlayer.new()
 var _bot_ids: Array[String] = []
 
@@ -24,6 +28,7 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 		variant = RulesVariant.classic()
 	if seed_value == 0:
 		seed_value = randi()
+	fast_forward = false
 	var ids: Array = [HUMAN_ID]
 	_bot_ids.clear()
 	for i in bot_count:
@@ -50,7 +55,8 @@ func _schedule_bot() -> void:
 		return
 	var cur := rules.state.players[rules.state.current_index]
 	if cur.id in _bot_ids:
-		get_tree().create_timer(bot_delay).timeout.connect(
+		var delay := 0.1 if fast_forward else bot_delay
+		get_tree().create_timer(delay).timeout.connect(
 				_bot_move.bind(cur.id), CONNECT_ONE_SHOT)
 
 

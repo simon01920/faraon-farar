@@ -29,6 +29,7 @@ var _actions: HBoxContainer
 var _btn_play: Button
 var _btn_draw: Button
 var _btn_pass: Button
+var _btn_ff: Button
 var _suit_popup: PopupPanel
 var _fx: Control
 var _game_over_layer: Control
@@ -159,6 +160,20 @@ func _build_hand_and_actions() -> void:
 	_hand_area.offset_top = -232
 	_hand_area.offset_bottom = -18
 	add_child(_hand_area)
+
+	# Fast-forward lives in the top-right corner, away from the play field.
+	# Local games only (vs bots); shown once the human has finished so they
+	# don't have to sit through full-pace bot turns.
+	_btn_ff = UIKit.pill_button(tr("GAME_FAST_FORWARD"), Color("6b5a3e"),
+			Vector2(150, 46), 18)
+	_btn_ff.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_btn_ff.offset_left = -166
+	_btn_ff.offset_right = -16
+	_btn_ff.offset_top = 14
+	_btn_ff.offset_bottom = 60
+	_btn_ff.visible = false
+	_btn_ff.pressed.connect(_do_fast_forward)
+	add_child(_btn_ff)
 
 
 func _build_status() -> void:
@@ -450,6 +465,22 @@ func _refresh_actions() -> void:
 		_btn_draw.text = tr("GAME_DRAW_CARD") + " +%d" % s.pending_sevens_draw
 	else:
 		_btn_draw.text = tr("GAME_DRAW_CARD")
+	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var human_out := me != null and me.status == GameState.PlayerStatus.FINISHED
+	if server.fast_forward and me != null and not human_out:
+		server.fast_forward = false # returned to the game -> normal pace
+	_btn_ff.visible = s.phase == GameState.Phase.PLAYING and human_out \
+			and not server.fast_forward
+
+
+func _do_fast_forward() -> void:
+	server.fast_forward = true
+	_btn_ff.visible = false
+
+
+## Animation time scale: fast-forward compresses the wait, not the moves.
+func _anim_scale() -> float:
+	return 0.3 if server != null and server.fast_forward else 1.0
 
 
 func _refresh_status(s: GameState) -> void:
@@ -467,7 +498,7 @@ func _refresh_status(s: GameState) -> void:
 # --- animations -----------------------------------------------------------
 
 func _sleep(t: float) -> void:
-	await get_tree().create_timer(t).timeout
+	await get_tree().create_timer(t * _anim_scale()).timeout
 
 
 func _flight_step(t: float, node: Control, from: Vector2, mid: Vector2,
@@ -483,6 +514,7 @@ func _flight_step(t: float, node: Control, from: Vector2, mid: Vector2,
 ## laser lines.
 func _fly(node: Control, from: Vector2, to: Vector2, dur: float,
 		arc := 70.0, final_rot := 0.0) -> void:
+	dur *= _anim_scale()
 	node.global_position = from
 	var mid := (from + to) / 2.0 + Vector2(randf_range(-24.0, 24.0), -arc)
 	var tw := create_tween()
