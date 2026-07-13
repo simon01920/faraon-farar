@@ -81,6 +81,7 @@ PLAYER_YOU,Ty,You
 BOT_NAME,Robo %s,Bot %s
 TOAST_RETURNED,%s je späť v hre!,%s is back in the game!
 TOAST_SPALENA,Spálená! Extra ťah,Burned! Extra turn
+GAME_SPALENA_BANNER,SPÁLENÁ!,BURNED!
 TOAST_ESO_CONTINUE,%s pokračuje po esách,%s continues after aces
 TOAST_DECK_EMPTY,Balíček je prázdny,The deck is empty
 ERR_GENERIC,Neplatný ťah,Illegal move

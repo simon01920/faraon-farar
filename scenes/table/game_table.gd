@@ -39,6 +39,8 @@ var _ranking_box: VBoxContainer
 var _btn_again: Button
 var _pause_layer: Control
 var _pending_play: Array = []
+## Alternates the shuffle style (riffle / overhand) between plays.
+var _shuffle_variant := 0
 
 
 func setup(game_server: LocalGameServer) -> void:
@@ -372,15 +374,14 @@ func _enqueue_event(e: Dictionary) -> bool:
 				_toast(tr("TOAST_RETURNED") % _display_name(e.player))
 				await _sleep(0.5))
 		"SPALENA_EXTRA_TURN":
-			_enqueue(func():
-				_toast(tr("TOAST_SPALENA"))
-				await _sleep(0.5))
+			_enqueue(_anim_spalena)
 		"DECK_EXHAUSTED":
 			_enqueue(func():
 				_toast(tr("TOAST_DECK_EMPTY"))
 				await _sleep(0.4))
 		"GAME_OVER":
 			_enqueue(func():
+				Haptics.buzz()
 				await _sleep(0.4)
 				_show_game_over(e.get("loser", "")))
 		_:
@@ -556,6 +557,179 @@ func _spawn_overlay(card_id: String, width: float, at: Vector2) -> CardVisual:
 	return cv
 
 
+## A stack of face-down cards used as a shuffle prop.
+func _make_stack(n: int, w: float) -> Control:
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.size = Vector2(w, w * 1.5)
+	holder.pivot_offset = holder.size / 2.0
+	for i in n:
+		var cv := CardVisual.new("", w)
+		cv.position = Vector2(-i * 1.5, -i * 1.5)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(cv)
+	_fx.add_child(holder)
+	return holder
+
+
+## Shuffle show before dealing and after a preshuffle — alternates between a
+## riffle (split, interleave, merge) and an overhand (chunks over the top),
+## per the two reference clips. `quick` halves the repetitions so the reflip
+## sequence stays under ~1.5s.
+func _anim_shuffle(at: Vector2, quick := false) -> void:
+	_shuffle_variant = (_shuffle_variant + 1) % 2
+	if _shuffle_variant == 1:
+		await _anim_shuffle_riffle(at, quick)
+	else:
+		await _anim_shuffle_overhand(at, quick)
+
+
+func _anim_shuffle_riffle(at: Vector2, quick: bool) -> void:
+	var k := _anim_scale()
+	var left := _make_stack(3, 100)
+	var right := _make_stack(3, 100)
+	left.global_position = at
+	right.global_position = at
+	var split := create_tween()
+	split.set_parallel(true)
+	split.tween_property(left, "global_position", at + Vector2(-62, 10), 0.16 * k) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	split.tween_property(left, "rotation", -0.22, 0.16 * k)
+	split.tween_property(right, "global_position", at + Vector2(62, 10), 0.16 * k) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	split.tween_property(right, "rotation", 0.22, 0.16 * k)
+	await split.finished
+	# Interleave: thin cards flip-flop from both halves into the middle.
+	for i in (4 if quick else 8):
+		var side := left if i % 2 == 0 else right
+		var cv := CardVisual.new("", 100)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fx.add_child(cv)
+		cv.global_position = side.global_position
+		cv.rotation = side.rotation
+		var drop := create_tween()
+		drop.set_parallel(true)
+		drop.tween_property(cv, "global_position", at + Vector2(0, 8 - i * 1.2),
+				0.06 * k)
+		drop.tween_property(cv, "rotation", 0.0, 0.06 * k)
+		await drop.finished
+		cv.queue_free()
+	# The bridge: both halves snap back together.
+	var merge := create_tween()
+	merge.set_parallel(true)
+	merge.tween_property(left, "global_position", at, 0.14 * k) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	merge.tween_property(left, "rotation", 0.0, 0.14 * k)
+	merge.tween_property(right, "global_position", at, 0.14 * k) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	merge.tween_property(right, "rotation", 0.0, 0.14 * k)
+	await merge.finished
+	left.queue_free()
+	right.queue_free()
+
+
+func _anim_shuffle_overhand(at: Vector2, quick: bool) -> void:
+	var k := _anim_scale()
+	var base := _make_stack(4, 100)
+	base.global_position = at
+	for _i in (2 if quick else 4):
+		var chunk := _make_stack(2, 100)
+		chunk.global_position = at + Vector2(2, -4)
+		var up := at + Vector2(randf_range(-12.0, 12.0), -54.0)
+		var hop := create_tween()
+		hop.tween_property(chunk, "global_position", up, 0.11 * k) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		hop.tween_property(chunk, "global_position", at + Vector2(-2, 2), 0.11 * k) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		await hop.finished
+		chunk.queue_free()
+		await _sleep(0.03)
+	base.queue_free()
+
+
+## Full-screen spálená moment: ember burst, hot glow, big banner and a long
+## vibration on handhelds — the burn spreads over everything but the text.
+func _anim_spalena() -> void:
+	Haptics.rumble()
+	var k := _anim_scale()
+
+	var glow := TextureRect.new()
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 0.45, 0.05, 0.55), Color(0.9, 0.25, 0.02, 0.30),
+		Color(0.4, 0.05, 0.0, 0.0),
+	])
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(0.5, 1.1)
+	gt.width = 640
+	gt.height = 640
+	glow.texture = gt
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.modulate.a = 0.0
+	_fx.add_child(glow)
+
+	var embers := CPUParticles2D.new()
+	embers.amount = 90
+	embers.lifetime = 1.0
+	embers.one_shot = true
+	embers.explosiveness = 0.6
+	embers.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	embers.emission_rect_extents = Vector2(size.x * 0.45, size.y * 0.25)
+	embers.direction = Vector2(0, -1)
+	embers.spread = 40.0
+	embers.gravity = Vector2(0, -420)
+	embers.initial_velocity_min = 90.0
+	embers.initial_velocity_max = 260.0
+	embers.scale_amount_min = 2.0
+	embers.scale_amount_max = 5.0
+	var pgrad := Gradient.new()
+	pgrad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	pgrad.colors = PackedColorArray([
+		Color(1.0, 0.85, 0.3, 1.0), Color(1.0, 0.35, 0.05, 0.9),
+		Color(0.3, 0.05, 0.0, 0.0),
+	])
+	embers.color_ramp = pgrad
+	embers.position = Vector2(size.x / 2.0, size.y * 0.55)
+	embers.emitting = true
+	_fx.add_child(embers)
+
+	var banner := UIKit.heading(tr("GAME_SPALENA_BANNER"), 74, Color(1.0, 0.62, 0.12))
+	banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.pivot_offset = size / 2.0
+	banner.scale = Vector2(0.3, 0.3)
+	banner.modulate.a = 0.0
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fx.add_child(banner)
+
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(glow, "modulate:a", 1.0, 0.18 * k)
+	tw.tween_property(banner, "modulate:a", 1.0, 0.16 * k)
+	tw.tween_property(banner, "scale", Vector2(1.12, 1.12), 0.22 * k) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await tw.finished
+	var settle := create_tween()
+	settle.tween_property(banner, "scale", Vector2.ONE, 0.10 * k)
+	await _sleep(0.7)
+	var out := create_tween()
+	out.set_parallel(true)
+	out.tween_property(glow, "modulate:a", 0.0, 0.3 * k)
+	out.tween_property(banner, "modulate:a", 0.0, 0.3 * k)
+	await out.finished
+	glow.queue_free()
+	banner.queue_free()
+	embers.queue_free()
+
+
 ## Deals per-player hand sizes (Olympic rounds shrink them); the draw pile
 ## badge and layers thin out in real time with every card that leaves it.
 func _anim_deal(hands: Dictionary) -> void:
@@ -564,7 +738,8 @@ func _anim_deal(hands: Dictionary) -> void:
 		seat.set_count(0)
 	var remaining := 32
 	_deck.set_count(remaining)
-	await _sleep(0.25)
+	await _anim_shuffle(_deck.top_anchor())
+	await _sleep(0.1)
 	var max_size := 0
 	for id in hands:
 		max_size = maxi(max_size, hands[id])
@@ -751,10 +926,12 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await tw.finished
 
-	# 3. ...and glides onto the draw-pile spot, which regains full depth.
+	# 3. ...and glides onto the draw-pile spot, gets a quick shuffle and
+	# regains full depth.
 	await _fly(pile, pile.global_position, _deck.top_anchor(), 0.3, 60.0)
 	pile.queue_free()
 	_deck.set_count(remaining)
+	await _anim_shuffle(_deck.top_anchor(), true)
 
 	# 4. The kept card settles back as the start of the new, thin discard.
 	await _fly(kept, kept.global_position, _discard.landing_anchor(), 0.2, 24.0,
@@ -771,6 +948,8 @@ func _anim_draw(player_id: String, count: int, penalty: bool) -> void:
 			if human else (seat.card_anchor() if seat != null else Vector2.ZERO)
 	if penalty and count > 0:
 		_seat_flash(player_id, "+%d" % count, UIKit.RED)
+		if human:
+			Haptics.buzz()
 	for i in mini(count, 5):
 		var cv := _spawn_overlay("", 90, _deck.top_anchor())
 		await _fly(cv, _deck.top_anchor(), target, 0.22, 45.0)
