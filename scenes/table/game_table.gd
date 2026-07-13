@@ -27,7 +27,6 @@ var _discard: DiscardStack
 var _hand_area: Control
 var _actions: HBoxContainer
 var _btn_play: Button
-var _btn_return: Button
 var _btn_draw: Button
 var _btn_pass: Button
 var _suit_popup: PopupPanel
@@ -145,10 +144,6 @@ func _build_hand_and_actions() -> void:
 	_btn_play = UIKit.pill_button(tr("GAME_PLAY"), Color("2e7d4f"), Vector2(170, 52))
 	_btn_play.pressed.connect(_do_play)
 	_actions.add_child(_btn_play)
-
-	_btn_return = UIKit.pill_button(tr("GAME_RETURN_PLAYER"), UIKit.RED, Vector2(190, 52))
-	_btn_return.pressed.connect(_do_return)
-	_actions.add_child(_btn_return)
 
 	_btn_draw = UIKit.pill_button(tr("GAME_DRAW_CARD"), UIKit.BLUE, Vector2(150, 52))
 	_btn_draw.pressed.connect(_do_draw)
@@ -442,8 +437,6 @@ func _refresh_actions() -> void:
 		_btn_draw.text = tr("GAME_DRAW_CARD") + " +%d" % s.pending_sevens_draw
 	else:
 		_btn_draw.text = tr("GAME_DRAW_CARD")
-	_btn_return.visible = my_turn and _selected.has("7C") \
-			and _first_returnable(s) != ""
 
 
 func _refresh_status(s: GameState) -> void:
@@ -604,17 +597,6 @@ func _display_name(id: String) -> String:
 	return id
 
 
-func _first_returnable(s: GameState) -> String:
-	for p in s.players:
-		if p.id == LocalGameServer.HUMAN_ID or p.status != GameState.PlayerStatus.FINISHED:
-			continue
-		if p.finished_with_eso and s.players.size() == 2:
-			continue
-		if s.turn_counter - p.finished_at <= s.players.size():
-			return p.id
-	return ""
-
-
 func _find_hand_card(card_id: String) -> CardVisual:
 	for c in _hand_area.get_children():
 		if c is CardVisual and c.card_id == card_id and c.visible:
@@ -648,16 +630,6 @@ func _do_play() -> void:
 		_suit_popup.popup_centered()
 		return
 	server.propose(LocalGameServer.HUMAN_ID, FaraonActions.play(ordered))
-
-
-func _do_return() -> void:
-	if _busy:
-		return
-	var target := _first_returnable(_state())
-	if target == "" or not _selected.has("7C"):
-		return
-	server.propose(LocalGameServer.HUMAN_ID,
-			FaraonActions.play(_selected.duplicate(), -1, target))
 
 
 func _do_draw() -> void:

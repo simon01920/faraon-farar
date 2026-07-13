@@ -32,7 +32,6 @@ GAME_TURN_OF,Na ťahu: %s,Turn: %s
 GAME_DRAW_CARD,Ťahaj,Draw
 GAME_PLAY,Zahrať,Play
 GAME_PASS,Stojím,Stand
-GAME_RETURN_PLAYER,Vrátiť hráča,Return player
 GAME_DECLARE_SUIT,Vyber farbu,Choose a suit
 GAME_ESO_STOP,STOP!,STOP!
 GAME_STOPPED_BADGE,STOJÍ,STOPPED
@@ -57,7 +56,6 @@ ERR_MUST_ANSWER_WITH_SEDMA_OR_FARAON,Iba sedma alebo faraón,Only a seven or the
 ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same rank
 ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit
 ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn
-ERR_RETURN_REQUIRES_RED_SEVEN,Na vrátenie treba červenú sedmu,Returning needs the red seven
 SUIT_ZALUD,Žaluď,Acorns
 SUIT_CERVEN,Červeň,Hearts
 SUIT_ZELEN,Zeleň,Leaves

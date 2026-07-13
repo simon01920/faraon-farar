@@ -23,8 +23,8 @@ func make_rules(hands: Array, top: String, draw: Array = []) -> FaraonRules:
 	return r
 
 
-func play(r: FaraonRules, pid: String, cards: Array, declared := -1, ret := "") -> Dictionary:
-	return r.apply(pid, FaraonActions.play(cards, declared, ret))
+func play(r: FaraonRules, pid: String, cards: Array, declared := -1) -> Dictionary:
+	return r.apply(pid, FaraonActions.play(cards, declared))
 
 
 # --- deck & setup ---------------------------------------------------------
@@ -227,7 +227,7 @@ func test_red_seven_returns_finished_player() -> void:
 	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED)
 	assert_eq(r.state.phase, GameState.Phase.PLAYING,
 			"game must stay open while a red-seven rescue exists")
-	var res := play(r, "P1", ["7C"], -1, "P0")
+	var res := play(r, "P1", ["7C"])
 	assert_true(res.ok, "return must ignore suit/rank matching")
 	assert_eq(r.state.players[0].status, GameState.PlayerStatus.ACTIVE)
 	assert_eq(r.state.players[0].hand.size(), 3, "returned player draws three")
@@ -241,17 +241,63 @@ func test_red_seven_return_includes_victims_finishing_seven() -> void:
 	var r := make_rules([["7Z"], ["7C", "7G", "8G"]], "XZ", draw)
 	assert_true(play(r, "P0", ["7Z"]).ok)
 	assert_eq(r.state.pending_sevens_draw, 3)
-	var res := play(r, "P1", ["7C", "7G"], -1, "P0")
+	var res := play(r, "P1", ["7C", "7G"])
 	assert_true(res.ok)
 	assert_eq(r.state.players[0].hand.size(), 9)
 
 
-func test_red_seven_needs_red_seven_in_cards() -> void:
-	# P1 holds 7C too (so the game stays open), but tries to return with
-	# an ordinary seven only — that must be rejected.
-	var r := make_rules([["9Z"], ["7G", "7C", "8G"]], "8Z", ["KZ", "KG", "KE"])
+func test_red_seven_returns_automatically_in_multiplayer() -> void:
+	# Regression (fix prompt #1): a player finished during the round and the
+	# red seven was played by someone else in that same round — the finished
+	# player must come back; the next active player must NOT be forced to
+	# draw three as if it were a plain seven.
+	var r := make_rules([["9Z"], ["7C", "8G"], ["KZ", "KE"]], "8Z",
+			["XZ", "XC", "XE", "XG"])
+	assert_true(play(r, "P0", ["9Z"]).ok)
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED)
+	var res := play(r, "P1", ["7C"])
+	assert_true(res.ok)
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.ACTIVE,
+			"the eliminated player must be returned")
+	assert_eq(r.state.players[0].hand.size(), 3, "returned player draws three")
+	assert_eq(r.state.pending_sevens_draw, 0,
+			"no seven penalty may be left for the next player")
+	assert_eq(r.state.players[2].hand.size(), 2, "P2 must not draw anything")
+
+
+func test_red_seven_returns_latest_eliminated_of_several() -> void:
+	# Rule change (fix prompt #2): with several players eliminated in the same
+	# round the red seven deterministically returns the most recent one.
+	var r := make_rules([["9Z"], ["9C"], ["7C", "8G"], ["KZ", "KE"]], "8Z",
+			["XZ", "XC", "XE", "XG"])
+	assert_true(play(r, "P0", ["9Z"]).ok)
+	assert_true(play(r, "P1", ["9C"]).ok)
+	assert_true(play(r, "P2", ["7C"]).ok)
+	assert_eq(r.state.players[1].status, GameState.PlayerStatus.ACTIVE,
+			"the latest eliminated player (P1) must be the one returned")
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED,
+			"the earlier eliminated player (P0) stays out")
+	assert_eq(r.state.players[1].hand.size(), 3)
+
+
+func test_plain_seven_does_not_return_anyone() -> void:
+	# Only the red seven returns; an ordinary seven keeps its penalty role
+	# even while someone is returnable.
+	var r := make_rules([["9Z"], ["7Z", "7C", "8G"]], "8Z", ["KZ", "KG", "KE"])
 	play(r, "P0", ["9Z"])
-	assert_eq(play(r, "P1", ["7G"], -1, "P0").error, "return_requires_red_seven")
+	assert_true(play(r, "P1", ["7Z"]).ok)
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED,
+			"a plain seven must not return the finished player")
+	assert_eq(r.state.pending_sevens_draw, 3)
+
+
+func test_red_seven_without_returnable_target_acts_as_plain_seven() -> void:
+	# Fix prompt #1: only when NO returnable player exists may the red seven
+	# fall back to standard seven behaviour.
+	var r := make_rules([["7C", "8G"], ["KZ", "KE"]], "8C", ["XZ", "XC", "XE"])
+	assert_true(play(r, "P0", ["7C"]).ok)
+	assert_eq(r.state.pending_sevens_draw, 3,
+			"with nobody to return, 7C is an ordinary seven")
 
 
 # --- spálená --------------------------------------------------------------

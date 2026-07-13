@@ -116,17 +116,22 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	var player := state.players[idx]
 	var cards: Array = action.get("cards", [])
 	var declared: int = action.get("declared_suit", -1)
-	var return_id: String = action.get("return_player", "")
 
 	var err := _validate_cards_owned(player, cards)
 	if err != "":
 		return _fail(err)
 
-	if return_id != "":
-		return _apply_red_seven_return(idx, cards, return_id)
-
 	if state.pending_aces > 0:
 		return _apply_eso_counter(idx, cards)
+
+	# Červená sedma: whenever a returnable player exists, the return fires
+	# automatically and deterministically (latest eliminated this round) and
+	# takes priority over the plain seven penalty. Only when nobody is
+	# returnable does 7C fall through to standard seven behaviour.
+	if FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.R7 and cards.has("7C"):
+		var victim_idx := _latest_returnable_index()
+		if victim_idx != -1:
+			return _apply_red_seven_return(idx, cards, victim_idx)
 
 	if state.pending_sevens_draw > 0:
 		return _apply_sevens_defense(idx, cards, declared)
@@ -198,25 +203,10 @@ func _apply_sevens_defense(idx: int, cards: Array, _declared: int) -> Dictionary
 	return _place_and_resolve(idx, cards, -1)
 
 
-func _apply_red_seven_return(idx: int, cards: Array, return_id: String) -> Dictionary:
-	if state.pending_aces > 0:
-		return _fail("must_answer_with_eso")
-	var has_red := false
-	for c in cards:
-		if not FaraonCard.is_sedma(c):
-			return _fail("return_requires_sedmas")
-		if FaraonCard.is_red_sedma(c):
-			has_red = true
-	if not has_red:
-		return _fail("return_requires_red_seven")
-	var victim_idx := state.index_of(return_id)
-	if victim_idx == -1 or victim_idx == idx:
-		return _fail("invalid_return_target")
+## Caller guarantees: cards are all sevens including 7C, victim is returnable.
+## The return ignores suit/rank matching entirely (PDF p.4).
+func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Dictionary:
 	var victim := state.players[victim_idx]
-	if not _is_returnable(victim):
-		return _fail("player_not_returnable")
-
-	# The return ignores suit/rank matching entirely (PDF p.4).
 	var player := state.players[idx]
 	for c in cards:
 		player.hand.erase(c)
@@ -248,6 +238,21 @@ func _is_returnable(p: GameState.PlayerState) -> bool:
 	if p.finished_with_eso and state.players.size() == 2:
 		return false # eso finish is an untouchable win in a 2-player game
 	return state.turn_counter - p.finished_at <= state.players.size()
+
+
+## The deterministic červená-sedma target: the player who was eliminated most
+## recently within the current round ("last eliminated"), -1 when nobody is
+## returnable. finished_at values are unique (one finish per applied action),
+## so the maximum identifies the newest elimination unambiguously.
+func _latest_returnable_index() -> int:
+	var best := -1
+	for i in state.players.size():
+		var p := state.players[i]
+		if not _is_returnable(p):
+			continue
+		if best == -1 or p.finished_at > state.players[best].finished_at:
+			best = i
+	return best
 
 
 ## Common tail of every successful card placement: move cards to the pile,

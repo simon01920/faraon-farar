@@ -25,12 +25,12 @@ func choose(state: GameState, id: String) -> Dictionary:
 			return FaraonActions.play(["DE"])
 		return FaraonActions.draw()
 
-	# Sole survivor: burn the červená sedma rescue if it exists.
-	if state.active_count() == 1 and me.hand.has("7C"):
-		var target := _returnable_target(state, me)
-		if target != "":
-			var sevens := _cards_of_rank(me.hand, FaraonCard.Rank.R7)
-			return FaraonActions.play(sevens, -1, target)
+	# Sole survivor: burn the červená sedma rescue if it exists — the engine
+	# returns the latest eliminated player automatically.
+	if state.active_count() == 1 and me.hand.has("7C") \
+			and _has_returnable_target(state, me):
+		var sevens := _cards_of_rank(me.hand, FaraonCard.Rank.R7)
+		return FaraonActions.play(sevens)
 
 	var group := _best_playable_group(state, me.hand)
 	if not group.is_empty():
@@ -51,15 +51,15 @@ func _cards_of_rank(hand: Array, rank: int) -> Array:
 	return out
 
 
-func _returnable_target(state: GameState, me: GameState.PlayerState) -> String:
+func _has_returnable_target(state: GameState, me: GameState.PlayerState) -> bool:
 	for p in state.players:
 		if p == me or p.status != GameState.PlayerStatus.FINISHED:
 			continue
 		if p.finished_with_eso and state.players.size() == 2:
 			continue
 		if state.turn_counter - p.finished_at <= state.players.size():
-			return p.id
-	return ""
+			return true
+	return false
 
 
 ## Largest same-rank group that can legally open on the current top card,
