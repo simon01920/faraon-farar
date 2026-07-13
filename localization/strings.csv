@@ -34,8 +34,8 @@ APPEARANCE_CARDS,Kartový štýl,Card style
 APPEARANCE_TABLE,Vzhľad stola,Table look
 TABLE_FELT,Zelené plátno (klasika),Green felt (classic)
 TABLE_WOOD,Svetlé drevo,Light wood
+TABLE_RUSTIC_WOOD,Rustikálne drevo,Rustic wood
 TABLE_DARK_WOOD,Tmavé drevo,Dark wood
-TABLE_GREEN_CLOTH,Zelená látka,Green cloth
 LOCKED_LEVEL,Level %d 🔒,Level %d 🔒
 MENU_RULES,Domáce pravidlá,House rules
 MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.

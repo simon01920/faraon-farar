@@ -27,10 +27,10 @@ static func all() -> Array[TableLook]:
 		TableLook.new("felt_green", "TABLE_FELT"),
 		TableLook.new("wood_table", "TABLE_WOOD",
 				"res://assets/backgrounds/wood_table.jpg"),
+		TableLook.new("rustic_wood", "TABLE_RUSTIC_WOOD",
+				"res://assets/backgrounds/rustic_wood.jpg"),
 		TableLook.new("dark_wood", "TABLE_DARK_WOOD",
 				"res://assets/backgrounds/dark_wood.jpg"),
-		TableLook.new("green_cloth", "TABLE_GREEN_CLOTH",
-				"res://assets/backgrounds/green_cloth.jpg"),
 	]
 	return looks
 

@@ -23,8 +23,8 @@ class Reward:
 static func all() -> Array[Reward]:
 	var rewards: Array[Reward] = [
 		Reward.new(2, "table", "wood_table", "TABLE_WOOD"),
-		Reward.new(3, "table", "dark_wood", "TABLE_DARK_WOOD"),
-		Reward.new(4, "table", "green_cloth", "TABLE_GREEN_CLOTH"),
+		Reward.new(3, "table", "rustic_wood", "TABLE_RUSTIC_WOOD"),
+		Reward.new(4, "table", "dark_wood", "TABLE_DARK_WOOD"),
 		# Milestone levels (5, 10, 15...) are reserved for future card skins
 		# beyond marias_dvojhlavy; they plug into the CardSkin registry.
 	]

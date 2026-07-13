@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cqjomcv5uvyld"
-valid=false
+uid="uid://dd28ckwwqxgce"
+path="res://.godot/imported/wood_table.jpg-2a85830be608b3aba6de9f8c844767a2.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/backgrounds/wood_table.jpg"
+dest_files=["res://.godot/imported/wood_table.jpg-2a85830be608b3aba6de9f8c844767a2.ctex"]
 
 [params]
 
