@@ -47,6 +47,36 @@ func test_start_deals_hands_and_flips_start_card() -> void:
 	assert_eq(r.state.draw_pile.size(), 32 - 3 * 5 - 1)
 
 
+func test_start_hornik_flip_event_carries_the_deciding_card() -> void:
+	var r := make_rules([["9Z"], ["8G"]], "HZ", ["9C", "HG", "8E"])
+	# Bottom (index 0) is 9C — first non-horník from the bottom decides.
+	var events: Array = []
+	r._apply_start_card_effects("HZ", events)
+	var flips: Array = events.filter(func(e): return e.type == "START_DECK_FLIP")
+	assert_eq(flips.size(), 1)
+	assert_eq(flips[0].bottom, "9C")
+	assert_eq(r.state.declared_suit, FaraonCard.suit_of("9C"))
+
+
+func test_start_hornik_skips_bottom_hornik() -> void:
+	var r := make_rules([["9Z"], ["8G"]], "HZ", ["HG", "9E", "8C"])
+	var events: Array = []
+	r._apply_start_card_effects("HZ", events)
+	var flips: Array = events.filter(func(e): return e.type == "START_DECK_FLIP")
+	assert_eq(flips[0].bottom, "9E", "a bottom horník never counts")
+	assert_eq(r.state.declared_suit, S.ZELEN)
+
+
+func test_start_eso_flip_event_even_when_invalid() -> void:
+	# The deck is physically checked either way; the event must fire so the
+	# client can show the flip, but the stop only applies on a rank match.
+	var r := make_rules([["9Z"], ["8G"]], "AZ", ["9C", "8E"])
+	var events: Array = []
+	r._apply_start_card_effects("AZ", events)
+	assert_eq(events.filter(func(e): return e.type == "START_DECK_FLIP").size(), 1)
+	assert_eq(r.state.pending_aces, 0, "9C at the bottom does not validate the eso")
+
+
 # --- basic plays ----------------------------------------------------------
 
 func test_play_matching_suit() -> void:

@@ -69,6 +69,9 @@ func start(player_ids: Array, variant: RulesVariant, seed_value: int,
 func _apply_start_card_effects(card: String, events: Array) -> void:
 	var bottom: String = state.draw_pile[0]
 	if FaraonCard.is_eso(card) or FaraonCard.is_sedma(card):
+		# The deck is physically flipped to check the bottom card — the
+		# client animates this via START_DECK_FLIP regardless of validity.
+		events.append({"type": "START_DECK_FLIP", "bottom": bottom})
 		# Valid only when the deck's bottom card has the same rank and is not
 		# a horník (a bottom horník never counts).
 		if not FaraonCard.is_hornik(bottom) \
@@ -82,10 +85,13 @@ func _apply_start_card_effects(card: String, events: Array) -> void:
 				events.append({"type": "START_SEDMA_VALID"})
 	elif FaraonCard.is_hornik(card):
 		var suit := -1
+		var source := bottom
 		for c in state.draw_pile: # index 0 = bottom, scan upwards
 			if not FaraonCard.is_hornik(c):
 				suit = FaraonCard.suit_of(c)
+				source = c
 				break
+		events.append({"type": "START_DECK_FLIP", "bottom": source})
 		state.declared_suit = suit
 		events.append({"type": "SUIT_DECLARED", "suit": suit})
 	# Start faraón: neutral, no declaration — anything can be played on it.

@@ -402,6 +402,8 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_deal.bind(e.hands))
 		"START_CARD":
 			_enqueue(_anim_start_card.bind(e.card))
+		"START_DECK_FLIP":
+			_enqueue(_anim_start_deck_flip.bind(e.bottom))
 		"CARDS_PLAYED":
 			_enqueue(_anim_play_cards.bind(e.player, e.cards))
 		"DREW":
@@ -844,6 +846,55 @@ func _anim_deal(hands: Dictionary) -> void:
 			if is_instance_valid(seat):
 				seat.set_count(seat._shown_count + 1)
 			await _sleep(0.02)
+
+
+## Start card was eso/sedma/horník: the whole draw pile flips over as one
+## block (same pseudo-3D language as the preshuffle) to reveal the bottom
+## card that decides validity/suit, holds long enough to read, and flips
+## back. The suit chip under the pile stays as the persistent information.
+func _anim_start_deck_flip(bottom: String) -> void:
+	var k := _anim_scale()
+	var at := _deck.top_anchor()
+	var pile := Control.new()
+	pile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pile.size = Vector2(110, 165)
+	pile.pivot_offset = pile.size / 2.0
+	_fx.add_child(pile)
+	pile.global_position = at
+	var block: Array[CardVisual] = []
+	for i in 3:
+		var cv := CardVisual.new("", 110)
+		cv.position = Vector2(-i * 2.0, -i * 2.0)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pile.add_child(cv)
+		block.append(cv)
+	await _sleep(0.15)
+
+	# Flip the whole block: squeeze, swap the visible face to the bottom
+	# card, unsqueeze — the deck now lies "face up".
+	var tw := create_tween()
+	tw.tween_property(pile, "scale:x", 0.0, 0.16 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		block.back().set_card(bottom)
+		block.back().set_lift(14.0))
+	tw.tween_property(pile, "scale:x", 1.0, 0.16 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await tw.finished
+	await _sleep(0.85)
+
+	# ...and back face-down into place.
+	var back_tw := create_tween()
+	back_tw.tween_property(pile, "scale:x", 0.0, 0.14 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	back_tw.tween_callback(func():
+		block.back().set_card("")
+		block.back().set_lift(0.0))
+	back_tw.tween_property(pile, "scale:x", 1.0, 0.14 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await back_tw.finished
+	pile.queue_free()
+	await _sleep(0.1)
 
 
 func _anim_start_card(card: String) -> void:
