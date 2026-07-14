@@ -487,28 +487,40 @@ func _refresh_center_chips(s: GameState) -> void:
 
 
 func _refresh_hand(s: GameState) -> void:
-	for c in _hand_area.get_children():
-		c.queue_free()
 	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
-	if me == null:
-		return
-	var hand := me.hand.duplicate()
+	_render_hand(_sorted_hand(me.hand) if me != null else [])
+
+
+## The display order of the local hand (by suit, then rank).
+func _sorted_hand(cards: Array) -> Array:
+	var hand := cards.duplicate()
 	hand.sort_custom(func(a, b):
 		if FaraonCard.suit_of(a) != FaraonCard.suit_of(b):
 			return FaraonCard.suit_of(a) < FaraonCard.suit_of(b)
 		return FaraonCard.rank_of(a) < FaraonCard.rank_of(b))
+	return hand
 
-	var n := hand.size()
-	if n == 0:
-		return
+
+## Local position of hand slot i when n cards are fanned out.
+func _hand_slot(i: int, n: int) -> Vector2:
 	# Narrow (portrait) screens reserve less side margin for the fan.
 	var reserve := 420.0 if size.x > size.y else 150.0
 	var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
 	var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
+	var off := i - (n - 1) / 2.0
+	return Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
+
+
+## Rebuilds the fan from an explicit card list (used mid-deal/mid-draw to
+## reveal the hand progressively, and by _refresh_hand for the full state).
+func _render_hand(hand: Array) -> void:
+	for c in _hand_area.get_children():
+		c.queue_free()
+	var n := hand.size()
 	for i in n:
 		var cv := CardVisual.new(hand[i])
 		var off := i - (n - 1) / 2.0
-		cv.position = Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
+		cv.position = _hand_slot(i, n)
 		cv.rotation = off * 0.032
 		cv.selected = _selected.has(hand[i])
 		cv.set_order(_selected.find(hand[i]) + 1)
@@ -771,16 +783,20 @@ func _anim_spalena() -> void:
 	embers.queue_free()
 
 
-## Deals per-player hand sizes (Olympic rounds shrink them); the draw pile
-## badge and layers thin out in real time with every card that leaves it.
+## Deals per-player hand sizes (Olympic rounds shrink them) round-robin —
+## one card to each player per lap, exactly like a physical deal. The local
+## player's cards flip face-up and build the fan one by one; opponents only
+## ever see backs. The draw pile thins in real time with every card.
 func _anim_deal(hands: Dictionary) -> void:
 	var s := _state()
 	for seat in _seats.values():
 		seat.set_count(0)
-	var remaining := 32
-	_deck.set_count(remaining)
+	_render_hand([])
+	_deck.set_count(32)
 	await _anim_shuffle(_deck.top_anchor())
 	await _sleep(0.1)
+	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var shown: Array = []
 	var max_size := 0
 	for id in hands:
 		max_size = maxi(max_size, hands[id])
@@ -791,13 +807,15 @@ func _anim_deal(hands: Dictionary) -> void:
 			var seat: PlayerSeat = _seats.get(p.id)
 			if seat == null or not is_instance_valid(seat):
 				continue # seats were rebuilt mid-animation (fast restart)
-			var cv := _spawn_overlay("", 72, _deck.top_anchor())
-			await _fly(cv, _deck.top_anchor(), seat.card_anchor(), 0.16, 40.0)
-			cv.queue_free()
+			if p.id == LocalGameServer.HUMAN_ID and me != null \
+					and round_i < me.hand.size():
+				# Engine deals round-robin too, so hand[round_i] IS this card.
+				shown = await _reveal_hand_card(shown, me.hand[round_i], 0.16)
+			else:
+				await _fly_from_deck(seat.card_anchor(), 0.16)
 			if is_instance_valid(seat):
 				seat.set_count(seat._shown_count + 1)
-			remaining -= 1
-			_deck.set_count(remaining)
+			await _sleep(0.02)
 
 
 func _anim_start_card(card: String) -> void:
@@ -985,22 +1003,57 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 	await _sleep(0.1)
 
 
+## Shared "one card leaves the draw pile" primitive used by dealing and by
+## every draw: flies a back from the deck to `target`, optionally flipping
+## it face-up mid-flight, and thins the deck badge/layers in real time.
+func _fly_from_deck(target: Vector2, per_dur: float, reveal_as := "") -> void:
+	var cv := _spawn_overlay("", 90, _deck.top_anchor())
+	if reveal_as != "":
+		cv.flip_to(reveal_as, per_dur * 1.4)
+	await _fly(cv, _deck.top_anchor(), target, per_dur, 45.0)
+	cv.queue_free()
+	_deck.set_count(maxi(_deck_shown() - 1, 0))
+
+
+## Reveals one more card of the local hand: sorted insertion, the flight
+## lands exactly on the card's final slot, then the fan re-renders.
+func _reveal_hand_card(shown: Array, card: String, per_dur: float) -> Array:
+	shown = _sorted_hand(shown + [card])
+	var idx := shown.find(card)
+	var slot := _hand_area.global_position + _hand_slot(idx, shown.size())
+	await _fly_from_deck(slot, per_dur, card)
+	_render_hand(shown)
+	return shown
+
+
+## Draw animation scales to ANY count (a 9-card sedma penalty animates all
+## nine, faster per card, never capped). The human's cards flip face-up and
+## slot into the fan one by one; opponents receive backs at their seat.
 func _anim_draw(player_id: String, count: int, penalty: bool) -> void:
 	var seat: PlayerSeat = _seats.get(player_id)
 	var human := player_id == LocalGameServer.HUMAN_ID
-	var target: Vector2 = _hand_area.global_position + Vector2(size.x / 2.0, 60.0) \
-			if human else (seat.card_anchor() if seat != null else Vector2.ZERO)
 	if penalty and count > 0:
 		_seat_flash(player_id, "+%d" % count, UIKit.RED)
 		if human:
 			Haptics.buzz()
-	for i in mini(count, 5):
-		var cv := _spawn_overlay("", 90, _deck.top_anchor())
-		await _fly(cv, _deck.top_anchor(), target, 0.22, 45.0)
-		cv.queue_free()
-		if seat != null:
-			seat.set_count(seat._shown_count + 1)
-		_deck.set_count(maxi(_deck_shown() - 1, 0))
+	var per := 0.22 if count <= 3 else maxf(0.09, 0.8 / count)
+	if human:
+		var me := _state().player_by_id(LocalGameServer.HUMAN_ID)
+		var shown: Array = []
+		for c in _hand_area.get_children():
+			if c is CardVisual and c.card_id != "":
+				shown.append(c.card_id)
+		var incoming: Array = me.hand.filter(func(c): return not shown.has(c)) \
+				if me != null else []
+		for card in incoming:
+			shown = await _reveal_hand_card(shown, card, per)
+	else:
+		for i in count:
+			var anchor := seat.card_anchor() if seat != null \
+					and is_instance_valid(seat) else Vector2(size.x / 2.0, 60.0)
+			await _fly_from_deck(anchor, per)
+			if seat != null and is_instance_valid(seat):
+				seat.set_count(seat._shown_count + 1)
 	await _sleep(0.1)
 
 
