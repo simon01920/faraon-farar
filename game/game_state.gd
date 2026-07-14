@@ -57,6 +57,9 @@ var current_index: int = 0
 var declared_suit: int = -1
 ## Total penalty cards accumulated by unanswered sedmas (3 per sedma).
 var pending_sevens_draw: int = 0
+## True while a penalty draw is paused because the player just drew the
+## faraón: they may play it (cancelling the rest) or keep drawing.
+var penalty_interrupt: bool = false
 ## Remaining players to be stopped by the open eso chain (0 = no chain).
 var pending_aces: int = 0
 ## Player index that gets the free continuation turn when the eso chain is
@@ -123,6 +126,7 @@ func to_dict() -> Dictionary:
 		"current_index": current_index,
 		"declared_suit": declared_suit,
 		"pending_sevens_draw": pending_sevens_draw,
+		"penalty_interrupt": penalty_interrupt,
 		"pending_aces": pending_aces,
 		"ace_owner_index": ace_owner_index,
 		"phase": phase,
@@ -144,6 +148,7 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.current_index = d.get("current_index", 0)
 	s.declared_suit = d.get("declared_suit", -1)
 	s.pending_sevens_draw = d.get("pending_sevens_draw", 0)
+	s.penalty_interrupt = d.get("penalty_interrupt", false)
 	s.pending_aces = d.get("pending_aces", 0)
 	s.ace_owner_index = d.get("ace_owner_index", -1)
 	s.phase = d.get("phase", Phase.PLAYING)

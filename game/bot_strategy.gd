@@ -64,6 +64,14 @@ func choose(state: GameState, id: String) -> Dictionary:
 	var w: Dictionary = WEIGHTS[difficulty]
 	memory.update(state)
 
+	# Paused penalty draw with the faraón in hand: cancelling the rest of
+	# the penalty is a clear tactical win — MEDIUM and HARD always take it;
+	# EASY keeps grinding cards, consistent with its non-strategic profile.
+	if state.penalty_interrupt:
+		if difficulty == Difficulty.EASY:
+			return FaraonActions.draw()
+		return FaraonActions.play(["DE"])
+
 	# Forced answers first: an open eso chain allows only eso/pass (faraón
 	# with the house rule). Countering both clears our stop and passes it on
 	# — strictly better than standing at every difficulty.

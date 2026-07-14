@@ -130,6 +130,15 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	if err != "":
 		return _fail(err)
 
+	# Paused penalty draw: the only playable card is the just-drawn faraón,
+	# which wipes the remaining penalty (anything else = keep drawing).
+	if state.penalty_interrupt:
+		if cards.size() == 1 and FaraonCard.is_faraon(cards[0]):
+			state.penalty_interrupt = false
+			state.pending_sevens_draw = 0
+			return _place_and_resolve(idx, cards, -1)
+		return _fail("interrupt_faraon_or_draw")
+
 	if state.pending_aces > 0:
 		return _apply_eso_counter(idx, cards)
 
@@ -356,12 +365,34 @@ func _apply_draw(idx: int) -> Dictionary:
 	if state.pending_aces > 0:
 		return _fail("must_answer_eso_or_pass")
 	var player := state.players[idx]
-	var amount: int = state.pending_sevens_draw if state.pending_sevens_draw > 0 else 1
-	state.pending_sevens_draw = 0
 	var events: Array = []
-	var drawn := _draw_cards(player, amount, events)
-	events.append({"type": "DREW", "player": player.id, "count": drawn,
-			"penalty": amount > 1})
+	var drawn := 0
+	if state.pending_sevens_draw > 0 or state.penalty_interrupt:
+		# Penalty drawing runs card by card (confirmed rule): drawing the
+		# faraón mid-penalty pauses the draw — the player MAY play it to
+		# cancel the rest, or DRAW again to keep going. Not forced.
+		state.penalty_interrupt = false
+		var was_penalty := true
+		while state.pending_sevens_draw > 0:
+			if _draw_cards(player, 1, events) == 0:
+				break # every card is in hands — physically impossible
+			drawn += 1
+			state.pending_sevens_draw -= 1
+			if FaraonCard.is_faraon(player.hand.back()) \
+					and state.pending_sevens_draw > 0:
+				state.penalty_interrupt = true
+				events.append({"type": "DREW", "player": player.id,
+						"count": drawn, "penalty": true})
+				events.append({"type": "PENALTY_INTERRUPT", "player": player.id,
+						"remaining": state.pending_sevens_draw})
+				# Turn stays with the player until they decide.
+				return {"ok": true, "error": "", "events": events}
+		events.append({"type": "DREW", "player": player.id, "count": drawn,
+				"penalty": was_penalty})
+	else:
+		drawn = _draw_cards(player, 1, events)
+		events.append({"type": "DREW", "player": player.id, "count": drawn,
+				"penalty": false})
 	if drawn == 0:
 		events.append({"type": "DECK_EXHAUSTED", "player": player.id})
 	_advance_turn(idx)

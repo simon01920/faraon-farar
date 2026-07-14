@@ -300,6 +300,72 @@ func test_red_seven_without_returnable_target_acts_as_plain_seven() -> void:
 			"with nobody to return, 7C is an ordinary seven")
 
 
+# --- faraón interrupt during penalty drawing --------------------------------
+
+func test_penalty_draw_pauses_when_faraon_is_drawn() -> void:
+	# Draw order = pop_back: XE first, DE second -> pause after 2 of 6.
+	var r := make_rules([["9C"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "DE", "XE"])
+	r.state.pending_sevens_draw = 6
+	var res := r.apply("P0", FaraonActions.draw())
+	assert_true(res.ok)
+	assert_true(r.state.penalty_interrupt, "drawing the faraón pauses the penalty")
+	assert_eq(r.state.pending_sevens_draw, 4, "four penalty cards remain")
+	assert_eq(r.state.current_index, 0, "the player keeps the turn to decide")
+	assert_true(r.state.players[0].hand.has("DE"))
+	var offers: Array = res.events.filter(
+			func(e): return e.type == "PENALTY_INTERRUPT")
+	assert_eq(offers.size(), 1)
+	assert_eq(offers[0].remaining, 4)
+
+
+func test_interrupt_faraon_play_cancels_remaining_penalty() -> void:
+	var r := make_rules([["9C"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "DE", "XE"])
+	r.state.pending_sevens_draw = 6
+	r.apply("P0", FaraonActions.draw())
+	var res := play(r, "P0", ["DE"])
+	assert_true(res.ok, "playing the drawn faraón must be allowed")
+	assert_eq(r.state.pending_sevens_draw, 0, "the rest of the penalty is wiped")
+	assert_false(r.state.penalty_interrupt)
+	assert_eq(r.state.top_card(), "DE")
+	assert_eq(r.state.players[0].hand.size(), 2, "9C + XE stay, DE was played")
+	assert_eq(r.state.current_index, 1, "turn passes on")
+
+
+func test_interrupt_resume_draw_finishes_the_penalty() -> void:
+	# Optional rule: the player may decline and keep drawing instead.
+	var r := make_rules([["9C"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "DE", "XE"])
+	r.state.pending_sevens_draw = 6
+	r.apply("P0", FaraonActions.draw())
+	var res := r.apply("P0", FaraonActions.draw())
+	assert_true(res.ok)
+	assert_eq(r.state.pending_sevens_draw, 0)
+	assert_false(r.state.penalty_interrupt)
+	assert_eq(r.state.players[0].hand.size(), 7, "1 + all 6 penalty cards")
+	assert_eq(r.state.current_index, 1)
+
+
+func test_interrupt_rejects_other_plays() -> void:
+	var r := make_rules([["9Z"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "DE", "XE"])
+	r.state.pending_sevens_draw = 6
+	r.apply("P0", FaraonActions.draw())
+	assert_eq(play(r, "P0", ["9Z"]).error, "interrupt_faraon_or_draw")
+
+
+func test_faraon_as_last_penalty_card_offers_nothing() -> void:
+	# Nothing left to cancel -> no pause, penalty just completes.
+	var r := make_rules([["9C"], ["8G"]], "8Z", ["KZ", "KG", "DE", "XC", "XE"])
+	r.state.pending_sevens_draw = 3
+	var res := r.apply("P0", FaraonActions.draw())
+	assert_true(res.ok)
+	assert_false(r.state.penalty_interrupt,
+			"the faraón drawn as the final card pauses nothing")
+	assert_eq(r.state.current_index, 1)
+
+
 # --- spálená --------------------------------------------------------------
 
 func test_spalena_grants_extra_turn() -> void:

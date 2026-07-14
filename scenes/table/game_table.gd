@@ -32,6 +32,8 @@ var _btn_play: Button
 var _btn_draw: Button
 var _btn_pass: Button
 var _btn_ff: Button
+var _btn_interrupt_play: Button
+var _btn_interrupt_draw: Button
 var _suit_popup: PopupPanel
 var _fx: Control
 var _game_over_layer: Control
@@ -179,6 +181,23 @@ func _build_hand_and_actions() -> void:
 	_btn_pass = UIKit.pill_button(tr("GAME_PASS"), Color("8a6d3b"), Vector2(150, 52))
 	_btn_pass.pressed.connect(_do_pass)
 	_actions.add_child(_btn_pass)
+
+	# Paused penalty draw: play the just-drawn faraón or keep drawing.
+	_btn_interrupt_play = UIKit.pill_button(tr("GAME_INTERRUPT_PLAY"),
+			Color("2e7d4f"), Vector2(210, 52))
+	_btn_interrupt_play.visible = false
+	_btn_interrupt_play.pressed.connect(func():
+		if not _busy:
+			server.propose(LocalGameServer.HUMAN_ID, FaraonActions.play(["DE"])))
+	_actions.add_child(_btn_interrupt_play)
+
+	_btn_interrupt_draw = UIKit.pill_button(tr("GAME_INTERRUPT_DRAW"),
+			UIKit.BLUE, Vector2(190, 52))
+	_btn_interrupt_draw.visible = false
+	_btn_interrupt_draw.pressed.connect(func():
+		if not _busy:
+			server.propose(LocalGameServer.HUMAN_ID, FaraonActions.draw()))
+	_actions.add_child(_btn_interrupt_draw)
 
 	_hand_area = Control.new()
 	_hand_area.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -389,6 +408,12 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_draw.bind(e.player, e.count, e.get("penalty", false)))
 		"PILE_REFLIPPED":
 			_enqueue(_anim_reflip.bind(e.top, e.remaining))
+		"PENALTY_INTERRUPT":
+			_enqueue(func():
+				if e.player == LocalGameServer.HUMAN_ID:
+					Haptics.tap()
+				_toast(tr("TOAST_INTERRUPT") % _display_name(e.player))
+				await _sleep(0.4))
 		"STOPPED":
 			_enqueue(func():
 				_seat_flash(e.player, tr("GAME_STOPPED_BADGE"), UIKit.RED)
@@ -533,10 +558,13 @@ func _refresh_actions() -> void:
 	if s == null:
 		return
 	var my_turn := _is_my_turn(s) and not _busy
-	_btn_play.visible = not _busy
+	var interrupt := s.penalty_interrupt and my_turn
+	_btn_interrupt_play.visible = interrupt
+	_btn_interrupt_draw.visible = interrupt
+	_btn_play.visible = not _busy and not interrupt
 	_btn_play.disabled = not my_turn or _selected.is_empty()
 	_btn_pass.visible = my_turn and s.pending_aces > 0
-	_btn_draw.visible = not _busy and s.pending_aces == 0
+	_btn_draw.visible = not _busy and s.pending_aces == 0 and not interrupt
 	_btn_draw.disabled = not my_turn
 	if s.pending_sevens_draw > 0 and my_turn:
 		_btn_draw.text = tr("GAME_DRAW_CARD") + " +%d" % s.pending_sevens_draw

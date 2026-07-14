@@ -68,6 +68,10 @@ GAME_PASS,Stojím,Stand
 GAME_FAST_FORWARD,Zrýchliť ⏩,Speed up ⏩
 GAME_DECLARE_SUIT,Vyber farbu,Choose a suit
 GAME_ESO_STOP,STOP!,STOP!
+GAME_INTERRUPT_PLAY,Položiť faraóna,Play the faraon
+GAME_INTERRUPT_DRAW,Ťahať ďalej,Keep drawing
+TOAST_INTERRUPT,%s vytiahol faraóna!,%s drew the faraon!
+ERR_INTERRUPT_FARAON_OR_DRAW,Polož faraóna alebo ťahaj ďalej,Play the faraon or keep drawing
 GAME_STOPPED_BADGE,STOJÍ,STOPPED
 GAME_WINNER,Dohral,Finished
 GAME_FINISHED_MARK,Dohral!,Done!

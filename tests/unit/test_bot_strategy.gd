@@ -92,6 +92,26 @@ func test_easy_plays_specials_without_hesitation() -> void:
 	assert_eq(action.action, FaraonActions.PLAY_CARDS)
 
 
+# --- penalty interrupt -------------------------------------------------------
+
+func test_medium_and_hard_play_the_faraon_on_interrupt() -> void:
+	var s := make_state([["9C", "DE"], ["8G"]], "8Z")
+	s.pending_sevens_draw = 4
+	s.penalty_interrupt = true
+	for diff in [Diff.MEDIUM, Diff.HARD]:
+		var action := BotStrategy.new(diff).choose(s, "P0")
+		assert_eq(action.cards, ["DE"],
+				"difficulty %d must take the tactical out" % diff)
+
+
+func test_easy_keeps_drawing_on_interrupt() -> void:
+	var s := make_state([["9C", "DE"], ["8G"]], "8Z")
+	s.pending_sevens_draw = 4
+	s.penalty_interrupt = true
+	assert_eq(BotStrategy.new(Diff.EASY, 5).choose(s, "P0").action,
+			FaraonActions.DRAW)
+
+
 # --- sole-survivor rescue ----------------------------------------------------
 
 func test_sole_survivor_plays_red_seven_rescue() -> void:
