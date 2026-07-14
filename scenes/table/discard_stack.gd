@@ -21,6 +21,11 @@ var _ghosts: Array[Panel] = []
 ## Everything sits in the holder; depth animates the holder, not each card.
 var _holder: Control
 var _shown_ghosts := 0
+## Tracked tweens (per-ghost fades + holder rise) killed before restarting —
+## rapid depth changes otherwise stack conflicting tweens on one property
+## and stale hide-callbacks can leave a ghost invisible while "shown".
+var _ghost_tweens := {}
+var _rise_tween: Tween
 
 
 func _ready() -> void:
@@ -66,7 +71,10 @@ func set_depth(total_cards: int) -> void:
 		var should := i < target
 		if g.visible == should:
 			continue
+		if _ghost_tweens.has(i) and is_instance_valid(_ghost_tweens[i]):
+			_ghost_tweens[i].kill()
 		var tw := create_tween()
+		_ghost_tweens[i] = tw
 		if should:
 			g.visible = true
 			tw.tween_property(g, "modulate:a", 1.0, 0.3)
@@ -74,8 +82,10 @@ func set_depth(total_cards: int) -> void:
 			tw.tween_property(g, "modulate:a", 0.0, 0.3)
 			tw.tween_callback(func(): g.visible = false)
 	_shown_ghosts = target
-	var rise := create_tween()
-	rise.tween_property(_holder, "position:y", -target * RISE_PER_GHOST, 0.3) \
+	if _rise_tween != null and _rise_tween.is_valid():
+		_rise_tween.kill()
+	_rise_tween = create_tween()
+	_rise_tween.tween_property(_holder, "position:y", -target * RISE_PER_GHOST, 0.3) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 

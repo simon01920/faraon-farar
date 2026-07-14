@@ -357,6 +357,11 @@ func _on_state_updated(events: Array) -> void:
 	if not is_node_ready():
 		await ready
 	var new_round := events.any(func(e): return e.get("type", "") == "DEALT")
+	if new_round:
+		# Drop any leftover animations from the previous round BEFORE the
+		# seats are rebuilt: those queued callables capture seats that are
+		# about to be freed (crash-grade race on fast Nová hra clicks).
+		_queue.clear()
 	if _seats.is_empty() or new_round:
 		_setup_seats() # a new round may have a different set of players
 	if new_round:
@@ -432,7 +437,12 @@ func _drain() -> void:
 		@warning_ignore("redundant_await")
 		await cb.call()
 	_busy = false
-	_refresh_all()
+	# Events that landed between the last loop check and _busy=false would
+	# otherwise sit unprocessed until the next state update ("stuck" anims).
+	if not _queue.is_empty():
+		_drain()
+	else:
+		_refresh_all()
 
 
 func _refresh_all() -> void:
@@ -778,11 +788,14 @@ func _anim_deal(hands: Dictionary) -> void:
 		for p in s.players:
 			if round_i >= int(hands.get(p.id, 0)):
 				continue
-			var seat: PlayerSeat = _seats[p.id]
+			var seat: PlayerSeat = _seats.get(p.id)
+			if seat == null or not is_instance_valid(seat):
+				continue # seats were rebuilt mid-animation (fast restart)
 			var cv := _spawn_overlay("", 72, _deck.top_anchor())
 			await _fly(cv, _deck.top_anchor(), seat.card_anchor(), 0.16, 40.0)
 			cv.queue_free()
-			seat.set_count(seat._shown_count + 1)
+			if is_instance_valid(seat):
+				seat.set_count(seat._shown_count + 1)
 			remaining -= 1
 			_deck.set_count(remaining)
 

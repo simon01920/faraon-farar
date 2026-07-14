@@ -18,6 +18,10 @@ var _layers: Array[CardVisual] = []
 var _badge: PanelContainer
 var _badge_label: Label
 var _shown_layers := 0
+## Per-layer fade tween, killed before a new one starts — set_count now runs
+## per dealt/drawn card, so overlapping tweens on the same layer would leave
+## stale hide-callbacks firing after a newer show (invisible "ghost" layers).
+var _fade_tweens := {}
 
 
 func _ready() -> void:
@@ -49,7 +53,10 @@ func set_count(n: int) -> void:
 			var should := i < target
 			if cv.visible == should and (not should or cv.modulate.a >= 1.0):
 				continue
+			if _fade_tweens.has(i) and is_instance_valid(_fade_tweens[i]):
+				_fade_tweens[i].kill()
 			var tw := create_tween()
+			_fade_tweens[i] = tw
 			if should:
 				cv.visible = true
 				tw.tween_property(cv, "modulate:a", 1.0, 0.18)
