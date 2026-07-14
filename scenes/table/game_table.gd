@@ -366,6 +366,14 @@ func _layout_table() -> void:
 	_declared_chip.position = Vector2(size.x * disc_x - 34, size.y * pile_y + 96)
 	_pending_badge.position = Vector2(size.x * (0.88 if portrait else 0.685),
 			size.y * pile_y - 22)
+
+	# Portrait gets a taller hand area (room for the two-row fan) and the
+	# action buttons + status line shift up out of its way.
+	_hand_area.offset_top = -330 if portrait else -232
+	_actions.offset_top = -394 if portrait else -292
+	_actions.offset_bottom = -342 if portrait else -240
+	_status.offset_top = -434 if portrait else -336
+	_status.offset_bottom = -398 if portrait else -300
 	if _state() != null:
 		_refresh_hand(_state())
 
@@ -528,14 +536,46 @@ func _sorted_hand(cards: Array) -> Array:
 	return hand
 
 
-## Local position of hand slot i when n cards are fanned out.
+## Minimum readable visible strip per fanned card in PHYSICAL pixels at a
+## 96-dpi baseline (scaled up on high-dpi phones); below it the hand splits
+## into two rows. Portrait only — landscape/tablet has the width for one
+## row even with 14+ cards.
+const MIN_CARD_SPACING_PX := 46.0
+
+
+## 1 or 2 rows for n cards at the current window size. The stretch mode
+## renders content units smaller than physical pixels on narrow windows,
+## so the threshold compares the on-screen spacing, not layout units.
+func _hand_rows(n: int) -> int:
+	if size.x > size.y or n < 2:
+		return 1
+	var spacing := (size.x - 150.0) / maxf(n, 1)
+	var px_scale := 1.0
+	var win := get_window()
+	if win != null and size.x > 0.0:
+		px_scale = float(win.size.x) / size.x
+	var dpi_factor := maxf(1.0, DisplayServer.screen_get_dpi() / 96.0)
+	return 2 if spacing * px_scale < MIN_CARD_SPACING_PX * dpi_factor else 1
+
+
+## Local position of hand slot i when n cards are fanned out. Two-row mode
+## splits the hand balanced (9 -> 5+4): slots 0..ceil(n/2)-1 sit in the top
+## row, the rest in the bottom row.
 func _hand_slot(i: int, n: int) -> Vector2:
-	# Narrow (portrait) screens reserve less side margin for the fan.
 	var reserve := 420.0 if size.x > size.y else 150.0
-	var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
-	var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
-	var off := i - (n - 1) / 2.0
-	return Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
+	if _hand_rows(n) == 1:
+		var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
+		var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
+		var off := i - (n - 1) / 2.0
+		return Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
+	var top_count := ceili(n / 2.0)
+	var row := 0 if i < top_count else 1
+	var row_n := top_count if row == 0 else n - top_count
+	var idx := i if row == 0 else i - top_count
+	var spacing := minf(94.0, (size.x - reserve) / maxf(row_n, 1))
+	var start_x := size.x / 2.0 - spacing * (row_n - 1) / 2.0 - 60.0
+	var off := idx - (row_n - 1) / 2.0
+	return Vector2(start_x + idx * spacing, 4.0 + row * 98.0 + absf(off) * 4.0)
 
 
 ## Rebuilds the fan from an explicit card list (used mid-deal/mid-draw to
@@ -544,11 +584,13 @@ func _render_hand(hand: Array) -> void:
 	for c in _hand_area.get_children():
 		c.queue_free()
 	var n := hand.size()
+	var two_rows := _hand_rows(n) == 2
 	for i in n:
 		var cv := CardVisual.new(hand[i])
 		var off := i - (n - 1) / 2.0
 		cv.position = _hand_slot(i, n)
-		cv.rotation = off * 0.032
+		# The straight two-row grid reads better without the fan tilt.
+		cv.rotation = 0.0 if two_rows else off * 0.032
 		cv.selected = _selected.has(hand[i])
 		cv.set_order(_selected.find(hand[i]) + 1)
 		cv.tapped.connect(_on_card_tapped)
