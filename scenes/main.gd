@@ -11,6 +11,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	TranslationServer.set_locale(GameSettings.get_locale())
 	GameSettings.apply_audio()
+	add_child(GameAudio.new())
 	_show_menu()
 
 

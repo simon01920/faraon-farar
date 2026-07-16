@@ -25,7 +25,17 @@ static func all() -> Array[Reward]:
 		Reward.new(2, "table", "wood_table", "TABLE_WOOD"),
 		Reward.new(3, "table", "rustic_wood", "TABLE_RUSTIC_WOOD"),
 		Reward.new(4, "table", "dark_wood", "TABLE_DARK_WOOD"),
-		# Milestone levels (5, 10, 15...) are reserved for future card skins
+		Reward.new(5, "table", "felt_bright", "TABLE_FELT_BRIGHT"),
+		Reward.new(6, "table", "poker_green", "TABLE_POKER_GREEN"),
+		Reward.new(7, "table", "felt_blue", "TABLE_FELT_BLUE"),
+		Reward.new(8, "table", "oak_light", "TABLE_OAK_LIGHT"),
+		Reward.new(9, "table", "maple_light", "TABLE_MAPLE_LIGHT"),
+		Reward.new(10, "table", "walnut_warm", "TABLE_WALNUT_WARM"),
+		Reward.new(11, "table", "planks_golden", "TABLE_PLANKS_GOLDEN"),
+		Reward.new(12, "table", "teak_sun", "TABLE_TEAK_SUN"),
+		Reward.new(13, "table", "wood_scuffed", "TABLE_WOOD_SCUFFED"),
+		Reward.new(14, "table", "planks_dark", "TABLE_PLANKS_DARK"),
+		# Milestone levels (15, 20, ...) stay reserved for future card skins
 		# beyond marias_dvojhlavy; they plug into the CardSkin registry.
 	]
 	return rewards

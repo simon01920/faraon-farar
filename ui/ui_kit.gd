@@ -28,6 +28,7 @@ const AVATAR_COLORS := [
 static func pill_button(text: String, color: Color, min_size := Vector2(190, 56),
 		font_size := 21) -> Button:
 	var b := Button.new()
+	b.pressed.connect(func(): GameAudio.sfx("ui"))
 	b.text = text
 	b.custom_minimum_size = min_size
 	b.add_theme_font_size_override("font_size", font_size)

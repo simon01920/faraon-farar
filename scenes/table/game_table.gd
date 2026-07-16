@@ -426,6 +426,7 @@ func _enqueue_event(e: Dictionary) -> bool:
 				await _sleep(0.4))
 		"STOPPED":
 			_enqueue(func():
+				GameAudio.sfx("slap")
 				_seat_flash(e.player, tr("GAME_STOPPED_BADGE"), UIKit.RED)
 				await _sleep(0.5))
 		"ESO_CONTINUATION":
@@ -711,6 +712,7 @@ func _anim_shuffle(at: Vector2, quick := false) -> void:
 
 func _anim_shuffle_riffle(at: Vector2, quick: bool) -> void:
 	var k := _anim_scale()
+	GameAudio.sfx("shuffle")
 	var left := _make_stack(3, 100)
 	var right := _make_stack(3, 100)
 	left.global_position = at
@@ -755,6 +757,7 @@ func _anim_shuffle_riffle(at: Vector2, quick: bool) -> void:
 
 func _anim_shuffle_overhand(at: Vector2, quick: bool) -> void:
 	var k := _anim_scale()
+	GameAudio.sfx("shuffle")
 	var base := _make_stack(4, 100)
 	base.global_position = at
 	for _i in (2 if quick else 4):
@@ -776,6 +779,7 @@ func _anim_shuffle_overhand(at: Vector2, quick: bool) -> void:
 ## vibration on handhelds — the burn spreads over everything but the text.
 func _anim_spalena() -> void:
 	Haptics.rumble()
+	GameAudio.sfx("spalena1")
 	var k := _anim_scale()
 
 	var glow := TextureRect.new()
@@ -835,6 +839,7 @@ func _anim_spalena() -> void:
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fx.add_child(banner)
 
+	GameAudio.sfx("spalena2")
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(glow, "modulate:a", 1.0, 0.18 * k)
@@ -914,6 +919,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 
 	# Flip the whole block: squeeze, swap the visible face to the bottom
 	# card, unsqueeze — the deck now lies "face up".
+	GameAudio.sfx("flip")
 	var tw := create_tween()
 	tw.tween_property(pile, "scale:x", 0.0, 0.16 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -926,6 +932,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 	await _sleep(0.85)
 
 	# ...and back face-down into place.
+	GameAudio.sfx("flip")
 	var back_tw := create_tween()
 	back_tw.tween_property(pile, "scale:x", 0.0, 0.14 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -946,6 +953,7 @@ func _anim_start_card(card: String) -> void:
 			DiscardStack.rot_for(card))
 	cv.queue_free()
 	_discard.push_card(card)
+	GameAudio.place_sfx()
 	_deck.set_count(maxi(_deck_shown() - 1, 0))
 	await _sleep(0.15)
 
@@ -973,6 +981,7 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 				DiscardStack.rot_for(card))
 		cv.queue_free()
 		_discard.push_card(card)
+		GameAudio.place_sfx()
 		await _sleep(0.12)
 	await _sleep(0.1)
 
@@ -1099,6 +1108,7 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 	await _fly(kept, discard_at, discard_at + Vector2(-26.0, 96.0), 0.22, 30.0)
 
 	# 2. The whole block flips face-down at once (squeeze -> swap -> unsqueeze).
+	GameAudio.sfx("flip")
 	var tw := create_tween()
 	tw.tween_property(pile, "scale:x", 0.0, 0.14 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -1129,6 +1139,7 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 ## it face-up mid-flight, and thins the deck badge/layers in real time.
 func _fly_from_deck(target: Vector2, per_dur: float, reveal_as := "") -> void:
 	var cv := _spawn_overlay("", 90, _deck.top_anchor())
+	GameAudio.sfx("pull" if reveal_as != "" else "slide")
 	if reveal_as != "":
 		cv.flip_to(reveal_as, per_dur * 1.4)
 	await _fly(cv, _deck.top_anchor(), target, per_dur, 45.0)
@@ -1304,18 +1315,24 @@ func _show_game_over(_loser_id: String) -> void:
 	# anything between is informative.
 	if m != null and m.finished:
 		if m.champion == LocalGameServer.HUMAN_ID:
+			GameAudio.sfx("win")
 			_game_over_label.text = tr("MATCH_WIN")
 			_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
 		else:
+			GameAudio.sfx("lose")
 			_game_over_label.text = tr("MATCH_LOSE") % _display_name(m.champion)
 			_game_over_label.add_theme_color_override("font_color", UIKit.RED.lightened(0.2))
 	elif me == null:
 		_game_over_label.text = tr("ROUND_OVER")
 		_game_over_label.add_theme_color_override("font_color", UIKit.CREAM)
 	elif me.finish_position == 1:
+		if m == null:
+			GameAudio.sfx("win")
 		_game_over_label.text = tr("GAME_OVER_WIN")
 		_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
 	elif me.finish_position == last or me.finish_position == -1:
+		if m == null:
+			GameAudio.sfx("lose")
 		_game_over_label.text = tr("GAME_OVER_LOSE")
 		_game_over_label.add_theme_color_override("font_color", UIKit.RED.lightened(0.2))
 	else:

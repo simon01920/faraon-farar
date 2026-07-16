@@ -36,6 +36,16 @@ TABLE_FELT,Zelené plátno (klasika),Green felt (classic)
 TABLE_WOOD,Svetlé drevo,Light wood
 TABLE_RUSTIC_WOOD,Rustikálne drevo,Rustic wood
 TABLE_DARK_WOOD,Tmavé drevo,Dark wood
+TABLE_FELT_BRIGHT,Turnajová zelená,Tournament green
+TABLE_POKER_GREEN,Pokrový vzor,Poker pattern
+TABLE_FELT_BLUE,Modrá plsť,Blue felt
+TABLE_OAK_LIGHT,Svetlý dub,Light oak
+TABLE_MAPLE_LIGHT,Javor,Maple
+TABLE_WALNUT_WARM,Orech,Walnut
+TABLE_PLANKS_GOLDEN,Zlaté dosky,Golden planks
+TABLE_TEAK_SUN,Teak v slnku,Sunlit teak
+TABLE_WOOD_SCUFFED,Ošúchané drevo,Scuffed wood
+TABLE_PLANKS_DARK,Tmavé dosky,Dark planks
 LOCKED_LEVEL,Level %d 🔒,Level %d 🔒
 MENU_RULES,Domáce pravidlá,House rules
 MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.

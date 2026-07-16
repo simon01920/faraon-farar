@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c4iy810lswr36"
+path="res://.godot/imported/Moss on the Ridge 2.mp3-89fc7bc3cb37ccc4b16fb9046bf6dd9a.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/music/Moss on the Ridge 2.mp3"
+dest_files=["res://.godot/imported/Moss on the Ridge 2.mp3-89fc7bc3cb37ccc4b16fb9046bf6dd9a.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -114,10 +114,12 @@ static func set_vibrations_on(on: bool) -> void:
 	cfg.save(PATH)
 
 
-## Pushes the persisted toggles onto the AudioServer buses. Sound off mutes
-## Master; music additionally has its own bus when one exists in the layout.
+## Pushes the persisted toggles onto the AudioServer buses: "Zvuky" mutes
+## the SFX bus, "Hudba" the Music bus (both defined in default_bus_layout).
 static func apply_audio() -> void:
-	AudioServer.set_bus_mute(0, not get_sound_on())
+	var sfx_bus := AudioServer.get_bus_index("SFX")
+	if sfx_bus != -1:
+		AudioServer.set_bus_mute(sfx_bus, not get_sound_on())
 	var music_bus := AudioServer.get_bus_index("Music")
 	if music_bus != -1:
 		AudioServer.set_bus_mute(music_bus, not get_music_on())

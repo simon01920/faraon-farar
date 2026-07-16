@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://imqah4t6wl12"
+path="res://.godot/imported/Dusk Village Table.mp3-a26c5295b83ce1d5a8aa6e64a20cb298.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/music/Dusk Village Table.mp3"
+dest_files=["res://.godot/imported/Dusk Village Table.mp3-a26c5295b83ce1d5a8aa6e64a20cb298.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
