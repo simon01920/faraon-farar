@@ -869,6 +869,11 @@ func _anim_deal(hands: Dictionary) -> void:
 	for seat in _seats.values():
 		seat.set_count(0)
 	_render_hand([])
+	# A fresh round starts from a clean table: without this, the previous
+	# game's discard pile stays visible through the whole deal and the start
+	# card appears to land on a heap of stale cards (reported bug).
+	_discard.rebuild([])
+	_discard.set_depth(0)
 	_deck.set_count(32)
 	await _anim_shuffle(_deck.top_anchor())
 	await _sleep(0.1)
