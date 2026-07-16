@@ -28,6 +28,20 @@ DIFF_EASY,Ľahkí,Easy
 DIFF_MEDIUM,Strední,Medium
 DIFF_HARD,Ťažkí,Hard
 MENU_SOON,(čoskoro),(soon)
+MP_CREATE,Vytvoriť miestnosť,Create room
+MP_CODE_HINT,Kód miestnosti,Room code
+MP_JOIN,Pripojiť sa,Join
+MP_LEAVE,Odísť z miestnosti,Leave room
+MP_INVITE,Pozvi priateľa 📋,Invite a friend 📋
+MP_INVITE_TEXT,Zahraj si so mnou Faraón! Kód miestnosti: %s,Play Faraón with me! Room code: %s
+MP_INVITE_COPIED,Pozvánka skopírovaná do schránky!,Invite copied to clipboard!
+MP_CONNECTING,Pripájam sa na server...,Connecting to the server...
+MP_CONN_FAILED,Server je nedostupný. Skús neskôr.,Server unavailable. Try again later.
+MP_WAITING_INPUT,"Vytvor miestnosť, alebo zadaj kód.","Create a room, or enter a code."
+MP_WAITING,Čaká sa na hráčov...,Waiting for players...
+MP_ERR_NO_SUCH_ROOM,Miestnosť s týmto kódom neexistuje,No room with that code
+MP_ERR_ROOM_FULL,Miestnosť je plná,The room is full
+MP_ERR_GAME_RUNNING,Hra už prebieha,The game is already running
 MENU_SETTINGS,Nastavenia,Settings
 MENU_APPEARANCE,Vzhľad,Appearance
 APPEARANCE_CARDS,Kartový štýl,Card style

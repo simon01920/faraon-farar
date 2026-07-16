@@ -1,4 +1,4 @@
-class_name GameTable
+﻿class_name GameTable
 extends Control
 ## The playing table. Pure client of a game server node (LocalGameServer now,
 ## networked room client later): it proposes actions and re-renders from the
@@ -12,7 +12,9 @@ signal exit_to_menu_requested
 signal new_game_requested
 signal restart_requested
 
-var server: LocalGameServer
+var server # LocalGameServer or RoomClient - same duck-typed surface
+## The local player's id on this server ("YOU" locally, seat id online).
+var _me := ""
 var _selected: Array[String] = []
 var _seats := {} # player_id -> PlayerSeat
 var _opponent_ids: Array[String] = [] # seat order for re-layout
@@ -46,8 +48,9 @@ var _pending_play: Array = []
 var _shuffle_variant := 0
 
 
-func setup(game_server: LocalGameServer) -> void:
+func setup(game_server) -> void:
 	server = game_server
+	_me = server.local_player_id()
 	server.state_updated.connect(_on_state_updated)
 	server.action_rejected.connect(_on_action_rejected)
 
@@ -182,13 +185,13 @@ func _build_hand_and_actions() -> void:
 	_btn_pass.pressed.connect(_do_pass)
 	_actions.add_child(_btn_pass)
 
-	# Paused penalty draw: play the just-drawn faraón or keep drawing.
+	# Paused penalty draw: play the just-drawn faraon or keep drawing.
 	_btn_interrupt_play = UIKit.pill_button(tr("GAME_INTERRUPT_PLAY"),
 			Color("2e7d4f"), Vector2(210, 52))
 	_btn_interrupt_play.visible = false
 	_btn_interrupt_play.pressed.connect(func():
 		if not _busy:
-			server.propose(LocalGameServer.HUMAN_ID, FaraonActions.play(["DE"])))
+			server.propose(_me, FaraonActions.play(["DE"])))
 	_actions.add_child(_btn_interrupt_play)
 
 	_btn_interrupt_draw = UIKit.pill_button(tr("GAME_INTERRUPT_DRAW"),
@@ -196,7 +199,7 @@ func _build_hand_and_actions() -> void:
 	_btn_interrupt_draw.visible = false
 	_btn_interrupt_draw.pressed.connect(func():
 		if not _busy:
-			server.propose(LocalGameServer.HUMAN_ID, FaraonActions.draw()))
+			server.propose(_me, FaraonActions.draw()))
 	_actions.add_child(_btn_interrupt_draw)
 
 	_hand_area = Control.new()
@@ -316,7 +319,7 @@ func _setup_seats() -> void:
 	_opponent_ids.clear()
 	var s := _state()
 	for p in s.players:
-		if p.id != LocalGameServer.HUMAN_ID:
+		if p.id != _me:
 			_opponent_ids.append(p.id)
 
 	for i in _opponent_ids.size():
@@ -325,10 +328,10 @@ func _setup_seats() -> void:
 		add_child(seat)
 		_seats[_opponent_ids[i]] = seat
 
-	var me := PlayerSeat.new(LocalGameServer.HUMAN_ID,
-			_display_name(LocalGameServer.HUMAN_ID), UIKit.AVATAR_COLORS[0], true)
+	var me := PlayerSeat.new(_me,
+			_display_name(_me), UIKit.AVATAR_COLORS[0], true)
 	add_child(me)
-	_seats[LocalGameServer.HUMAN_ID] = me
+	_seats[_me] = me
 	_layout_table()
 
 
@@ -352,7 +355,7 @@ func _layout_table() -> void:
 		if seat != null and i < slots.size():
 			var c: Vector2 = slots[i]
 			seat.position = Vector2(size.x * c.x - 90, size.y * c.y - 30)
-	var me: PlayerSeat = _seats.get(LocalGameServer.HUMAN_ID)
+	var me: PlayerSeat = _seats.get(_me)
 	if me != null:
 		me.position = Vector2(maxf(size.x * 0.075 - 90, 4.0), size.y * 0.80 - 40)
 
@@ -387,7 +390,7 @@ func _on_state_updated(events: Array) -> void:
 	if new_round:
 		# Drop any leftover animations from the previous round BEFORE the
 		# seats are rebuilt: those queued callables capture seats that are
-		# about to be freed (crash-grade race on fast Nová hra clicks).
+		# about to be freed (crash-grade race on fast "Nova hra" clicks).
 		_queue.clear()
 	if _seats.is_empty() or new_round:
 		_setup_seats() # a new round may have a different set of players
@@ -420,7 +423,7 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_reflip.bind(e.top, e.remaining))
 		"PENALTY_INTERRUPT":
 			_enqueue(func():
-				if e.player == LocalGameServer.HUMAN_ID:
+				if e.player == _me:
 					Haptics.tap()
 				_toast(tr("TOAST_INTERRUPT") % _display_name(e.player))
 				await _sleep(0.4))
@@ -523,7 +526,7 @@ func _refresh_center_chips(s: GameState) -> void:
 
 
 func _refresh_hand(s: GameState) -> void:
-	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var me := s.player_by_id(_me)
 	_render_hand(_sorted_hand(me.hand) if me != null else [])
 
 
@@ -539,7 +542,7 @@ func _sorted_hand(cards: Array) -> Array:
 
 ## Minimum readable visible strip per fanned card in PHYSICAL pixels at a
 ## 96-dpi baseline (scaled up on high-dpi phones); below it the hand splits
-## into two rows. Portrait only — landscape/tablet has the width for one
+## into two rows. Portrait only â€” landscape/tablet has the width for one
 ## row even with 14+ cards.
 const MIN_CARD_SPACING_PX := 46.0
 
@@ -615,12 +618,12 @@ func _refresh_actions() -> void:
 		_btn_draw.text = tr("GAME_DRAW_CARD") + " +%d" % s.pending_sevens_draw
 	else:
 		_btn_draw.text = tr("GAME_DRAW_CARD")
-	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var me := s.player_by_id(_me)
 	var human_out := me != null and me.status == GameState.PlayerStatus.FINISHED
 	if server.fast_forward and me != null and not human_out:
 		server.fast_forward = false # returned to the game -> normal pace
 	_btn_ff.visible = s.phase == GameState.Phase.PLAYING and human_out \
-			and not server.fast_forward
+			and not server.fast_forward and server.supports_fast_forward()
 
 
 func _do_fast_forward() -> void:
@@ -660,7 +663,7 @@ func _flight_step(t: float, node: Control, from: Vector2, mid: Vector2,
 	node.global_position = a.lerp(b, t)
 
 
-## Quadratic-bezier flight with a bit of lift — no teleports, no straight
+## Quadratic-bezier flight with a bit of lift â€” no teleports, no straight
 ## laser lines.
 func _fly(node: Control, from: Vector2, to: Vector2, dur: float,
 		arc := 70.0, final_rot := 0.0) -> void:
@@ -698,7 +701,7 @@ func _make_stack(n: int, w: float) -> Control:
 	return holder
 
 
-## Shuffle show before dealing and after a preshuffle — alternates between a
+## Shuffle show before dealing and after a preshuffle â€” alternates between a
 ## riffle (split, interleave, merge) and an overhand (chunks over the top),
 ## per the two reference clips. `quick` halves the repetitions so the reflip
 ## sequence stays under ~1.5s.
@@ -775,8 +778,8 @@ func _anim_shuffle_overhand(at: Vector2, quick: bool) -> void:
 	base.queue_free()
 
 
-## Full-screen spálená moment: ember burst, hot glow, big banner and a long
-## vibration on handhelds — the burn spreads over everything but the text.
+## Full-screen spalena moment: ember burst, hot glow, big banner and a long
+## vibration on handhelds â€” the burn spreads over everything but the text.
 func _anim_spalena() -> void:
 	Haptics.rumble()
 	GameAudio.sfx("spalena1")
@@ -860,7 +863,7 @@ func _anim_spalena() -> void:
 	embers.queue_free()
 
 
-## Deals per-player hand sizes (Olympic rounds shrink them) round-robin —
+## Deals per-player hand sizes (Olympic rounds shrink them) round-robin â€”
 ## one card to each player per lap, exactly like a physical deal. The local
 ## player's cards flip face-up and build the fan one by one; opponents only
 ## ever see backs. The draw pile thins in real time with every card.
@@ -877,7 +880,7 @@ func _anim_deal(hands: Dictionary) -> void:
 	_deck.set_count(32)
 	await _anim_shuffle(_deck.top_anchor())
 	await _sleep(0.1)
-	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var me := s.player_by_id(_me)
 	var shown: Array = []
 	var max_size := 0
 	for id in hands:
@@ -889,7 +892,7 @@ func _anim_deal(hands: Dictionary) -> void:
 			var seat: PlayerSeat = _seats.get(p.id)
 			if seat == null or not is_instance_valid(seat):
 				continue # seats were rebuilt mid-animation (fast restart)
-			if p.id == LocalGameServer.HUMAN_ID and me != null \
+			if p.id == _me and me != null \
 					and round_i < me.hand.size():
 				# Engine deals round-robin too, so hand[round_i] IS this card.
 				shown = await _reveal_hand_card(shown, me.hand[round_i], 0.16)
@@ -900,7 +903,7 @@ func _anim_deal(hands: Dictionary) -> void:
 			await _sleep(0.02)
 
 
-## Start card was eso/sedma/horník: the whole draw pile flips over as one
+## Start card was eso/sedma/hornik: the whole draw pile flips over as one
 ## block (same pseudo-3D language as the preshuffle) to reveal the bottom
 ## card that decides validity/suit, holds long enough to read, and flips
 ## back. The suit chip under the pile stays as the persistent information.
@@ -923,7 +926,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 	await _sleep(0.15)
 
 	# Flip the whole block: squeeze, swap the visible face to the bottom
-	# card, unsqueeze — the deck now lies "face up".
+	# card, unsqueeze â€” the deck now lies "face up".
 	GameAudio.sfx("flip")
 	var tw := create_tween()
 	tw.tween_property(pile, "scale:x", 0.0, 0.16 * k) \
@@ -965,7 +968,7 @@ func _anim_start_card(card: String) -> void:
 
 func _anim_play_cards(player_id: String, cards: Array) -> void:
 	var seat: PlayerSeat = _seats.get(player_id)
-	var human := player_id == LocalGameServer.HUMAN_ID
+	var human := player_id == _me
 	for card in cards:
 		var origin: Vector2
 		var cv: CardVisual
@@ -991,10 +994,10 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 	await _sleep(0.1)
 
 
-## In-game menu (☰, top-left): resume, restart, audio/vibration toggles and
-## the way back to the main menu — the table is no longer a dead end.
+## In-game menu (â°, top-left): resume, restart, audio/vibration toggles and
+## the way back to the main menu â€” the table is no longer a dead end.
 func _build_pause_layer() -> void:
-	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
+	var btn := UIKit.pill_button("â°", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
 	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	btn.offset_left = 16
 	btn.offset_right = 72
@@ -1039,6 +1042,7 @@ func _build_pause_layer() -> void:
 
 	var restart := UIKit.pill_button(tr("GAME_RESTART"), UIKit.BLUE, Vector2(280, 50))
 	restart.pressed.connect(func(): restart_requested.emit())
+	restart.visible = server == null or server.supports_restart()
 	box.add_child(restart)
 
 	box.add_child(_pause_toggle("SETTINGS_SOUND",
@@ -1079,7 +1083,7 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 	var k := _anim_scale()
 	var discard_at := _discard.landing_anchor()
 
-	# Capture the visible tail faces before clearing — they become the block
+	# Capture the visible tail faces before clearing â€” they become the block
 	# that flips; the kept top card becomes its own overlay.
 	var tail_ids: Array = []
 	for c in _discard._cards:
@@ -1168,14 +1172,14 @@ func _reveal_hand_card(shown: Array, card: String, per_dur: float) -> Array:
 ## slot into the fan one by one; opponents receive backs at their seat.
 func _anim_draw(player_id: String, count: int, penalty: bool) -> void:
 	var seat: PlayerSeat = _seats.get(player_id)
-	var human := player_id == LocalGameServer.HUMAN_ID
+	var human := player_id == _me
 	if penalty and count > 0:
 		_seat_flash(player_id, "+%d" % count, UIKit.RED)
 		if human:
 			Haptics.buzz()
 	var per := 0.22 if count <= 3 else maxf(0.09, 0.8 / count)
 	if human:
-		var me := _state().player_by_id(LocalGameServer.HUMAN_ID)
+		var me := _state().player_by_id(_me)
 		var shown: Array = []
 		for c in _hand_area.get_children():
 			if c is CardVisual and c.card_id != "":
@@ -1223,16 +1227,11 @@ func _toast(msg: String) -> void:
 
 func _is_my_turn(s: GameState) -> bool:
 	return s.phase == GameState.Phase.PLAYING \
-			and s.players[s.current_index].id == LocalGameServer.HUMAN_ID
+			and s.players[s.current_index].id == _me
 
 
 func _display_name(id: String) -> String:
-	if id == LocalGameServer.HUMAN_ID:
-		var custom := GameSettings.get_player_name()
-		return custom if custom != "" else tr("PLAYER_YOU")
-	if id.begins_with("BOT"):
-		return tr("BOT_NAME") % id.trim_prefix("BOT")
-	return id
+	return server.display_name(id)
 
 
 func _find_hand_card(card_id: String) -> CardVisual:
@@ -1263,40 +1262,40 @@ func _do_play() -> void:
 	if _busy or _selected.is_empty():
 		return
 	# Cards go to the server exactly in the order the player numbered them
-	# (1 = first on the pile, last = new top). No silent reordering — an
+	# (1 = first on the pile, last = new top). No silent reordering â€” an
 	# invalid order comes back as a rejection toast and the player fixes it.
 	var ordered: Array = _selected.duplicate()
 	if FaraonCard.is_hornik(ordered.back()):
 		_pending_play = ordered
 		_suit_popup.popup_centered()
 		return
-	server.propose(LocalGameServer.HUMAN_ID, FaraonActions.play(ordered))
+	server.propose(_me, FaraonActions.play(ordered))
 
 
 func _do_draw() -> void:
 	if _busy:
 		return
 	if _is_my_turn(_state()) and _state().pending_aces == 0:
-		server.propose(LocalGameServer.HUMAN_ID, FaraonActions.draw())
+		server.propose(_me, FaraonActions.draw())
 
 
 func _do_pass() -> void:
 	if _busy:
 		return
-	server.propose(LocalGameServer.HUMAN_ID, FaraonActions.pass_turn())
+	server.propose(_me, FaraonActions.pass_turn())
 
 
 func _on_suit_chosen(suit: int) -> void:
 	_suit_popup.hide()
 	if _pending_play.is_empty():
 		return
-	server.propose(LocalGameServer.HUMAN_ID,
+	server.propose(_me,
 			FaraonActions.play(_pending_play, suit))
 	_pending_play = []
 
 
 func _on_action_rejected(player_id: String, error: String) -> void:
-	if player_id != LocalGameServer.HUMAN_ID:
+	if player_id != _me:
 		return
 	if error == "card_does_not_match" and _selected.size() > 1:
 		# Multi-card play rejected on the opener: the combination/order is
@@ -1310,16 +1309,16 @@ func _on_action_rejected(player_id: String, error: String) -> void:
 func _show_game_over(_loser_id: String) -> void:
 	_game_over_layer.visible = true
 	var s := _state()
-	var me := s.player_by_id(LocalGameServer.HUMAN_ID)
+	var me := s.player_by_id(_me)
 	var last := s.players.size()
-	var m := server.match_state
+	var m = server.match_state # FaraonMatch or null; server is duck-typed
 
 	# Headline. Match end beats round placement; a spectating human (already
 	# eliminated from an Olympic match) gets a neutral round-over line. For a
 	# single round: only 1st place is a win, last place is the explicit loss,
 	# anything between is informative.
 	if m != null and m.finished:
-		if m.champion == LocalGameServer.HUMAN_ID:
+		if m.champion == _me:
 			GameAudio.sfx("win")
 			_game_over_label.text = tr("MATCH_WIN")
 			_game_over_label.add_theme_color_override("font_color", Color("6fd08c"))
@@ -1353,7 +1352,7 @@ func _show_game_over(_loser_id: String) -> void:
 		var pb: int = b.finish_position if b.finish_position != -1 else last + 1
 		return pa < pb)
 	for p in ranked:
-		var place := str(p.finish_position) + "." if p.finish_position != -1 else "–"
+		var place := str(p.finish_position) + "." if p.finish_position != -1 else "â€“"
 		var row := UIKit.heading("%s %s" % [place, _display_name(p.id)], 21,
 				UIKit.GOLD if p.finish_position == 1 else UIKit.CREAM)
 		_ranking_box.add_child(row)
@@ -1361,11 +1360,11 @@ func _show_game_over(_loser_id: String) -> void:
 	# Olympic modes: match state (cards next round / out) under the round.
 	if m != null:
 		_ranking_box.add_child(UIKit.heading(
-				tr("MATCH_STANDINGS") + "  ·  " + tr("MATCH_ROUND") % m.round_number,
+				tr("MATCH_STANDINGS") + "  Â·  " + tr("MATCH_ROUND") % m.round_number,
 				17, UIKit.CREAM.darkened(0.2)))
 		for id in m.allotments:
 			var n: int = m.allotments[id]
-			var text := "%s — %s" % [_display_name(id),
+			var text := "%s â€” %s" % [_display_name(id),
 					tr("MATCH_CARDS") % n if n > 0 else tr("MATCH_OUT")]
 			_ranking_box.add_child(UIKit.heading(text, 16,
 					UIKit.CREAM if n > 0 else UIKit.CREAM.darkened(0.45)))
@@ -1375,7 +1374,7 @@ func _show_game_over(_loser_id: String) -> void:
 	# Progression: award the round once (only when the human played in it).
 	if me != null and me.finish_position != -1:
 		var award := Progression.record_round(s.players.size(),
-				me.finish_position, GameSettings.get_bot_difficulty())
+				me.finish_position, server.progression_context())
 		if award.points > 0:
 			_ranking_box.add_child(UIKit.heading(
 					tr("POINTS_EARNED") % award.points, 19, UIKit.GOLD))

@@ -125,6 +125,17 @@ static func apply_audio() -> void:
 		AudioServer.set_bus_mute(music_bus, not get_music_on())
 
 
+## Multiplayer server URL: dev builds default to the local ws:// endpoint,
+## release builds to the production wss:// URL — ws:// can never leak into a
+## release. A manual [dev] server_url in settings.cfg overrides both (LAN
+## testing on a phone against a PC-hosted server).
+static func get_server_url() -> String:
+	var override = _load().get_value("dev", "server_url", "")
+	if override is String and override != "":
+		return override
+	return NetProtocol.DEV_URL if OS.has_feature("debug") else NetProtocol.PROD_URL
+
+
 ## Player display name; "" = use the localized default ("Ty"/"You").
 static func get_player_name() -> String:
 	return _load().get_value("app", "player_name", "")

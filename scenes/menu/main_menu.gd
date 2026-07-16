@@ -8,6 +8,9 @@ extends Control
 
 signal local_game_requested(bot_count: int)
 
+## Injected by the app root; shared with the table when an online game runs.
+var room_client: RoomClient
+
 ## Full-rect CenterContainers so both screens re-center themselves on any
 ## window size/aspect — never PRESET_CENTER on a container whose minimum
 ## size grows after the preset is applied (that leaves content offset
@@ -15,6 +18,19 @@ signal local_game_requested(bot_count: int)
 var _menu_screen: ScrollContainer
 var _settings_screen: ScrollContainer
 var _appearance_screen: ScrollContainer
+var _mp_screen: ScrollContainer
+var _mp_status: Label
+var _mp_join_box: VBoxContainer
+var _mp_lobby_box: VBoxContainer
+var _mp_code_value: Label
+var _mp_members: VBoxContainer
+var _mp_start: Button
+var _mp_code_input: LineEdit
+
+
+## Runtime autoload lookup (compiles under -s tool runs too).
+func _hub() -> Node:
+	return get_node("/root/NetHub")
 
 
 func _ready() -> void:
@@ -55,6 +71,7 @@ func _ready() -> void:
 	_build_menu()
 	_build_settings_screen()
 	_build_appearance_screen()
+	_build_mp_screen()
 
 
 func _build_menu() -> void:
@@ -96,9 +113,8 @@ func _build_menu() -> void:
 	box.add_child(start)
 	box.add_child(_spacer(8))
 
-	var mp := UIKit.pill_button(tr("MENU_MULTIPLAYER") + " " + tr("MENU_SOON"),
-			UIKit.BLUE, Vector2(340, 52))
-	mp.disabled = true
+	var mp := UIKit.pill_button(tr("MENU_MULTIPLAYER"), UIKit.BLUE, Vector2(340, 52))
+	mp.pressed.connect(_open_mp_screen)
 	box.add_child(mp)
 
 	var appearance := UIKit.pill_button(tr("MENU_APPEARANCE"),
@@ -166,6 +182,166 @@ func _build_settings_screen() -> void:
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
 	box.add_child(back_row)
+
+
+## Multiplayer lobby: connect, create/join a room by code, see who is
+## seated, invite a friend, and (as host) start the game.
+func _build_mp_screen() -> void:
+	_mp_screen = ScrollContainer.new()
+	_mp_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_mp_screen.visible = false
+	add_child(_mp_screen)
+
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_mp_screen.add_child(center)
+
+	var panel := PanelContainer.new()
+	var sb := UIKit.panel_style(Color(UIKit.TABLE_MID, 0.97), 20, UIKit.GOLD, 2)
+	sb.content_margin_left = 34
+	sb.content_margin_right = 34
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	box.custom_minimum_size = Vector2(520, 0)
+	panel.add_child(box)
+
+	box.add_child(UIKit.heading(tr("MENU_MULTIPLAYER"), 30, UIKit.GOLD))
+	_mp_status = UIKit.heading("", 16, UIKit.CREAM.darkened(0.15))
+	_mp_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_mp_status)
+
+	# --- not in a room yet: create / join by code
+	_mp_join_box = VBoxContainer.new()
+	_mp_join_box.add_theme_constant_override("separation", 10)
+	box.add_child(_mp_join_box)
+
+	var create := UIKit.pill_button(tr("MP_CREATE"), Color("2e7d4f"), Vector2(340, 52))
+	create.pressed.connect(func():
+		_mp_status.text = tr("MP_CONNECTING")
+		_hub().rpc_id(1, "sv_create_room", _player_display_name()))
+	var create_row := HBoxContainer.new()
+	create_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	create_row.add_child(create)
+	_mp_join_box.add_child(create_row)
+
+	var join_row := HBoxContainer.new()
+	join_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	join_row.add_theme_constant_override("separation", 10)
+	_mp_code_input = LineEdit.new()
+	_mp_code_input.placeholder_text = tr("MP_CODE_HINT")
+	_mp_code_input.max_length = NetProtocol.ROOM_CODE_LEN
+	_mp_code_input.custom_minimum_size = Vector2(180, 48)
+	join_row.add_child(_mp_code_input)
+	var join := UIKit.pill_button(tr("MP_JOIN"), UIKit.BLUE, Vector2(170, 48), 18)
+	join.pressed.connect(func():
+		_mp_status.text = tr("MP_CONNECTING")
+		_hub().rpc_id(1, "sv_join_room",
+				_mp_code_input.text.strip_edges().to_upper(),
+				_player_display_name(), ""))
+	join_row.add_child(join)
+	_mp_join_box.add_child(join_row)
+
+	# --- seated in a room: code, members, invite, start (host)
+	_mp_lobby_box = VBoxContainer.new()
+	_mp_lobby_box.add_theme_constant_override("separation", 10)
+	_mp_lobby_box.visible = false
+	box.add_child(_mp_lobby_box)
+
+	_mp_code_value = UIKit.heading("", 44, UIKit.GOLD)
+	_mp_lobby_box.add_child(_mp_code_value)
+	_mp_members = VBoxContainer.new()
+	_mp_members.add_theme_constant_override("separation", 4)
+	_mp_lobby_box.add_child(_mp_members)
+
+	var invite := UIKit.pill_button(tr("MP_INVITE"), Color("55617a"), Vector2(340, 48), 18)
+	invite.pressed.connect(func():
+		DisplayServer.clipboard_set(tr("MP_INVITE_TEXT") % room_client.room_code)
+		_mp_status.text = tr("MP_INVITE_COPIED"))
+	var invite_row := HBoxContainer.new()
+	invite_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	invite_row.add_child(invite)
+	_mp_lobby_box.add_child(invite_row)
+
+	_mp_start = UIKit.pill_button(tr("MENU_START"), Color("2e7d4f"), Vector2(340, 56), 22)
+	_mp_start.visible = false
+	_mp_start.pressed.connect(func():
+		_hub().rpc_id(1, "sv_start_game", GameSettings.build_variant().to_dict()))
+	var start_row := HBoxContainer.new()
+	start_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	start_row.add_child(_mp_start)
+	_mp_lobby_box.add_child(start_row)
+
+	var leave := UIKit.pill_button(tr("MP_LEAVE"), UIKit.RED, Vector2(240, 44), 16)
+	leave.pressed.connect(func():
+		_hub().rpc_id(1, "sv_leave")
+		_mp_lobby_box.visible = false
+		_mp_join_box.visible = true
+		_mp_status.text = "")
+	var leave_row := HBoxContainer.new()
+	leave_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	leave_row.add_child(leave)
+	_mp_lobby_box.add_child(leave_row)
+
+	box.add_child(_spacer(6))
+	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
+	back.pressed.connect(func():
+		_mp_screen.visible = false
+		_menu_screen.visible = true)
+	var back_row := HBoxContainer.new()
+	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	back_row.add_child(back)
+	box.add_child(back_row)
+
+	_hub().connected_to_server.connect(func(): _mp_status.text = tr("MP_WAITING_INPUT"))
+	_hub().connection_failed_or_lost.connect(func():
+		_mp_status.text = tr("MP_CONN_FAILED"))
+	_hub().joined.connect(func(code, _seat, _token):
+		_mp_join_box.visible = false
+		_mp_lobby_box.visible = true
+		_mp_code_value.text = code
+		_mp_status.text = tr("MP_WAITING"))
+	_hub().join_failed.connect(func(reason):
+		_mp_status.text = tr("MP_ERR_" + reason.to_upper()) \
+				if tr("MP_ERR_" + reason.to_upper()) != "MP_ERR_" + reason.to_upper() \
+				else tr("MP_CONN_FAILED"))
+	_hub().room_updated.connect(_on_mp_room_update)
+
+
+func _open_mp_screen() -> void:
+	_menu_screen.visible = false
+	_mp_screen.visible = true
+	if not _hub().is_connected_client:
+		_mp_status.text = tr("MP_CONNECTING")
+		_hub().connect_to_server(GameSettings.get_server_url())
+	if room_client != null and room_client.room_code != "":
+		_mp_join_box.visible = false
+		_mp_lobby_box.visible = true
+		_mp_code_value.text = room_client.room_code
+
+
+func _on_mp_room_update(info: Dictionary) -> void:
+	for c in _mp_members.get_children():
+		c.queue_free()
+	var members: Array = info.get("members", [])
+	for m in members:
+		var line := "%s%s" % [m.get("name", "?"),
+				"" if m.get("connected", true) else "  (offline)"]
+		_mp_members.add_child(UIKit.heading(line, 18, UIKit.CREAM))
+	# The first seat is the host — only they see the start button.
+	_mp_start.visible = room_client != null and not members.is_empty() \
+			and members[0].get("seat", "") == room_client.my_seat \
+			and not info.get("playing", false)
+
+
+func _player_display_name() -> String:
+	var custom := GameSettings.get_player_name()
+	return custom if custom != "" else tr("PLAYER_YOU")
 
 
 ## Player chip: name, level and the progress toward the next one. The ✎

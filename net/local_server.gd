@@ -61,6 +61,33 @@ func _start_round(ids: Array, hand_sizes: Dictionary, seed_value: int = 0) -> vo
 	_schedule_bot()
 
 
+# --- interface shared with RoomClient (the table is a pure client of it) ---
+
+func local_player_id() -> String:
+	return HUMAN_ID
+
+
+func display_name(id: String) -> String:
+	if id == HUMAN_ID:
+		var custom := GameSettings.get_player_name()
+		return custom if custom != "" else tr("PLAYER_YOU")
+	if id.begins_with("BOT"):
+		return tr("BOT_NAME") % id.trim_prefix("BOT")
+	return id
+
+
+func supports_fast_forward() -> bool:
+	return true
+
+
+func supports_restart() -> bool:
+	return true
+
+
+func progression_context() -> String:
+	return GameSettings.get_bot_difficulty()
+
+
 func propose(player_id: String, action: Dictionary) -> Dictionary:
 	var res := rules.apply(player_id, action)
 	if res.ok:

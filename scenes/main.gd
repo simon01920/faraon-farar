@@ -4,23 +4,52 @@ extends Control
 
 var _current_screen: Control
 var _server: LocalGameServer
+var _room_client: RoomClient
 var _last_bot_count := 1
 
 
+## The NetHub autoload, looked up at runtime so scripts also compile under
+## `-s` tool runs where autoload identifiers are not resolvable.
+func _hub() -> Node:
+	return get_node("/root/NetHub")
+
+
 func _ready() -> void:
+	# Dedicated server build (or --server): headless room host, no UI at all.
+	if OS.has_feature("dedicated_server") \
+			or OS.get_cmdline_user_args().has("--server"):
+		_hub().start_server(NetProtocol.DEFAULT_PORT)
+		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	TranslationServer.set_locale(GameSettings.get_locale())
 	GameSettings.apply_audio()
 	add_child(GameAudio.new())
+	_room_client = RoomClient.new()
+	add_child(_room_client)
+	_hub().game_started.connect(_on_mp_game_started)
 	_show_menu()
 
 
 func _show_menu() -> void:
 	_clear_screen()
 	var menu := MainMenu.new()
+	menu.room_client = _room_client
 	menu.local_game_requested.connect(_start_local_game)
 	_current_screen = menu
 	add_child(menu)
+
+
+## The server started an online round (also fires on mid-game reconnect).
+func _on_mp_game_started(_view: Dictionary) -> void:
+	if _current_screen is GameTable and _current_screen.server == _room_client:
+		return
+	_clear_screen()
+	var table := GameTable.new()
+	table.setup(_room_client)
+	table.exit_to_menu_requested.connect(_show_menu)
+	table.new_game_requested.connect(_show_menu) # rematch goes via the lobby
+	_current_screen = table
+	add_child(table)
 
 
 func _start_local_game(bot_count: int) -> void:

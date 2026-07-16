@@ -1,5 +1,60 @@
 # Faraón — deployment a build postupy
 
+## Multiplayer server na VPS (schválený model: 1 proces + Nginx TLS)
+
+Architektúra: jeden dlhobežiaci headless Godot proces hostí všetky roomky
+(`server/`), počúva **len na loopback porte 9000** (`ws://`); Nginx terminuje
+`wss://` na 443 s Let's Encrypt certifikátom a preposiela WebSocket upgrade.
+Klienti v debug buildoch idú na `ws://127.0.0.1:9000`, release na
+`NetProtocol.PROD_URL` — pred prvým release buildom nastav v
+`server/net_protocol.gd` skutočnú doménu.
+
+### 1. Build server binárky (na vývojárskom stroji)
+
+```powershell
+& "<godot_console.exe>" --headless --path . --export-release "Linux Server" build/faraon_server.x86_64
+```
+Preset „Linux Server" je dedicated-server export (stripnuté vizuálne
+resources, feature tag `dedicated_server` → `main.gd` naštartuje NetHub
+namiesto UI).
+
+### 2. VPS setup (Ubuntu/Debian, opakovateľné kroky)
+
+```bash
+sudo adduser --system --group --home /opt/faraon faraon
+sudo cp faraon_server.x86_64 /opt/faraon/ && sudo chmod +x /opt/faraon/faraon_server.x86_64
+sudo cp deployment/faraon-server.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now faraon-server
+sudo systemctl status faraon-server   # musí hlásiť "listening on port 9000"
+
+# Nginx + TLS
+sudo apt install nginx certbot python3-certbot-nginx
+sudo cp deployment/nginx-faraon.conf /etc/nginx/sites-available/faraon
+# ...uprav server_name na svoju (sub)doménu, ktorej A záznam mieri na VPS
+sudo ln -s /etc/nginx/sites-available/faraon /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d faraon.tvojadomena.sk   # vystaví + auto-obnovuje cert
+
+# Firewall: verejné len 80/443 (port 9000 NEotváraj)
+sudo ufw allow 80,443/tcp
+```
+
+Server restartuje systemd automaticky pri páde aj reboote. Update = nová
+binárka do /opt/faraon + `sudo systemctl restart faraon-server`.
+
+### 3. Lokálne testovanie bez VPS
+
+```powershell
+& "<godot_console.exe>" --headless --path . -- --server   # server na :9000
+# druhé okno: normálne spustená hra -> Multiplayer (debug build ide na ws://127.0.0.1:9000)
+```
+`tools/mp_probe.gd` spraví celý smoke automaticky (spawn servera, connect,
+create room, overenie kódu).
+
+Reconnect: klient dostane pri joine session token; do 120 s po výpadku sa ním
+vie vrátiť na svoje miesto (plný stavový snapshot pri návrate).
+
+
 ## Android debug APK (Windows) — vyriešenie `ERROR: Unable to open Android 'build-tools' directory`
 
 **Diagnóza (2026-07-14):** chyba znamenala, že Godot nenašiel Android SDK — na stroji
