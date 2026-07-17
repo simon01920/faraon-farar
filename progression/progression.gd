@@ -63,24 +63,28 @@ static func level() -> int:
 	return level_for(ProgressionStore.total_points())
 
 
-## Awards one finished round for the local player and persists it.
-## Returns {points, won, level_before, level_after, unlocks: Array} —
-## `unlocks` holds the Rewards entries newly reached by a level-up.
+## Awards one finished round for the local player and persists it — points,
+## per-slice statistics counters, daily-challenge progress and the play
+## streak in one entry point. Returns {points, challenge_points, won,
+## level_before, level_after, unlocks: Array}.
 static func record_round(player_count: int, finish_position: int,
-		context: String) -> Dictionary:
+		context: String, mode := "normal") -> Dictionary:
 	var before_total := ProgressionStore.total_points()
 	var pts := points_for(player_count, finish_position, context)
 	var won := finish_position == 1
-	ProgressionStore.record(pts, won)
+	ProgressionStore.record(pts, won, context, mode, finish_position, player_count)
+	var ch_pts := Challenges.on_game_finished(player_count, finish_position,
+			context, mode)
 	var level_before := level_for(before_total)
-	var level_after := level_for(before_total + pts)
+	var level_after := level_for(ProgressionStore.total_points())
 	var unlocks: Array = []
 	if level_after > level_before:
 		for r in Rewards.all():
 			if r.level > level_before and r.level <= level_after:
 				unlocks.append(r)
-	return {"points": pts, "won": won, "level_before": level_before,
-			"level_after": level_after, "unlocks": unlocks}
+	return {"points": pts, "challenge_points": ch_pts, "won": won,
+			"level_before": level_before, "level_after": level_after,
+			"unlocks": unlocks}
 
 
 ## True when the cosmetic is available: free, reached by level, or granted

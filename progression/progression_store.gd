@@ -33,7 +33,8 @@ static func extra_unlocks() -> Array:
 	return _load().get_value("progress", "extra_unlocks", [])
 
 
-static func record(points: int, won: bool) -> void:
+static func record(points: int, won: bool, context := "medium",
+		mode := "normal", position := 0, player_count := 0) -> void:
 	var cfg := _load()
 	cfg.set_value("progress", "schema_version", SCHEMA_VERSION)
 	cfg.set_value("progress", "total_points",
@@ -42,7 +43,44 @@ static func record(points: int, won: bool) -> void:
 			cfg.get_value("progress", "games_played", 0) + 1)
 	if won:
 		cfg.set_value("progress", "wins", cfg.get_value("progress", "wins", 0) + 1)
+	# Per-slice counters for the statistics screen: all monotonic, so the
+	# future cloud sync can still merge by per-key maximum.
+	_bump(cfg, "games_" + context)
+	if won:
+		_bump(cfg, "wins_" + context)
+	_bump(cfg, "mode_" + mode)
+	if won:
+		_bump(cfg, "modewins_" + mode)
+	if position >= 1 and position <= 5:
+		_bump(cfg, "pos_%d" % position)
+	if player_count > 0:
+		cfg.set_value("progress", "last_player_count", player_count)
 	cfg.save(PATH)
+
+
+static func _bump(cfg: ConfigFile, key: String) -> void:
+	cfg.set_value("progress", key, cfg.get_value("progress", key, 0) + 1)
+
+
+static func counter(key: String) -> int:
+	return _load().get_value("progress", key, 0)
+
+
+## Local "played with" log — groundwork for the friends leaderboard (which
+## needs the deployed server for cross-device score comparison).
+static func bump_friend(p_name: String) -> void:
+	var cfg := _load()
+	cfg.set_value("friends", p_name, cfg.get_value("friends", p_name, 0) + 1)
+	cfg.save(PATH)
+
+
+static func friends() -> Dictionary:
+	var cfg := _load()
+	var out := {}
+	if cfg.has_section("friends"):
+		for key in cfg.get_section_keys("friends"):
+			out[key] = cfg.get_value("friends", key, 0)
+	return out
 
 
 static func grant(cosmetic_id: String) -> void:

@@ -28,6 +28,23 @@ func _ready() -> void:
 	add_child(_room_client)
 	_hub().game_started.connect(_on_mp_game_started)
 	_show_menu()
+	# Invite deep link MVP: `faraon://join/KOD` or `--join=KOD` on the
+	# command line pre-fills and auto-joins the room. (Registering the URL
+	# scheme on Android needs the gradle build + manifest intent-filter —
+	# documented in deployment/README.md as the follow-up step.)
+	var join_code := _parse_join_code()
+	if join_code != "" and _current_screen is MainMenu:
+		_current_screen.auto_join(join_code)
+
+
+func _parse_join_code() -> String:
+	for arg in Array(OS.get_cmdline_user_args()) + Array(OS.get_cmdline_args()):
+		var s := str(arg)
+		if s.begins_with("faraon://join/"):
+			return s.trim_prefix("faraon://join/").to_upper()
+		if s.begins_with("--join="):
+			return s.trim_prefix("--join=").to_upper()
+	return ""
 
 
 func _show_menu() -> void:
@@ -35,8 +52,19 @@ func _show_menu() -> void:
 	var menu := MainMenu.new()
 	menu.room_client = _room_client
 	menu.local_game_requested.connect(_start_local_game)
+	menu.tutorial_requested.connect(_show_tutorial)
 	_current_screen = menu
 	add_child(menu)
+	if not GameSettings.tutorial_seen():
+		_show_tutorial() # first launch: walk the newcomer through the rules
+
+
+func _show_tutorial() -> void:
+	_clear_screen()
+	var tut := TutorialScreen.new()
+	tut.finished.connect(_show_menu)
+	_current_screen = tut
+	add_child(tut)
 
 
 ## The server started an online round (also fires on mid-game reconnect).

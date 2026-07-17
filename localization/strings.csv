@@ -24,6 +24,49 @@ POINTS_EARNED,+%d bodov,+%d points
 LEVEL_UP,Level %d! 🎉,Level %d! 🎉
 PROFILE_LEVEL,Level %d,Level %d
 PROFILE_NAME,Tvoje meno,Your name
+MENU_CHALLENGES,Výzvy,Challenges
+MENU_STATS,Štatistiky,Statistics
+MENU_HOW_TO,Ako hrať,How to play
+CHALLENGE_DONE,Denná výzva splnená! +%d b,Daily challenge done! +%d pts
+CHALLENGE_REWARD_NOTE,Každá splnená výzva = +%d bodov. Výzvy sa menia každý deň o polnoci.,Each completed challenge = +%d points. Challenges rotate at midnight.
+CH_PLAY_3,Zahraj 3 hry,Play 3 games
+CH_WIN_HARD,Vyhraj proti ťažkým botom,Beat the hard bots
+CH_SPALENA,Polož spálenú (4 rovnaké),Play a burned four-of-a-kind
+CH_WIN_3PLUS,Vyhraj hru s 3+ hráčmi,Win a game with 3+ players
+CH_PLAY_ESA,Zahraj 2 esá,Play 2 aces
+CH_RETURN_RED7,Vráť hráča červenou sedmou,Return a player with the red seven
+CH_WIN_OLYMPIC,Vyhraj olympijské kolo,Win an olympic round
+CH_FINISH_TOP2,Skonči 2× v top 2,Finish top 2 twice
+STREAK_DAYS,%d dní po sebe,%d days in a row
+STREAK_KEEP,"Zahraj dnes aspoň jednu hru, aby si neprišiel o streak!","Play at least one game today to keep your streak!"
+STREAK_SAFE,Dnešný streak je zachránený. ✅,Today's streak is safe. ✅
+STATS_POINTS,%d bodov,%d points
+STATS_WINRATE,Výhry celkovo,Overall wins
+STATS_BY_DIFFICULTY,Podľa obtiažnosti,By difficulty
+STATS_PLACES,Umiestnenia,Placements
+STATS_FAV_MODE,Najhranejší režim,Favourite mode
+STATS_LONGEST_STREAK,Najdlhší streak,Longest streak
+TUT_SKIP,Preskočiť,Skip
+TUT_NEXT,Ďalej ▶,Next ▶
+TUT_DONE,Hotovo ✓,Done ✓
+TUT_WRONG,"Táto karta nesedí — musí súhlasiť farba alebo znak. Skús druhú.","That card doesn't fit — the suit or rank must match. Try the other one."
+TUT_RIGHT,Presne tak! Pokračuj tlačidlom Ďalej.,Exactly! Continue with Next.
+TUT_1_TITLE,Kladenie kariet,Placing cards
+TUT_1_BODY,"Na kôpku môžeš položiť kartu rovnakej farby alebo rovnakého znaku. Na stole je žaluďová osmička — ťukni na kartu, ktorá sa dá zahrať.","You can play a card of the same suit or the same rank. The pile shows the eight of acorns — tap the card that can be played."
+TUT_2_TITLE,Eso — stopka,Ace — the stop
+TUT_2_BODY,"Eso zastaví súpera: vynechá ťah, a ak nemá vlastné eso na obranu, pokračuješ ty. Sleduj ukážku.","An ace stops the opponent: they skip a turn, and unless they answer with their own ace, you continue. Watch the demo."
+TUT_3_TITLE,Sedma — trestné karty,Seven — penalty cards
+TUT_3_BODY,"Za sedmu si súper ťahá 3 karty. Sedmy sa sčítavajú: dve sedmy = 6 kariet, tri = 9! Obranou je vlastná sedma alebo faraón.","A seven makes the opponent draw 3 cards. Sevens stack: two sevens = 6 cards, three = 9! The defence is your own seven or the faraon."
+TUT_4_TITLE,Červená sedma,The red seven
+TUT_4_BODY,"Červená sedma má zvláštnu moc: vráti do hry súpera, ktorý už dohral — a ešte si potiahne 3 trestné karty.","The red seven has a special power: it returns a player who already finished — and they draw 3 penalty cards on top."
+TUT_5_TITLE,Faraón (zelený dolník),The faraon
+TUT_5_BODY,"Faraón je žolík: položíš ho na čokoľvek a čokoľvek naň. Zabíja aj celú reťaz sedmičiek — trest padá na nulu.","The faraon is the wild card: play it on anything, anything lands on it. It also kills a whole seven chain — the penalty drops to zero."
+TUT_6_TITLE,Horník mení farbu,The hornik changes suit
+TUT_6_BODY,"Horníkom určíš farbu, ktorá sa musí hrať ďalej — skvelý na prevzatie kontroly nad hrou.","With a hornik you declare the suit that must follow — great for taking control of the game."
+TUT_7_TITLE,Spálená,The burn
+TUT_7_BODY,"Štyri rovnaké znaky naraz = spálená! Získavaš ťah navyše. Karty si zoraď tak, aby si vedel pokračovať.","Four of a kind at once = a burn! You get an extra move. Order the cards so you can continue."
+TUT_8_TITLE,Poradie kladenia,Play order
+TUT_8_BODY,"Pri viacerých kartách určuješ poradie ťukaním — čísla ukazujú, čo padne na kôpku prvé. Ťukni na ESO, ktoré má byť prvé (sedí na kôpku).","With several cards you set the order by tapping — the numbers show what lands first. Tap the ACE that should go first (it matches the pile)."
 DIFF_EASY,Ľahkí,Easy
 DIFF_MEDIUM,Strední,Medium
 DIFF_HARD,Ťažkí,Hard
@@ -33,7 +76,7 @@ MP_CODE_HINT,Kód miestnosti,Room code
 MP_JOIN,Pripojiť sa,Join
 MP_LEAVE,Odísť z miestnosti,Leave room
 MP_INVITE,Pozvi priateľa 📋,Invite a friend 📋
-MP_INVITE_TEXT,Zahraj si so mnou Faraón! Kód miestnosti: %s,Play Faraón with me! Room code: %s
+MP_INVITE_TEXT,Zahraj si so mnou Faraón! Kód miestnosti: %s — otvor hru a zadaj kód (alebo faraon://join/%s),Play Faraón with me! Room code: %s — open the game and enter the code (or faraon://join/%s)
 MP_INVITE_COPIED,Pozvánka skopírovaná do schránky!,Invite copied to clipboard!
 MP_CONNECTING,Pripájam sa na server...,Connecting to the server...
 MP_CONN_FAILED,Server je nedostupný. Skús neskôr.,Server unavailable. Try again later.

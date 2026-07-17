@@ -64,10 +64,18 @@ func progression_context() -> String:
 	return "multiplayer"
 
 
+func game_mode() -> String:
+	return "normal"
+
+
 # --- server messages --------------------------------------------------------
 
 func _on_game_started(view: Dictionary) -> void:
 	_apply_view(view)
+	# Friends-leaderboard groundwork: remember who we sat with (locally).
+	for seat in _names:
+		if seat != my_seat:
+			ProgressionStore.bump_friend(str(_names[seat]))
 
 
 func _on_game_events(events: Array, view: Dictionary) -> void:

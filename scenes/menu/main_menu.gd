@@ -7,6 +7,7 @@ extends Control
 ## room creator's authoritative ruleset in multiplayer.
 
 signal local_game_requested(bot_count: int)
+signal tutorial_requested
 
 ## Injected by the app root; shared with the table when an online game runs.
 var room_client: RoomClient
@@ -26,6 +27,17 @@ var _mp_code_value: Label
 var _mp_members: VBoxContainer
 var _mp_start: Button
 var _mp_code_input: LineEdit
+var _challenges_screen: ScrollContainer
+var _stats_screen: ScrollContainer
+## Room code waiting for the connection to open (invite deep link).
+var _pending_join := ""
+
+
+func _swap_screen(target: Control) -> void:
+	for s in [_menu_screen, _settings_screen, _appearance_screen, _mp_screen,
+			_challenges_screen, _stats_screen]:
+		if s != null:
+			s.visible = s == target
 
 
 ## Runtime autoload lookup (compiles under -s tool runs too).
@@ -72,6 +84,8 @@ func _ready() -> void:
 	_build_settings_screen()
 	_build_appearance_screen()
 	_build_mp_screen()
+	_build_challenges_screen()
+	_build_stats_screen()
 
 
 func _build_menu() -> void:
@@ -116,6 +130,23 @@ func _build_menu() -> void:
 	var mp := UIKit.pill_button(tr("MENU_MULTIPLAYER"), UIKit.BLUE, Vector2(340, 52))
 	mp.pressed.connect(_open_mp_screen)
 	box.add_child(mp)
+
+	# Compact engagement row: daily challenges (with the streak flame),
+	# statistics and the tutorial.
+	var engage := HBoxContainer.new()
+	engage.alignment = BoxContainer.ALIGNMENT_CENTER
+	engage.add_theme_constant_override("separation", 8)
+	var ch := UIKit.pill_button("🔥%d %s" % [Challenges.streak(), tr("MENU_CHALLENGES")],
+			Color("7a4b2a"), Vector2(150, 44), 14)
+	ch.pressed.connect(func(): _swap_screen(_challenges_screen))
+	engage.add_child(ch)
+	var st := UIKit.pill_button(tr("MENU_STATS"), Color("3f5b6e"), Vector2(120, 44), 14)
+	st.pressed.connect(func(): _swap_screen(_stats_screen))
+	engage.add_child(st)
+	var tut := UIKit.pill_button(tr("MENU_HOW_TO"), Color("55617a"), Vector2(110, 44), 14)
+	tut.pressed.connect(func(): tutorial_requested.emit())
+	engage.add_child(tut)
+	box.add_child(engage)
 
 	var appearance := UIKit.pill_button(tr("MENU_APPEARANCE"),
 			Color("55617a"), Vector2(340, 52))
@@ -261,7 +292,8 @@ func _build_mp_screen() -> void:
 
 	var invite := UIKit.pill_button(tr("MP_INVITE"), Color("55617a"), Vector2(340, 48), 18)
 	invite.pressed.connect(func():
-		DisplayServer.clipboard_set(tr("MP_INVITE_TEXT") % room_client.room_code)
+		DisplayServer.clipboard_set(tr("MP_INVITE_TEXT")
+				% [room_client.room_code, room_client.room_code])
 		_mp_status.text = tr("MP_INVITE_COPIED"))
 	var invite_row := HBoxContainer.new()
 	invite_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -298,7 +330,9 @@ func _build_mp_screen() -> void:
 	back_row.add_child(back)
 	box.add_child(back_row)
 
-	_hub().connected_to_server.connect(func(): _mp_status.text = tr("MP_WAITING_INPUT"))
+	_hub().connected_to_server.connect(func():
+		_mp_status.text = tr("MP_WAITING_INPUT")
+		_do_pending_join())
 	_hub().connection_failed_or_lost.connect(func():
 		_mp_status.text = tr("MP_CONN_FAILED"))
 	_hub().joined.connect(func(code, _seat, _token):
@@ -311,6 +345,24 @@ func _build_mp_screen() -> void:
 				if tr("MP_ERR_" + reason.to_upper()) != "MP_ERR_" + reason.to_upper() \
 				else tr("MP_CONN_FAILED"))
 	_hub().room_updated.connect(_on_mp_room_update)
+
+
+## Deep-link entry: open the lobby and join `code` as soon as we connect.
+func auto_join(code: String) -> void:
+	if not NetProtocol.valid_code(code):
+		return
+	_pending_join = code
+	_open_mp_screen()
+	if _hub().is_connected_client:
+		_do_pending_join()
+
+
+func _do_pending_join() -> void:
+	if _pending_join == "":
+		return
+	_mp_status.text = tr("MP_CONNECTING")
+	_hub().rpc_id(1, "sv_join_room", _pending_join, _player_display_name(), "")
+	_pending_join = ""
 
 
 func _open_mp_screen() -> void:
@@ -342,6 +394,149 @@ func _on_mp_room_update(info: Dictionary) -> void:
 func _player_display_name() -> String:
 	var custom := GameSettings.get_player_name()
 	return custom if custom != "" else tr("PLAYER_YOU")
+
+
+## Shared scaffold for the simple list screens (challenges / stats).
+func _list_screen(title_key: String) -> Array:
+	var screen := ScrollContainer.new()
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.visible = false
+	add_child(screen)
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	screen.add_child(center)
+	var panel := PanelContainer.new()
+	var sb := UIKit.panel_style(Color(UIKit.TABLE_MID, 0.97), 20, UIKit.GOLD, 2)
+	sb.content_margin_left = 34
+	sb.content_margin_right = 34
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	box.custom_minimum_size = Vector2(540, 0)
+	panel.add_child(box)
+	box.add_child(UIKit.heading(tr(title_key), 30, UIKit.GOLD))
+	return [screen, box]
+
+
+func _screen_back_button(box: VBoxContainer) -> void:
+	box.add_child(_spacer(8))
+	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
+	back.pressed.connect(func(): _swap_screen(_menu_screen))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(back)
+	box.add_child(row)
+
+
+## Progress bar row used by both list screens.
+func _bar_row(label: String, value: float, maximum: float, suffix := "") -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var top := HBoxContainer.new()
+	var lbl := Label.new()
+	lbl.text = label
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", UIKit.CREAM)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(lbl)
+	var val := Label.new()
+	val.text = suffix
+	val.add_theme_font_size_override("font_size", 16)
+	val.add_theme_color_override("font_color", UIKit.GOLD)
+	top.add_child(val)
+	v.add_child(top)
+	var bar := ProgressBar.new()
+	bar.min_value = 0
+	bar.max_value = maxf(maximum, 1.0)
+	bar.value = value
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 10)
+	v.add_child(bar)
+	return v
+
+
+## Daily challenges + streak screen.
+func _build_challenges_screen() -> void:
+	var parts := _list_screen("MENU_CHALLENGES")
+	_challenges_screen = parts[0]
+	var box: VBoxContainer = parts[1]
+
+	var streak := Challenges.streak()
+	box.add_child(UIKit.heading("🔥 %s" % (tr("STREAK_DAYS") % streak), 22,
+			Color("e8934a")))
+	var hint := UIKit.heading(
+			tr("STREAK_KEEP") if not Challenges.played_today()
+			else tr("STREAK_SAFE"), 15, UIKit.CREAM.darkened(0.15))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
+	box.add_child(_spacer(4))
+
+	for ch in Challenges.today():
+		var done: bool = ch.done
+		var label := "%s %s" % ["✅" if done else "▫️", tr(ch.name_key)]
+		box.add_child(_bar_row(label, ch.progress, ch.target,
+				"%d/%d" % [ch.progress, ch.target]))
+	box.add_child(_spacer(2))
+	var reward_note := UIKit.heading(tr("CHALLENGE_REWARD_NOTE")
+			% Challenges.CHALLENGE_POINTS, 13, UIKit.CREAM.darkened(0.3))
+	reward_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(reward_note)
+	_screen_back_button(box)
+
+
+## Personal statistics screen — pure display over the stored counters.
+func _build_stats_screen() -> void:
+	var parts := _list_screen("MENU_STATS")
+	_stats_screen = parts[0]
+	var box: VBoxContainer = parts[1]
+
+	var games := ProgressionStore.games_played()
+	var wins := ProgressionStore.wins()
+	var prog := Progression.progress_for(ProgressionStore.total_points())
+	box.add_child(UIKit.heading("%s  ·  %s" % [tr("PROFILE_LEVEL") % prog.level,
+			tr("STATS_POINTS") % ProgressionStore.total_points()], 18, UIKit.CREAM))
+	box.add_child(_bar_row(tr("STATS_WINRATE"), wins, maxf(games, 1),
+			"%d/%d (%d %%)" % [wins, games, int(100.0 * wins / maxf(games, 1))]))
+
+	box.add_child(UIKit.heading(tr("STATS_BY_DIFFICULTY"), 17, UIKit.CREAM.darkened(0.1)))
+	for ctx in ["easy", "medium", "hard", "multiplayer"]:
+		var g := ProgressionStore.counter("games_" + ctx)
+		if g == 0:
+			continue
+		var w := ProgressionStore.counter("wins_" + ctx)
+		box.add_child(_bar_row(tr("DIFF_" + ctx.to_upper()) if ctx != "multiplayer"
+				else tr("MENU_MULTIPLAYER"), w, g, "%d/%d" % [w, g]))
+
+	box.add_child(UIKit.heading(tr("STATS_PLACES"), 17, UIKit.CREAM.darkened(0.1)))
+	var medals := ["🥇", "🥈", "🥉", "4.", "5."]
+	var most := 1
+	for p in range(1, 6):
+		most = maxi(most, ProgressionStore.counter("pos_%d" % p))
+	for p in range(1, 6):
+		var n := ProgressionStore.counter("pos_%d" % p)
+		if n == 0 and p == 5:
+			continue
+		box.add_child(_bar_row(medals[p - 1], n, most, str(n)))
+
+	# Favourite variant + longest streak, single info lines.
+	var fav := "normal"
+	var fav_n := -1
+	for mode in ["normal", "olympic", "reverse"]:
+		var n := ProgressionStore.counter("mode_" + mode)
+		if n > fav_n:
+			fav_n = n
+			fav = mode
+	var mode_keys := {"normal": "MODE_NORMAL", "olympic": "MODE_OLYMPIC",
+			"reverse": "MODE_REVERSE"}
+	box.add_child(UIKit.heading("%s: %s" % [tr("STATS_FAV_MODE"),
+			tr(mode_keys[fav])], 16, UIKit.CREAM))
+	box.add_child(UIKit.heading("%s: 🔥 %d" % [tr("STATS_LONGEST_STREAK"),
+			Challenges.longest_streak()], 16, UIKit.CREAM))
+	_screen_back_button(box)
 
 
 ## Player chip: name, level and the progress toward the next one. The ✎

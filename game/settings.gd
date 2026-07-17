@@ -136,6 +136,17 @@ static func get_server_url() -> String:
 	return NetProtocol.DEV_URL if OS.has_feature("debug") else NetProtocol.PROD_URL
 
 
+## Tutorial seen-flag: the onboarding auto-opens only on the first launch.
+static func tutorial_seen() -> bool:
+	return _load().get_value("app", "tutorial_seen", false)
+
+
+static func set_tutorial_seen() -> void:
+	var cfg := _load()
+	cfg.set_value("app", "tutorial_seen", true)
+	cfg.save(PATH)
+
+
 ## Player display name; "" = use the localized default ("Ty"/"You").
 static func get_player_name() -> String:
 	return _load().get_value("app", "player_name", "")

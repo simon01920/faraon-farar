@@ -88,6 +88,12 @@ func progression_context() -> String:
 	return GameSettings.get_bot_difficulty()
 
 
+func game_mode() -> String:
+	if match_state == null:
+		return "normal"
+	return "olympic" if match_state.mode == FaraonMatch.Mode.OLYMPIC else "reverse"
+
+
 func propose(player_id: String, action: Dictionary) -> Dictionary:
 	var res := rules.apply(player_id, action)
 	if res.ok:

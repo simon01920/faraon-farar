@@ -408,6 +408,7 @@ func _on_state_updated(events: Array) -> void:
 
 ## Returns true when the event produced a queued animation.
 func _enqueue_event(e: Dictionary) -> bool:
+	Challenges.observe_event(e, _me)
 	match e.get("type", ""):
 		"DEALT":
 			_enqueue(_anim_deal.bind(e.hands))
@@ -1374,10 +1375,14 @@ func _show_game_over(_loser_id: String) -> void:
 	# Progression: award the round once (only when the human played in it).
 	if me != null and me.finish_position != -1:
 		var award := Progression.record_round(s.players.size(),
-				me.finish_position, server.progression_context())
+				me.finish_position, server.progression_context(),
+				server.game_mode())
 		if award.points > 0:
 			_ranking_box.add_child(UIKit.heading(
 					tr("POINTS_EARNED") % award.points, 19, UIKit.GOLD))
+		if award.challenge_points > 0:
+			_ranking_box.add_child(UIKit.heading(
+					tr("CHALLENGE_DONE") % award.challenge_points, 17, Color("6fd08c")))
 		if award.level_after > award.level_before:
 			_ranking_box.add_child(UIKit.heading(
 					tr("LEVEL_UP") % award.level_after, 21, Color("6fd08c")))
