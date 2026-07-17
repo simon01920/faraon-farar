@@ -196,6 +196,18 @@ func _build_settings_screen() -> void:
 	box.add_child(_language_row())
 	box.add_child(_spacer(6))
 
+	box.add_child(UIKit.heading(tr("SETTINGS_AUDIO"), 21, UIKit.CREAM))
+	box.add_child(_audio_row("SETTINGS_SOUND",
+			GameSettings.get_sound_on, GameSettings.set_sound_on,
+			GameSettings.get_sfx_volume, GameSettings.set_sfx_volume))
+	box.add_child(_audio_row("SETTINGS_MUSIC",
+			GameSettings.get_music_on, GameSettings.set_music_on,
+			GameSettings.get_music_volume, GameSettings.set_music_volume))
+	box.add_child(_audio_row("SETTINGS_VIBRATIONS",
+			GameSettings.get_vibrations_on, GameSettings.set_vibrations_on,
+			Callable(), Callable()))
+	box.add_child(_spacer(6))
+
 	box.add_child(UIKit.heading(tr("MENU_RULES"), 21, UIKit.CREAM))
 	var hint := UIKit.heading(tr("MENU_RULES_HINT"), 15, UIKit.CREAM.darkened(0.15))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -748,7 +760,7 @@ func _difficulty_row() -> Control:
 			[["easy", "DIFF_EASY"], ["medium", "DIFF_MEDIUM"], ["hard", "DIFF_HARD"]],
 			func(): return GameSettings.get_bot_difficulty(),
 			func(d): GameSettings.set_bot_difficulty(d),
-			Vector2(104, 40), 16, UIKit.GOLD.darkened(0.35))
+			Vector2(104, 44), 16, UIKit.GOLD.darkened(0.35))
 
 
 func _language_row() -> Control:
@@ -782,6 +794,51 @@ func _language_row() -> Control:
 		TranslationServer.set_locale(next)
 		get_tree().reload_current_scene())
 	h.add_child(lang)
+	return row
+
+
+## One audio setting: big toggle + optional volume slider underneath.
+func _audio_row(label_key: String, get_on: Callable, set_on: Callable,
+		get_vol: Callable, set_vol: Callable) -> Control:
+	var row := PanelContainer.new()
+	var sb := UIKit.panel_style(Color(0, 0, 0, 0.22), 12)
+	sb.shadow_size = 0
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	row.add_theme_stylebox_override("panel", sb)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	row.add_child(v)
+
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	var title := Label.new()
+	title.text = tr(label_key)
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", UIKit.CREAM)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(title)
+	var toggle := CheckButton.new()
+	toggle.button_pressed = get_on.call()
+	toggle.toggled.connect(func(on: bool): set_on.call(on))
+	toggle.scale = Vector2(1.3, 1.3)
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(toggle)
+
+	if get_vol.is_valid():
+		var s := HSlider.new()
+		s.min_value = 0.0
+		s.max_value = 1.0
+		s.step = 0.05
+		s.value = get_vol.call()
+		s.custom_minimum_size = Vector2(0, 34)
+		s.value_changed.connect(func(val: float): set_vol.call(val))
+		v.add_child(s)
 	return row
 
 

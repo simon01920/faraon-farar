@@ -266,6 +266,7 @@ func _build_game_over_layer() -> void:
 	_game_over_layer = Control.new()
 	_game_over_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_game_over_layer.visible = false
+	_game_over_layer.z_index = 50 # above seats/cards added later
 	add_child(_game_over_layer)
 
 	var dim := ColorRect.new()
@@ -567,7 +568,11 @@ func _hand_rows(n: int) -> int:
 ## splits the hand balanced (9 -> 5+4): slots 0..ceil(n/2)-1 sit in the top
 ## row, the rest in the bottom row.
 func _hand_slot(i: int, n: int) -> Vector2:
+	# Big hands get more of the table width so single cards stay readable
+	# (a 19-card fan squeezed into the center strip was ~45 px per card).
 	var reserve := 420.0 if size.x > size.y else 150.0
+	if n > 10 and size.x > size.y:
+		reserve = 200.0
 	if _hand_rows(n) == 1:
 		var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
 		var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
@@ -596,6 +601,7 @@ func _render_hand(hand: Array) -> void:
 		cv.position = _hand_slot(i, n)
 		# The straight two-row grid reads better without the fan tilt.
 		cv.rotation = 0.0 if two_rows else off * 0.032
+		cv.hover_preview = true
 		cv.selected = _selected.has(hand[i])
 		cv.set_order(_selected.find(hand[i]) + 1)
 		cv.tapped.connect(_on_card_tapped)
@@ -998,18 +1004,19 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 ## In-game menu (☰, top-left): resume, restart, audio/vibration toggles and
 ## the way back to the main menu — the table is no longer a dead end.
 func _build_pause_layer() -> void:
-	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
+	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 56), 22)
 	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	btn.offset_left = 16
 	btn.offset_right = 72
 	btn.offset_top = 14
-	btn.offset_bottom = 60
+	btn.offset_bottom = 70
 	btn.pressed.connect(func(): _pause_layer.visible = true)
 	add_child(btn)
 
 	_pause_layer = Control.new()
 	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.visible = false
+	_pause_layer.z_index = 60 # overlays sit above seats added later
 	add_child(_pause_layer)
 
 	var dim := ColorRect.new()
@@ -1048,8 +1055,12 @@ func _build_pause_layer() -> void:
 
 	box.add_child(_pause_toggle("SETTINGS_SOUND",
 			GameSettings.get_sound_on, GameSettings.set_sound_on))
+	box.add_child(_volume_slider(
+			GameSettings.get_sfx_volume, GameSettings.set_sfx_volume, true))
 	box.add_child(_pause_toggle("SETTINGS_MUSIC",
 			GameSettings.get_music_on, GameSettings.set_music_on))
+	box.add_child(_volume_slider(
+			GameSettings.get_music_volume, GameSettings.set_music_volume, false))
 	box.add_child(_pause_toggle("SETTINGS_VIBRATIONS",
 			GameSettings.get_vibrations_on, GameSettings.set_vibrations_on))
 
@@ -1061,9 +1072,10 @@ func _build_pause_layer() -> void:
 func _pause_toggle(label_key: String, getter: Callable, setter: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 12)
+	h.custom_minimum_size = Vector2(300, 48) # comfortable touch row
 	var label := Label.new()
 	label.text = tr(label_key)
-	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_font_size_override("font_size", 21)
 	label.add_theme_color_override("font_color", UIKit.CREAM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1071,8 +1083,27 @@ func _pause_toggle(label_key: String, getter: Callable, setter: Callable) -> Con
 	var toggle := CheckButton.new()
 	toggle.button_pressed = getter.call()
 	toggle.toggled.connect(func(on: bool): setter.call(on))
+	toggle.scale = Vector2(1.35, 1.35) # bigger touch target for the switch
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(toggle)
 	return h
+
+
+## Volume slider under a toggle row; live-applies to the matching bus and
+## gives instant audible feedback for SFX.
+func _volume_slider(getter: Callable, setter: Callable, is_sfx: bool) -> Control:
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = 0.05
+	s.value = getter.call()
+	s.custom_minimum_size = Vector2(300, 34)
+	s.value_changed.connect(func(v: float): setter.call(v))
+	if is_sfx:
+		s.drag_ended.connect(func(changed: bool):
+			if changed:
+				GameAudio.sfx("place_felt"))
+	return s
 
 
 ## Preshuffle: the discard's top card steps aside, the spent pile flips over

@@ -13,11 +13,16 @@ var selected := false:
 	set(v):
 		selected = v
 		_update_selection()
+## Hand-fan preview: hovering (mouse) or selecting (touch/mouse) raises the
+## card above its overlapping neighbours so the whole face is readable.
+## Enabled only for cards sitting in the local hand.
+var hover_preview := false
 
 var _shadow: Panel
 var _face: TextureRect
 var _order_badge: Label
 var _lift := 0.0
+var _hovered := false
 
 
 func _init(id: String = "", width: float = 120.0) -> void:
@@ -26,6 +31,8 @@ func _init(id: String = "", width: float = 120.0) -> void:
 	custom_minimum_size = Vector2(width, width * 1.5)
 	size = custom_minimum_size
 	pivot_offset = size / 2.0
+	mouse_entered.connect(_set_hover.bind(true))
+	mouse_exited.connect(_set_hover.bind(false))
 	var k := width / 120.0 # scale shadow geometry with card size
 
 	_shadow = Panel.new()
@@ -85,9 +92,25 @@ func _refresh_texture() -> void:
 	_face.texture = load(CardSkin.active().texture_path(card_id))
 
 
+func _set_hover(on: bool) -> void:
+	if not hover_preview:
+		return
+	_hovered = on
+	_update_selection()
+
+
 func _update_selection() -> void:
-	# The hand layout owns the position; selection just lifts the art.
-	set_lift(16.0 if selected else 0.0)
+	# The hand layout owns the position; selection/hover lift the art and
+	# pop the card above its neighbours (z-order) so it reads in full.
+	var lift := 0.0
+	if selected:
+		lift += 34.0
+	if _hovered:
+		lift += 26.0
+	set_lift(lift)
+	if hover_preview:
+		z_index = 2 if _hovered else (1 if selected else 0)
+		scale = Vector2(1.12, 1.12) if _hovered else Vector2.ONE
 
 
 ## Shows the 1-based play-order number on the card; n <= 0 hides the badge.

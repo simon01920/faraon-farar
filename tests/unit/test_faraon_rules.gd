@@ -225,6 +225,41 @@ func test_counter_in_multiplayer_shifts_continuation_by_one() -> void:
 	assert_eq(r.state.current_index, 1, "B owns the chain and continues")
 
 
+func test_single_eso_in_three_players_denies_exactly_one_turn() -> void:
+	# Investigation of "I could not get a turn after one ace" reports:
+	# P0 plays ONE eso -> P1 (and only P1) is stopped; P0 gets the free
+	# continuation; afterwards the order resumes P1 -> P2. P2 is never
+	# skipped, only delayed by P0's extra move.
+	var r := make_rules([["AZ", "8Z", "KC"], ["9Z", "8G"], ["XZ", "9G"]], "XZ")
+	assert_true(play(r, "P0", ["AZ"]).ok)
+	assert_eq(r.state.current_index, 1, "the stop lands on the next player")
+	assert_true(r.apply("P1", FaraonActions.pass_turn()).ok)
+	assert_eq(r.state.current_index, 0, "owner's free continuation")
+	assert_true(play(r, "P0", ["8Z"]).ok)
+	assert_eq(r.state.current_index, 1,
+			"after the continuation the order resumes at P1 — nobody is skipped")
+	assert_true(play(r, "P1", ["8G"]).ok)
+	assert_eq(r.state.current_index, 2, "P2 gets the next regular turn")
+
+
+func test_single_eso_with_finished_player_still_reaches_the_survivor() -> void:
+	# The screenshot scenario: 3p game, one player already finished. The
+	# remaining bot plays ONE eso: the human stands, the bot double-moves
+	# (continuation), then the human MUST be on turn.
+	var r := make_rules([["9G"], ["AG", "XG", "7G"], ["XC", "9C", "8C"]], "9Z",
+			["KZ", "KG", "KE", "XG"])
+	assert_true(play(r, "P0", ["9G"]).ok) # P0 finishes and is out of the loop
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED)
+	assert_eq(r.state.current_index, 1)
+	assert_true(play(r, "P1", ["AG"]).ok)
+	assert_eq(r.state.current_index, 2, "P2 (the human) is the stopped one")
+	assert_true(r.apply("P2", FaraonActions.pass_turn()).ok)
+	assert_eq(r.state.current_index, 1, "owner continuation for the bot")
+	assert_true(play(r, "P1", ["XG"]).ok)
+	assert_eq(r.state.current_index, 2,
+			"after the double move the human is guaranteed the turn")
+
+
 # --- sedmy ----------------------------------------------------------------
 
 func test_sevens_accumulate_and_victim_draws_all() -> void:

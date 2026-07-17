@@ -114,15 +114,42 @@ static func set_vibrations_on(on: bool) -> void:
 	cfg.save(PATH)
 
 
-## Pushes the persisted toggles onto the AudioServer buses: "Zvuky" mutes
-## the SFX bus, "Hudba" the Music bus (both defined in default_bus_layout).
+## Per-bus volumes as linear 0..1 sliders (defaults: music at half so it
+## sits under the game, SFX at full).
+static func get_music_volume() -> float:
+	return _load().get_value("app", "music_volume", 0.5)
+
+
+static func set_music_volume(v: float) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "music_volume", clampf(v, 0.0, 1.0))
+	cfg.save(PATH)
+	apply_audio()
+
+
+static func get_sfx_volume() -> float:
+	return _load().get_value("app", "sfx_volume", 1.0)
+
+
+static func set_sfx_volume(v: float) -> void:
+	var cfg := _load()
+	cfg.set_value("app", "sfx_volume", clampf(v, 0.0, 1.0))
+	cfg.save(PATH)
+	apply_audio()
+
+
+## Pushes the persisted toggles + volumes onto the AudioServer buses:
+## "Zvuky" mutes/scales the SFX bus, "Hudba" the Music bus (both defined
+## in default_bus_layout).
 static func apply_audio() -> void:
 	var sfx_bus := AudioServer.get_bus_index("SFX")
 	if sfx_bus != -1:
 		AudioServer.set_bus_mute(sfx_bus, not get_sound_on())
+		AudioServer.set_bus_volume_db(sfx_bus, linear_to_db(maxf(get_sfx_volume(), 0.001)))
 	var music_bus := AudioServer.get_bus_index("Music")
 	if music_bus != -1:
 		AudioServer.set_bus_mute(music_bus, not get_music_on())
+		AudioServer.set_bus_volume_db(music_bus, linear_to_db(maxf(get_music_volume(), 0.001)))
 
 
 ## Multiplayer server URL: dev builds default to the local ws:// endpoint,

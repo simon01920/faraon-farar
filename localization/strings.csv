@@ -124,6 +124,7 @@ RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — a
 GAME_MENU,Menu,Menu
 GAME_RESUME,Pokračovať,Resume
 GAME_RESTART,Reštart hry,Restart game
+SETTINGS_AUDIO,Zvuk a hudba,Sound & music
 SETTINGS_SOUND,Zvuky,Sounds
 SETTINGS_MUSIC,Hudba,Music
 SETTINGS_VIBRATIONS,Vibrácie,Vibrations
