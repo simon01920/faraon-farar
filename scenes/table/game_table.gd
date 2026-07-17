@@ -1,4 +1,4 @@
-﻿class_name GameTable
+class_name GameTable
 extends Control
 ## The playing table. Pure client of a game server node (LocalGameServer now,
 ## networked room client later): it proposes actions and re-renders from the
@@ -543,7 +543,7 @@ func _sorted_hand(cards: Array) -> Array:
 
 ## Minimum readable visible strip per fanned card in PHYSICAL pixels at a
 ## 96-dpi baseline (scaled up on high-dpi phones); below it the hand splits
-## into two rows. Portrait only â€” landscape/tablet has the width for one
+## into two rows. Portrait only — landscape/tablet has the width for one
 ## row even with 14+ cards.
 const MIN_CARD_SPACING_PX := 46.0
 
@@ -664,7 +664,7 @@ func _flight_step(t: float, node: Control, from: Vector2, mid: Vector2,
 	node.global_position = a.lerp(b, t)
 
 
-## Quadratic-bezier flight with a bit of lift â€” no teleports, no straight
+## Quadratic-bezier flight with a bit of lift — no teleports, no straight
 ## laser lines.
 func _fly(node: Control, from: Vector2, to: Vector2, dur: float,
 		arc := 70.0, final_rot := 0.0) -> void:
@@ -702,7 +702,7 @@ func _make_stack(n: int, w: float) -> Control:
 	return holder
 
 
-## Shuffle show before dealing and after a preshuffle â€” alternates between a
+## Shuffle show before dealing and after a preshuffle — alternates between a
 ## riffle (split, interleave, merge) and an overhand (chunks over the top),
 ## per the two reference clips. `quick` halves the repetitions so the reflip
 ## sequence stays under ~1.5s.
@@ -780,7 +780,7 @@ func _anim_shuffle_overhand(at: Vector2, quick: bool) -> void:
 
 
 ## Full-screen spalena moment: ember burst, hot glow, big banner and a long
-## vibration on handhelds â€” the burn spreads over everything but the text.
+## vibration on handhelds — the burn spreads over everything but the text.
 func _anim_spalena() -> void:
 	Haptics.rumble()
 	GameAudio.sfx("spalena1")
@@ -864,7 +864,7 @@ func _anim_spalena() -> void:
 	embers.queue_free()
 
 
-## Deals per-player hand sizes (Olympic rounds shrink them) round-robin â€”
+## Deals per-player hand sizes (Olympic rounds shrink them) round-robin —
 ## one card to each player per lap, exactly like a physical deal. The local
 ## player's cards flip face-up and build the fan one by one; opponents only
 ## ever see backs. The draw pile thins in real time with every card.
@@ -927,7 +927,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 	await _sleep(0.15)
 
 	# Flip the whole block: squeeze, swap the visible face to the bottom
-	# card, unsqueeze â€” the deck now lies "face up".
+	# card, unsqueeze — the deck now lies "face up".
 	GameAudio.sfx("flip")
 	var tw := create_tween()
 	tw.tween_property(pile, "scale:x", 0.0, 0.16 * k) \
@@ -995,10 +995,10 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 	await _sleep(0.1)
 
 
-## In-game menu (â°, top-left): resume, restart, audio/vibration toggles and
-## the way back to the main menu â€” the table is no longer a dead end.
+## In-game menu (☰, top-left): resume, restart, audio/vibration toggles and
+## the way back to the main menu — the table is no longer a dead end.
 func _build_pause_layer() -> void:
-	var btn := UIKit.pill_button("â°", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
+	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 46), 20)
 	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	btn.offset_left = 16
 	btn.offset_right = 72
@@ -1084,7 +1084,7 @@ func _anim_reflip(top_id: String, remaining: int) -> void:
 	var k := _anim_scale()
 	var discard_at := _discard.landing_anchor()
 
-	# Capture the visible tail faces before clearing â€” they become the block
+	# Capture the visible tail faces before clearing — they become the block
 	# that flips; the kept top card becomes its own overlay.
 	var tail_ids: Array = []
 	for c in _discard._cards:
@@ -1263,7 +1263,7 @@ func _do_play() -> void:
 	if _busy or _selected.is_empty():
 		return
 	# Cards go to the server exactly in the order the player numbered them
-	# (1 = first on the pile, last = new top). No silent reordering â€” an
+	# (1 = first on the pile, last = new top). No silent reordering — an
 	# invalid order comes back as a rejection toast and the player fixes it.
 	var ordered: Array = _selected.duplicate()
 	if FaraonCard.is_hornik(ordered.back()):
@@ -1353,7 +1353,7 @@ func _show_game_over(_loser_id: String) -> void:
 		var pb: int = b.finish_position if b.finish_position != -1 else last + 1
 		return pa < pb)
 	for p in ranked:
-		var place := str(p.finish_position) + "." if p.finish_position != -1 else "â€“"
+		var place := str(p.finish_position) + "." if p.finish_position != -1 else "–"
 		var row := UIKit.heading("%s %s" % [place, _display_name(p.id)], 21,
 				UIKit.GOLD if p.finish_position == 1 else UIKit.CREAM)
 		_ranking_box.add_child(row)
@@ -1361,11 +1361,11 @@ func _show_game_over(_loser_id: String) -> void:
 	# Olympic modes: match state (cards next round / out) under the round.
 	if m != null:
 		_ranking_box.add_child(UIKit.heading(
-				tr("MATCH_STANDINGS") + "  Â·  " + tr("MATCH_ROUND") % m.round_number,
+				tr("MATCH_STANDINGS") + "  ·  " + tr("MATCH_ROUND") % m.round_number,
 				17, UIKit.CREAM.darkened(0.2)))
 		for id in m.allotments:
 			var n: int = m.allotments[id]
-			var text := "%s â€” %s" % [_display_name(id),
+			var text := "%s — %s" % [_display_name(id),
 					tr("MATCH_CARDS") % n if n > 0 else tr("MATCH_OUT")]
 			_ranking_box.add_child(UIKit.heading(text, 16,
 					UIKit.CREAM if n > 0 else UIKit.CREAM.darkened(0.45)))
