@@ -54,11 +54,11 @@ TUT_RIGHT,Presne tak! Pokračuj tlačidlom Ďalej.,Exactly! Continue with Next.
 TUT_1_TITLE,Kladenie kariet,Placing cards
 TUT_1_BODY,"Na kôpku môžeš položiť kartu rovnakej farby alebo rovnakého znaku. Na stole je žaluďová osmička — ťukni na kartu, ktorá sa dá zahrať.","You can play a card of the same suit or the same rank. The pile shows the eight of acorns — tap the card that can be played."
 TUT_2_TITLE,Eso — stopka,Ace — the stop
-TUT_2_BODY,"Eso zastaví súpera: vynechá ťah, a ak nemá vlastné eso na obranu, pokračuješ ty. Sleduj ukážku.","An ace stops the opponent: they skip a turn, and unless they answer with their own ace, you continue. Watch the demo."
+TUT_2_BODY,"Eso zastaví najbližšieho hráča: vynechá jeden ťah (ak sa nebráni vlastným esom) a hra ide ďalej v poradí. Jedno eso = jeden vynechaný ťah. Sleduj ukážku.","An ace stops the next player: they skip one turn (unless they defend with their own ace) and play moves on. One ace = one skipped turn. Watch the demo."
 TUT_3_TITLE,Sedma — trestné karty,Seven — penalty cards
 TUT_3_BODY,"Za sedmu si súper ťahá 3 karty. Sedmy sa sčítavajú: dve sedmy = 6 kariet, tri = 9! Obranou je vlastná sedma alebo faraón.","A seven makes the opponent draw 3 cards. Sevens stack: two sevens = 6 cards, three = 9! The defence is your own seven or the faraon."
 TUT_4_TITLE,Červená sedma,The red seven
-TUT_4_BODY,"Červená sedma má zvláštnu moc: vráti do hry súpera, ktorý už dohral — a ešte si potiahne 3 trestné karty.","The red seven has a special power: it returns a player who already finished — and they draw 3 penalty cards on top."
+TUT_4_BODY,"Červená sedma má zvláštnu moc: vráti do hry hráča, ktorý už dohral. Vrátený hráč si vezme 3 karty — to je celý jeho ťah — a hra pokračuje hráčom za tebou.","The red seven has a special power: it returns a player who already finished. They take 3 cards — that counts as their whole turn — and play continues with the player after you."
 TUT_5_TITLE,Faraón (zelený dolník),The faraon
 TUT_5_BODY,"Faraón je žolík: položíš ho na čokoľvek a čokoľvek naň. Zabíja aj celú reťaz sedmičiek — trest padá na nulu.","The faraon is the wild card: play it on anything, anything lands on it. It also kills a whole seven chain — the penalty drops to zero."
 TUT_6_TITLE,Horník mení farbu,The hornik changes suit
@@ -113,12 +113,49 @@ SETTINGS_LANGUAGE,Jazyk,Language
 SETTINGS_MASTER_VOLUME,Hlavná hlasitosť,Master volume
 SETTINGS_SFX_VOLUME,Zvukové efekty,Sound effects
 SETTINGS_MUSIC_VOLUME,Hudba,Music
+MENU_ALT_NAMES,Faraón / Prší,Faraón / Prší
+RULES_EXPLAINER,"Faraón (Farár / Prší) je ľudová hra, ktorá má veľa verzií podľa regiónu alebo skupiny ľudí — každý si ju hrá po svojom. Preto ti dávame možnosť prispôsobiť si niektoré pravidlá podľa toho, ako ich poznáš ty. Predvolené nastavenia vychádzajú z dohľadateľných zdrojov ako najrozšírenejšia a najférovejšia verzia pravidiel.","Faraón (Farár / Prší) is a folk game with many regional versions — everyone plays it their own way. That's why you can tune some rules to match the way you know them. The defaults follow the most widespread and fairest documented version."
+RULES_RESET,Obnoviť predvolené nastavenia,Reset to defaults
+RULES_RESET_CONFIRM,Naozaj vrátiť všetky domáce pravidlá na predvolené hodnoty?,Really reset all house rules to their defaults?
+RULES_RESET_YES,Obnoviť,Reset
+RULES_DEFAULT_IS,Predvolené: %s,Default: %s
+OPT_ON,Zapnuté,On
+OPT_OFF,Vypnuté,Off
+OPT_ANYONE,Kohokoľvek,Anyone
+OPT_ROUND,Len z aktuálneho kola,Current round only
+OPT_NONE,Bez obmedzenia,No restriction
+OPT_NO_SEVEN,Nie sedmou,Not with a seven
+OPT_HORNIK_ONLY,Len horníkom,Ober only
+RULE_PURISTA,Purista režim,Purist mode
+RULE_PURISTA_DESC,"Čistá mau-mau: vypne návrat červenou sedmou, spálenú, eso-reťaz aj špeciálne schopnosti zeleného dolníka. Súvisiace pravidlá nižšie sa zablokujú.","Pure mau-mau: disables the red-seven return, spálená, ace chaining and the green dolník's powers. Related rules below get locked."
+RULE_RED7_ON_ESO,Červená sedma aj na stopku,Red seven onto an active ace
+RULE_RED7_ON_ESO_DESC,"Pri návrate do hry sa červená sedma dá položiť aj na práve vyloženú stopku (eso) — reakcia spotrebuje tvoju stopku.","When returning a player, the red seven may land on a just-played ace — the reaction consumes your stop."
+RULE_ESO_REACTION,Reakcia na eso,Ace reaction window
+RULE_ESO_REACTION_DESC,"Zastavený hráč môže prebiť eso vlastným esom. Vypnutím má eso okamžitý efekt a stopka sa nedá prebiť.","A stopped player may counter an ace with their own. Turning this off makes the ace instant and uncounterable."
+RULE_ESO_NO_COUNTER,Eso sa nedá prebiť,Aces cannot be countered
+RULE_ESO_NO_COUNTER_DESC,"Žiadne reťazenie es: každé eso jednoducho preskočí nasledujúceho hráča a hra ide ďalej.","No ace chaining: each ace simply skips the next player and play moves on."
+RULE_SEVEN_INTERRUPT,Sedma počas ťahania trestu,Seven during penalty draw
+RULE_SEVEN_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš sedmu, môžeš ju hneď vyložiť — trest ide na ďalšieho hráča a vytiahnuté karty si nechávaš.","If you draw a seven while taking a penalty, you may play it at once — the penalty passes on and you keep the cards drawn so far."
+RULE_FARAON_INTERRUPT,Faraón počas ťahania trestu,Faraon during penalty draw
+RULE_FARAON_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš zeleného dolníka, môžeš ho hneď vyložiť a zvyšok trestu sa ruší.","If you draw the green dolník while taking a penalty, you may play it at once and the rest of the penalty is cancelled."
+RULE_GREEN_KING,Špeciálny zelený kráľ,Special green king
+RULE_GREEN_KING_DESC,"Po zahraní zeleného kráľa ťahá ďalší hráč 4 karty (nezávisle od trestu za sedmu).","After the green king the next player draws 4 cards (independent of the seven penalty)."
+RULE_GREEN_KING_COUNTER,Prebíjanie kráľa sedmou,King/seven counters
+RULE_GREEN_KING_COUNTER_DESC,"Zelený kráľ sa dá prebiť zelenou sedmou a naopak.","The green king can be countered by the green seven and vice versa."
+RULE_RED_TEN,Špeciálna červená desiatka,Special red ten
+RULE_RED_TEN_DESC,"Červená desiatka = ďalší hráč ťahá 1 kartu. Dá sa položiť ako obrana na červenú sedmu — potom už bez ďalšej obrany. Na desiatku sa dá položiť červená sedma.","Red ten = next player draws 1. It can defend against the red seven — after it no further defense is possible. The red seven can be played onto the ten."
+RULE_HAND_SIZE,Počet rozdaných kariet,Cards dealt at start
+RULE_HAND_SIZE_DESC,Koľko kariet dostane každý hráč na začiatku hry.,How many cards each player is dealt at the start.
+RULE_SEVEN_STEP,Veľkosť trestu za sedmu,Seven penalty step
+RULE_SEVEN_STEP_DESC,"Trest za jednu sedmu; reťazenie násobí tento krok (napr. krok 2 = 2/4/6/8...).","Penalty per seven; chaining multiplies this step (e.g. step 2 = 2/4/6/8...)."
+RULE_RETURN_SCOPE,Koho vracia červená sedma,Who the red seven returns
+RULE_RETURN_SCOPE_DESC,"Kohokoľvek, kto vypadol od začiatku hry, alebo len hráča z práve prebiehajúceho kola.","Anyone who finished since the game began, or only a player from the current round."
+RULE_FINISH,Zakončenie hry,Finishing the game
+RULE_FINISH_DESC,"Obmedzenie poslednej karty: bez obmedzenia, nie sedmou, alebo výlučne horníkom.","Last-card restriction: none, not with a seven, or exclusively with the ober."
 RULE_FARAON_BLOCKS_ESO,Zelený dolník na všetko,Green dolník blocks everything
 RULE_FARAON_BLOCKS_ESO_DESC,Faraón zablokuje okrem sedmičiek aj esá — reťaz stopiek sa ním dá zrušiť.,The faraon also blocks aces — an ace chain can be cancelled with it.
 RULE_HORNIK_STRICT,Horník len na farbu a typ,Hornik only on suit or rank
 RULE_HORNIK_STRICT_DESC,Horník sa dá položiť len ak sedí farba alebo znak; až potom mení farbu.,The hornik can only be played on a matching suit or rank; only then it changes the suit.
-RULE_ESO_ROUND_ROBIN,Stopovanie esami dookola,Ace stops go around
-RULE_ESO_ROUND_ROBIN_DESC,"Stopy z es sa rozdávajú v poradí vrátane teba: pri dvoch esách stojí súper, stojíš ty a hrá súper.","Ace stops are dealt around the table including you: with two aces the opponent stands, you stand, the opponent plays."
 RULE_SPALENA_MULTIPLY,Násobenie spálenej,Burned multiplication
 RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — aj dve rôzne karty samostatne.,A second burned four-of-a-kind in a row grants two extra moves — even two different cards separately.
 GAME_MENU,Menu,Menu

@@ -18,6 +18,7 @@ var room_client: RoomClient
 ## toward the bottom-right and possibly off-screen/unclickable).
 var _menu_screen: ScrollContainer
 var _settings_screen: ScrollContainer
+var _rules_box: VBoxContainer
 var _appearance_screen: ScrollContainer
 var _mp_screen: ScrollContainer
 var _mp_status: Label
@@ -106,7 +107,10 @@ func _build_menu() -> void:
 
 	var title := UIKit.heading(tr("APP_NAME"), 60, UIKit.GOLD)
 	box.add_child(title)
-	var subtitle := UIKit.heading(tr("MENU_SUBTITLE"), 18, UIKit.CREAM.darkened(0.1))
+	# C1: alternatívne ľudové názvy hry pod hlavným nadpisom.
+	var alt := UIKit.heading(tr("MENU_ALT_NAMES"), 20, UIKit.GOLD.darkened(0.25))
+	box.add_child(alt)
+	var subtitle := UIKit.heading(tr("MENU_SUBTITLE"), 16, UIKit.CREAM.darkened(0.2))
 	box.add_child(subtitle)
 	box.add_child(_spacer(10))
 	box.add_child(_profile_row())
@@ -209,12 +213,36 @@ func _build_settings_screen() -> void:
 	box.add_child(_spacer(6))
 
 	box.add_child(UIKit.heading(tr("MENU_RULES"), 21, UIKit.CREAM))
-	var hint := UIKit.heading(tr("MENU_RULES_HINT"), 15, UIKit.CREAM.darkened(0.15))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(hint)
+	# C3: vysvetlenie, prečo sú pravidlá prispôsobiteľné.
+	var explain := PanelContainer.new()
+	var esb := UIKit.panel_style(Color(0, 0, 0, 0.28), 12)
+	esb.shadow_size = 0
+	esb.content_margin_left = 14
+	esb.content_margin_right = 14
+	esb.content_margin_top = 10
+	esb.content_margin_bottom = 10
+	explain.add_theme_stylebox_override("panel", esb)
+	var etext := Label.new()
+	etext.text = tr("RULES_EXPLAINER")
+	etext.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	etext.add_theme_font_size_override("font_size", 14)
+	etext.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.1))
+	explain.add_child(etext)
+	box.add_child(explain)
 
-	for key in GameSettings.RULE_TOGGLES:
-		box.add_child(_toggle_row(key, GameSettings.RULE_TOGGLES[key]))
+	# C2: reset na predvolené s potvrdením.
+	var reset_row := HBoxContainer.new()
+	reset_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var reset := UIKit.pill_button(tr("RULES_RESET"), Color("7a4a3a"),
+			Vector2(320, 44), 16)
+	reset.pressed.connect(_confirm_rules_reset)
+	reset_row.add_child(reset)
+	box.add_child(reset_row)
+
+	_rules_box = VBoxContainer.new()
+	_rules_box.add_theme_constant_override("separation", 8)
+	box.add_child(_rules_box)
+	_rebuild_rule_rows()
 
 	box.add_child(_spacer(10))
 	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
@@ -225,6 +253,186 @@ func _build_settings_screen() -> void:
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
 	box.add_child(back_row)
+
+
+func _confirm_rules_reset() -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = tr("RULES_RESET_CONFIRM")
+	dialog.ok_button_text = tr("RULES_RESET_YES")
+	dialog.cancel_button_text = tr("MENU_BACK_SHORT")
+	dialog.confirmed.connect(func():
+		GameSettings.reset_rules()
+		_rebuild_rule_rows())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+## Či je pravidlo v UI zablokované konfliktom (E: Purista, vnorené D12b).
+func _rule_disabled(key: String) -> bool:
+	if key == "green_king_counter" and not GameSettings.get_rule("green_king"):
+		return true
+	if GameSettings.get_rule("purista") \
+			and GameSettings.DISABLED_BY_PURISTA.has(key):
+		return true
+	return false
+
+
+## Postaví/rebuildne všetky riadky pravidiel (toggle/slider/segment) s C2
+## označením predvolenej hodnoty a zablokovaním konfliktov.
+func _rebuild_rule_rows() -> void:
+	for c in _rules_box.get_children():
+		c.queue_free()
+	for key in GameSettings.RULE_TOGGLES:
+		_rules_box.add_child(_rule_toggle_row(key, GameSettings.RULE_TOGGLES[key]))
+	for key in GameSettings.RULE_VALUES:
+		var spec: Array = GameSettings.RULE_VALUES[key]
+		if spec[1] == "slider":
+			_rules_box.add_child(_rule_slider_row(key, spec[0], spec[2]))
+		else:
+			_rules_box.add_child(_rule_segment_row(key, spec[0], spec[2]))
+
+
+func _rule_row_base(key: String, label_key: String, non_default: bool) -> Array:
+	var row := PanelContainer.new()
+	var sb := UIKit.panel_style(Color(0, 0, 0, 0.22), 12)
+	sb.shadow_size = 0
+	if non_default:
+		sb.border_color = UIKit.GOLD.darkened(0.15)
+		sb.set_border_width_all(2) # C2: odlíšenie upravenej hodnoty
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	row.add_theme_stylebox_override("panel", sb)
+	if _rule_disabled(key):
+		row.modulate = Color(1, 1, 1, 0.45)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	row.add_child(v)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	v.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var title := Label.new()
+	title.text = tr(label_key)
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", UIKit.CREAM)
+	texts.add_child(title)
+	var desc := Label.new()
+	desc.text = tr(label_key + "_DESC")
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 14)
+	desc.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.3))
+	texts.add_child(desc)
+	h.add_child(texts)
+	return [row, v, h, texts]
+
+
+func _default_badge(text: String) -> Label:
+	var badge := Label.new()
+	badge.text = text
+	badge.add_theme_font_size_override("font_size", 12)
+	badge.add_theme_color_override("font_color", UIKit.GOLD.darkened(0.1))
+	return badge
+
+
+func _rule_toggle_row(key: String, label_key: String) -> Control:
+	var def: bool = GameSettings.rule_default(key)
+	var cur := GameSettings.get_rule(key)
+	var parts := _rule_row_base(key, label_key, cur != def)
+	var row: PanelContainer = parts[0]
+	var h: HBoxContainer = parts[2]
+	var texts: VBoxContainer = parts[3]
+	# C2: štítok predvolenej hodnoty.
+	texts.add_child(_default_badge(tr("RULES_DEFAULT_IS") % \
+			(tr("OPT_ON") if def else tr("OPT_OFF"))))
+	var toggle := CheckButton.new()
+	toggle.button_pressed = cur
+	toggle.disabled = _rule_disabled(key)
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	toggle.toggled.connect(func(on: bool):
+		GameSettings.set_rule(key, on)
+		# Purista / zelený kráľ menia dostupnosť ostatných riadkov.
+		if key == "purista" or key == "green_king":
+			_rebuild_rule_rows())
+	h.add_child(toggle)
+	return row
+
+
+func _rule_slider_row(key: String, label_key: String, minmax: Array) -> Control:
+	var def: int = GameSettings.rule_default(key)
+	var cur: int = GameSettings.get_rule_value(key)
+	var parts := _rule_row_base(key, label_key, cur != def)
+	var row: PanelContainer = parts[0]
+	var v: VBoxContainer = parts[1]
+	var texts: VBoxContainer = parts[3]
+	texts.add_child(_default_badge(tr("RULES_DEFAULT_IS") % str(def)))
+	var slide_h := HBoxContainer.new()
+	slide_h.add_theme_constant_override("separation", 12)
+	var s := HSlider.new()
+	s.min_value = minmax[0]
+	s.max_value = minmax[1]
+	s.step = 1
+	s.value = cur
+	s.editable = not _rule_disabled(key)
+	s.custom_minimum_size = Vector2(0, 34)
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var value_label := Label.new()
+	value_label.text = str(cur)
+	value_label.add_theme_font_size_override("font_size", 20)
+	value_label.add_theme_color_override("font_color", UIKit.GOLD)
+	s.value_changed.connect(func(val: float):
+		GameSettings.set_rule_value(key, int(val))
+		value_label.text = str(int(val)))
+	slide_h.add_child(s)
+	slide_h.add_child(value_label)
+	v.add_child(slide_h)
+	return row
+
+
+func _rule_segment_row(key: String, label_key: String, options: Array) -> Control:
+	var def: Variant = GameSettings.rule_default(key)
+	var cur: Variant = GameSettings.get_rule_value(key)
+	var parts := _rule_row_base(key, label_key, cur != def)
+	var row: PanelContainer = parts[0]
+	var v: VBoxContainer = parts[1]
+	var seg := HBoxContainer.new()
+	seg.alignment = BoxContainer.ALIGNMENT_CENTER
+	seg.add_theme_constant_override("separation", 8)
+	var buttons := {}
+	var recolor := func():
+		for opt in buttons:
+			var b: Button = buttons[opt]
+			b.modulate = Color(1, 1, 1,
+					1.0 if GameSettings.get_rule_value(key) == opt else 0.45)
+	for opt in options:
+		var label := _option_label(key, opt)
+		# C2: predvolená možnosť je označená bodkou priamo v štítku.
+		if opt == def:
+			label += " •"
+		var b := UIKit.pill_button(label, Color("55617a"), Vector2(150, 40), 14)
+		b.disabled = _rule_disabled(key)
+		b.pressed.connect(func():
+			GameSettings.set_rule_value(key, opt)
+			recolor.call())
+		buttons[opt] = b
+		seg.add_child(b)
+	recolor.call()
+	v.add_child(seg)
+	return row
+
+
+func _option_label(key: String, opt: Variant) -> String:
+	if opt is int:
+		return str(opt)
+	match str(opt):
+		"anyone": return tr("OPT_ANYONE")
+		"round": return tr("OPT_ROUND")
+		"none": return tr("OPT_NONE")
+		"no_seven": return tr("OPT_NO_SEVEN")
+		"hornik_only": return tr("OPT_HORNIK_ONLY")
+	return str(opt)
 
 
 ## Multiplayer lobby: connect, create/join a room by code, see who is

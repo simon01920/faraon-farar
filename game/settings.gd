@@ -7,13 +7,38 @@ extends RefCounted
 
 const PATH := "user://settings.cfg"
 
-## key -> [SK label key, SK description key]; the UI builds itself from this.
+## Bool pravidlá v poradí zobrazenia: key -> label key (popis = kľúč + "_DESC").
+## D9 „eso_reaction" nie je pole enginu — build_variant ho preloží na
+## eso_no_counter (vypnutá reakcia = eso sa nedá prebiť + okamžitý efekt).
 const RULE_TOGGLES := {
+	"purista": "RULE_PURISTA",
 	"faraon_blocks_eso": "RULE_FARAON_BLOCKS_ESO",
 	"hornik_strict": "RULE_HORNIK_STRICT",
-	"eso_round_robin": "RULE_ESO_ROUND_ROBIN",
 	"spalena_multiply": "RULE_SPALENA_MULTIPLY",
+	"red7_on_active_eso": "RULE_RED7_ON_ESO",
+	"eso_reaction": "RULE_ESO_REACTION",
+	"eso_no_counter": "RULE_ESO_NO_COUNTER",
+	"seven_interrupt": "RULE_SEVEN_INTERRUPT",
+	"faraon_interrupt": "RULE_FARAON_INTERRUPT",
+	"green_king": "RULE_GREEN_KING",
+	"green_king_counter": "RULE_GREEN_KING_COUNTER",
+	"red_ten": "RULE_RED_TEN",
 }
+
+## Hodnotové pravidlá: key -> [label key, widget, options].
+const RULE_VALUES := {
+	"initial_hand_size": ["RULE_HAND_SIZE", "slider", [4, 7]],
+	"seven_penalty_step": ["RULE_SEVEN_STEP", "segment", [2, 3, 4]],
+	"red7_return_scope": ["RULE_RETURN_SCOPE", "segment", ["anyone", "round"]],
+	"finish_rule": ["RULE_FINISH", "segment", ["none", "no_seven", "hornik_only"]],
+}
+
+## D10 Purista vypína závislé pravidlá (E: konflikty) — UI ich disabluje.
+const DISABLED_BY_PURISTA := [
+	"faraon_blocks_eso", "spalena_multiply", "red7_on_active_eso",
+	"eso_reaction", "eso_no_counter", "seven_interrupt", "faraon_interrupt",
+	"green_king", "green_king_counter", "red_ten", "red7_return_scope",
+]
 
 
 static func _load() -> ConfigFile:
@@ -22,8 +47,16 @@ static func _load() -> ConfigFile:
 	return cfg
 
 
+## Predvolená hodnota pravidla (C2 badge + reset) — jediný zdroj: engine
+## DEFAULTS, plus UI-only kľúč eso_reaction (D9, default zapnuté).
+static func rule_default(key: String) -> Variant:
+	if key == "eso_reaction":
+		return true
+	return RulesVariant.DEFAULTS.get(key, false)
+
+
 static func get_rule(key: String) -> bool:
-	return _load().get_value("rules", key, false)
+	return _load().get_value("rules", key, rule_default(key))
 
 
 static func set_rule(key: String, value: bool) -> void:
@@ -32,11 +65,35 @@ static func set_rule(key: String, value: bool) -> void:
 	cfg.save(PATH)
 
 
+static func get_rule_value(key: String) -> Variant:
+	return _load().get_value("rules", key, rule_default(key))
+
+
+static func set_rule_value(key: String, value: Variant) -> void:
+	var cfg := _load()
+	cfg.set_value("rules", key, value)
+	cfg.save(PATH)
+
+
+## C2: „Obnoviť predvolené nastavenia" — zmaže celú sekciu pravidiel.
+static func reset_rules() -> void:
+	var cfg := _load()
+	if cfg.has_section("rules"):
+		cfg.erase_section("rules")
+	cfg.save(PATH)
+
+
 static func build_variant() -> RulesVariant:
 	var v := RulesVariant.classic()
-	var cfg := _load()
-	for key in RULE_TOGGLES:
-		v.set(key, cfg.get_value("rules", key, false))
+	for key in RulesVariant.RULE_KEYS:
+		if key == "end_on_first_finish":
+			continue # runtime flag, nie používateľské pravidlo
+		v.set(key, get_rule(key))
+	for key in RulesVariant.VALUE_KEYS:
+		v.set(key, get_rule_value(key))
+	# D9 vypnutá reakcia = eso bez prebíjania (rovnaký engine efekt ako D3).
+	if not get_rule("eso_reaction"):
+		v.eso_no_counter = true
 	return v
 
 

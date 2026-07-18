@@ -913,10 +913,11 @@ func _anim_deal(hands: Dictionary) -> void:
 			await _sleep(0.02)
 
 
-## Start card was eso/sedma/hornik: the whole draw pile flips over as one
-## block (same pseudo-3D language as the preshuffle) to reveal the bottom
-## card that decides validity/suit, holds long enough to read, and flips
-## back. The suit chip under the pile stays as the persistent information.
+## 3.1 variant B+C (schválené): balíček sa zdvihne k hráčovi ako pri
+## nakuknutí pod spodok (rast + hlbšie tiene + naklopenie ~6°), rýchlo sa
+## flipne a určujúca SPODNÁ KARTA sa vysunie do stredu, zväčšená ~1.5× so
+## žiarou; po pauze sa vráti, blok sa flipne späť a položí sa. Farbový chip
+## pod kôpkou ostáva ako trvalá informácia.
 func _anim_start_deck_flip(bottom: String) -> void:
 	var k := _anim_scale()
 	var at := _deck.top_anchor()
@@ -933,46 +934,90 @@ func _anim_start_deck_flip(bottom: String) -> void:
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pile.add_child(cv)
 		block.append(cv)
-	await _sleep(0.15)
+	await _sleep(0.1)
 
-	# Flip the whole block: squeeze, swap the visible face to the bottom
-	# card, unsqueeze — the deck now lies "face up".
+	# C: „peek" — balíček sa zdvihne (zväčšenie + hlbšie tiene) a naklopí.
+	for cv in block:
+		cv.set_lift(16.0)
+	var lift_tw := create_tween()
+	lift_tw.set_parallel(true)
+	lift_tw.tween_property(pile, "scale", Vector2(1.12, 1.12), 0.22 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	lift_tw.tween_property(pile, "rotation", 0.1, 0.22 * k)
+	lift_tw.tween_property(pile, "position:y", pile.position.y - 16.0, 0.22 * k)
+	await lift_tw.finished
+
+	# B: rýchly flip celého bloku...
 	GameAudio.sfx("flip")
 	var tw := create_tween()
-	tw.tween_property(pile, "scale:x", 0.0, 0.16 * k) \
+	tw.tween_property(pile, "scale:x", 0.0, 0.12 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func():
-		block.back().set_card(bottom)
-		block.back().set_lift(14.0))
-	tw.tween_property(pile, "scale:x", 1.0, 0.16 * k) \
+	tw.tween_callback(func(): block.back().set_card(bottom))
+	tw.tween_property(pile, "scale:x", 1.12, 0.12 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await tw.finished
-	await _sleep(0.85)
 
-	# ...and back face-down into place.
+	# ...a určujúca karta sa vysunie do stredu, zväčšená a so žiarou.
+	GameAudio.sfx("pull")
+	var focus := _spawn_overlay(bottom, 150,
+			pile.global_position + Vector2(-20, 0))
+	focus.set_lift(22.0)
+	focus.modulate = Color(1.25, 1.2, 1.0) # teplá žiara
+	var center := Vector2(size.x / 2.0 - 75, size.y * 0.34 - 110)
+	var out_tw := create_tween()
+	out_tw.set_parallel(true)
+	out_tw.tween_property(focus, "global_position", center, 0.26 * k) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	out_tw.tween_property(focus, "scale", Vector2(1.5, 1.5), 0.26 * k) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await out_tw.finished
+	await _sleep(0.6)
+	var back_in := create_tween()
+	back_in.set_parallel(true)
+	back_in.tween_property(focus, "global_position", pile.global_position, 0.2 * k) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	back_in.tween_property(focus, "scale", Vector2.ONE, 0.2 * k)
+	back_in.tween_property(focus, "modulate:a", 0.0, 0.2 * k)
+	await back_in.finished
+	focus.queue_free()
+
+	# Blok sa flipne späť rubom hore a položí sa na miesto.
 	GameAudio.sfx("flip")
 	var back_tw := create_tween()
-	back_tw.tween_property(pile, "scale:x", 0.0, 0.14 * k) \
+	back_tw.tween_property(pile, "scale:x", 0.0, 0.12 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	back_tw.tween_callback(func():
-		block.back().set_card("")
-		block.back().set_lift(0.0))
-	back_tw.tween_property(pile, "scale:x", 1.0, 0.14 * k) \
+	back_tw.tween_callback(func(): block.back().set_card(""))
+	back_tw.tween_property(pile, "scale:x", 1.12, 0.12 * k) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await back_tw.finished
+	var settle := create_tween()
+	settle.set_parallel(true)
+	settle.tween_property(pile, "scale", Vector2.ONE, 0.18 * k) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	settle.tween_property(pile, "rotation", 0.0, 0.18 * k)
+	settle.tween_property(pile, "position:y", pile.position.y + 16.0, 0.18 * k)
+	await settle.finished
 	pile.queue_free()
+	GameAudio.place_sfx()
 	await _sleep(0.1)
 
 
+## 3.2 variant C (schválené): štartovacia karta sa presunie RUBOM HORE z
+## balíčka na kôpku a až tam sa otočí lícom — ako pri pasiansovej kôpke.
 func _anim_start_card(card: String) -> void:
+	var k := _anim_scale()
 	var cv := _spawn_overlay("", 120, _deck.top_anchor())
-	cv.flip_to(card, 0.3)
-	await _fly(cv, _deck.top_anchor(), _discard.landing_anchor(), 0.36, 60.0,
+	GameAudio.sfx("slide")
+	await _fly(cv, _deck.top_anchor(), _discard.landing_anchor(), 0.3, 40.0,
 			DiscardStack.rot_for(card))
+	_deck.set_count(maxi(_deck_shown() - 1, 0))
+	await _sleep(0.12)
+	GameAudio.sfx("flip")
+	cv.flip_to(card, 0.32 * k)
+	await _sleep(0.36)
 	cv.queue_free()
 	_discard.push_card(card)
 	GameAudio.place_sfx()
-	_deck.set_count(maxi(_deck_shown() - 1, 0))
 	await _sleep(0.15)
 
 
