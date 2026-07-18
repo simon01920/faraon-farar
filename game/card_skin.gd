@@ -37,6 +37,9 @@ func _init(p_id: String, p_name_key: String, base_dir: String,
 func texture_path(card_id: String) -> String:
 	if card_id == "":
 		return back_path()
+	if FaraonCard.is_reverse(card_id):
+		# D7: Tanečnica má jeden spoločný asset naprieč skinmi.
+		return "res://assets/reverse_specialcard.png"
 	match _layout:
 		"suit_dirs":
 			return "%s/%s/%s.png" % [_base_dir,

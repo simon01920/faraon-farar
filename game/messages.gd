@@ -9,11 +9,13 @@ const DRAW := "DRAW"
 const PASS := "PASS" # only legal answer to an open eso chain besides playing esos
 
 
-static func play(cards: Array, declared_suit: int = -1) -> Dictionary:
+static func play(cards: Array, declared_suit: int = -1,
+		declared_rank: int = -1) -> Dictionary:
 	return {
 		"action": PLAY_CARDS,
 		"cards": cards,
 		"declared_suit": declared_suit,
+		"declared_rank": declared_rank, # D11: hlásenie hodnoty spodkom
 	}
 
 

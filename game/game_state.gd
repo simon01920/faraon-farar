@@ -67,6 +67,10 @@ var pending_hard_penalty: bool = false
 ## Remaining players to be stopped by the open eso chain (0 = no chain).
 ## A2: stops only skip players in seating order — no continuation owner.
 var pending_aces: int = 0
+## D7/D15: smer hry (1 = v smere hodinových ručičiek, -1 = proti).
+var direction: int = 1
+## D11: ohlásená hodnota po vyložení spodka-meniča (-1 = žiadna).
+var announced_rank: int = -1
 var phase: int = Phase.PLAYING
 var loser_index: int = -1
 ## Increments after every completed action; timestamps player finishes.
@@ -103,11 +107,12 @@ func active_count() -> int:
 	return n
 
 
-## Next ACTIVE player index strictly after i (wraps). Returns i itself only
-## if it is the sole active player; -1 when nobody is active.
+## Next ACTIVE player index strictly after i in the current play direction
+## (wraps). Returns i itself only if it is the sole active player; -1 when
+## nobody is active.
 func next_active_index(i: int) -> int:
 	for step in range(1, players.size() + 1):
-		var j := (i + step) % players.size()
+		var j := posmod(i + step * direction, players.size())
 		if players[j].status == PlayerStatus.ACTIVE:
 			return j
 	return -1
@@ -132,6 +137,8 @@ func to_dict() -> Dictionary:
 		"interrupt_card": interrupt_card,
 		"pending_hard_penalty": pending_hard_penalty,
 		"pending_aces": pending_aces,
+		"direction": direction,
+		"announced_rank": announced_rank,
 		"phase": phase,
 		"loser_index": loser_index,
 		"turn_counter": turn_counter,
@@ -155,6 +162,8 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.interrupt_card = d.get("interrupt_card", "")
 	s.pending_hard_penalty = d.get("pending_hard_penalty", false)
 	s.pending_aces = d.get("pending_aces", 0)
+	s.direction = d.get("direction", 1)
+	s.announced_rank = d.get("announced_rank", -1)
 	s.phase = d.get("phase", Phase.PLAYING)
 	s.loser_index = d.get("loser_index", -1)
 	s.turn_counter = d.get("turn_counter", 0)

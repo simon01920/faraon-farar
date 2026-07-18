@@ -19,6 +19,7 @@ var room_client: RoomClient
 var _menu_screen: ScrollContainer
 var _settings_screen: ScrollContainer
 var _rules_box: VBoxContainer
+var _dev_taps := 0
 var _appearance_screen: ScrollContainer
 var _mp_screen: ScrollContainer
 var _mp_status: Label
@@ -195,7 +196,20 @@ func _build_settings_screen() -> void:
 	box.custom_minimum_size = Vector2(620, 0)
 	panel.add_child(box)
 
-	box.add_child(UIKit.heading(tr("MENU_SETTINGS"), 30, UIKit.GOLD))
+	var settings_title := UIKit.heading(tr("MENU_SETTINGS"), 30, UIKit.GOLD)
+	# Dev režim: 7 ťukov na nadpis (klasický Android vzor).
+	settings_title.mouse_filter = Control.MOUSE_FILTER_STOP
+	settings_title.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed:
+			_dev_taps += 1
+			if _dev_taps >= 7:
+				_dev_taps = 0
+				GameSettings.set_dev_mode(not GameSettings.dev_mode())
+				settings_title.text = tr("MENU_SETTINGS") \
+						+ ("  [DEV]" if GameSettings.dev_mode() else ""))
+	if GameSettings.dev_mode():
+		settings_title.text = tr("MENU_SETTINGS") + "  [DEV]"
+	box.add_child(settings_title)
 
 	box.add_child(_language_row())
 	box.add_child(_spacer(6))
@@ -267,12 +281,16 @@ func _confirm_rules_reset() -> void:
 	dialog.popup_centered()
 
 
-## Či je pravidlo v UI zablokované konfliktom (E: Purista, vnorené D12b).
+## Či je pravidlo v UI zablokované konfliktom (E: Purista, Hospodské prší,
+## vnorené D12b).
 func _rule_disabled(key: String) -> bool:
 	if key == "green_king_counter" and not GameSettings.get_rule("green_king"):
 		return true
 	if GameSettings.get_rule("purista") \
 			and GameSettings.DISABLED_BY_PURISTA.has(key):
+		return true
+	if GameSettings.get_rule("pub_mode") \
+			and GameSettings.DISABLED_BY_PUB.has(key):
 		return true
 	return false
 
@@ -353,8 +371,8 @@ func _rule_toggle_row(key: String, label_key: String) -> Control:
 	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	toggle.toggled.connect(func(on: bool):
 		GameSettings.set_rule(key, on)
-		# Purista / zelený kráľ menia dostupnosť ostatných riadkov.
-		if key == "purista" or key == "green_king":
+		# Purista / Hospodské prší / zelený kráľ menia dostupnosť riadkov.
+		if key == "purista" or key == "green_king" or key == "pub_mode":
 			_rebuild_rule_rows())
 	h.add_child(toggle)
 	return row

@@ -63,6 +63,10 @@ static func valid_action(action) -> bool:
 				if not (c is String) or not FaraonCard.is_valid_id(c):
 					return false
 			var declared = action.get("declared_suit", -1)
-			return (declared is int or declared is float) \
-					and int(declared) >= -1 and int(declared) <= 3
+			if not ((declared is int or declared is float) \
+					and int(declared) >= -1 and int(declared) <= 3):
+				return false
+			var declared_rank = action.get("declared_rank", -1)
+			return (declared_rank is int or declared_rank is float) \
+					and int(declared_rank) >= -1 and int(declared_rank) <= 7
 	return false

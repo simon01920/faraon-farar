@@ -67,6 +67,18 @@ var red_ten := false
 ## D14: obmedzenie poslednej karty: "none" / "no_seven" / "hornik_only".
 var finish_rule := "none"
 
+## D7a: Tanečnica/Otočka — 33. karta navyše, ktorá otáča smer hry.
+var reverse_card := false
+
+## D11: spodky (dolníky okrem zeleného = faraóna) sú meničmi HODNOTY —
+## pri vyložení hráč ohlási znak; ostatní ťahajú, kým ho niekto nepoloží
+## alebo neprebije ďalším spodkom.
+var unter_announcer := false
+
+## D15: Hospodské prší — submód: zapína D11, zeleného kráľa BEZ prebíjacej
+## varianty a všetky desiatky obracajú smer hry. Vylučuje sa s D13.
+var pub_mode := false
+
 ## B2 (runtime, nie používateľské pravidlo): sub-kolo olympijského zápasu
 ## končí hneď prvým dohratým hráčom — zvyšok rieši rozstrel v meta-vrstve.
 var end_on_first_finish := false
@@ -75,7 +87,8 @@ const RULE_KEYS := [
 	"faraon_blocks_eso", "hornik_strict", "spalena_multiply",
 	"red7_on_active_eso", "eso_no_counter", "seven_interrupt",
 	"faraon_interrupt", "purista", "green_king", "green_king_counter",
-	"red_ten", "end_on_first_finish",
+	"red_ten", "reverse_card", "unter_announcer", "pub_mode",
+	"end_on_first_finish",
 ]
 const VALUE_KEYS := ["initial_hand_size", "seven_penalty_step",
 	"red7_return_scope", "finish_rule"]
@@ -89,6 +102,7 @@ const DEFAULTS := {
 	"green_king_counter": false, "red_ten": false,
 	"initial_hand_size": 5, "seven_penalty_step": 3,
 	"red7_return_scope": "anyone", "finish_rule": "none",
+	"reverse_card": false, "unter_announcer": false, "pub_mode": false,
 	"end_on_first_finish": false,
 }
 
@@ -120,6 +134,30 @@ func counter_allowed() -> bool:
 
 func faraon_is_wild() -> bool:
 	return not purista
+
+
+## D11/D15: spodok-menič aktívny (Hospodské prší ho zapína automaticky).
+func unter_announcer_active() -> bool:
+	return (unter_announcer or pub_mode) and not purista
+
+
+## D12/D15: zelený kráľ aktívny; v Hospodskom prší vždy, ale bez prebíjania.
+func green_king_active() -> bool:
+	return (green_king or pub_mode) and not purista
+
+
+func green_king_counter_active() -> bool:
+	return green_king_counter and green_king and not pub_mode and not purista
+
+
+## D15: všetky desiatky obracajú smer hry.
+func tens_reverse_active() -> bool:
+	return pub_mode and not purista
+
+
+## D13 sa vylučuje s D15 (desiatka má v každom inú funkciu).
+func red_ten_active() -> bool:
+	return red_ten and not pub_mode and not purista
 
 
 func to_dict() -> Dictionary:

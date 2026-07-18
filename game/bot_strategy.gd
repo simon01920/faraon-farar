@@ -87,6 +87,21 @@ func choose(state: GameState, id: String) -> Dictionary:
 	if state.pending_sevens_draw > 0:
 		return _choose_sevens_defense(state, me, w)
 
+	# D11: ohlásená hodnota — zahraj ju, prebi ďalším spodkom, alebo ťahaj.
+	if state.announced_rank != -1:
+		var matching: Array = me.hand.filter(func(c):
+			return not FaraonCard.is_reverse(c) \
+					and int(FaraonCard.rank_of(c)) == state.announced_rank)
+		if not matching.is_empty():
+			return FaraonActions.play(matching)
+		var trumps: Array = me.hand.filter(func(c):
+			return not FaraonCard.is_reverse(c) \
+					and FaraonCard.rank_of(c) == FaraonCard.Rank.DOLNIK \
+					and not FaraonCard.is_faraon(c))
+		if not trumps.is_empty():
+			return FaraonActions.play([trumps[0]], -1, _best_rank(me.hand, [trumps[0]]))
+		return FaraonActions.draw()
+
 	# Sole survivor: the červená sedma rescue is the only way not to lose on
 	# the spot — every difficulty takes it (the engine picks the victim).
 	if state.active_count() == 1 and me.hand.has("7C") \
@@ -174,7 +189,13 @@ func _add_play_candidate(candidates: Array, state: GameState,
 	var declared := -1
 	if FaraonCard.is_hornik(last):
 		declared = _best_suit(me.hand, ordered)
-	candidates.append({"action": FaraonActions.play(ordered, declared),
+	var declared_rank := -1
+	if state.variant.unter_announcer_active() \
+			and not FaraonCard.is_reverse(last) \
+			and FaraonCard.rank_of(last) == FaraonCard.Rank.DOLNIK \
+			and not FaraonCard.is_faraon(last):
+		declared_rank = _best_rank(me.hand, ordered)
+	candidates.append({"action": FaraonActions.play(ordered, declared, declared_rank),
 			"score": score + _noise(w)})
 
 
@@ -268,6 +289,12 @@ func _has_returnable_target(state: GameState, me: GameState.PlayerState) -> bool
 
 func _opener_legal(state: GameState, card: String) -> bool:
 	var top := state.top_card()
+	if FaraonCard.is_reverse(card) or FaraonCard.is_reverse(top):
+		return true # D7: Tanečnica padne na čokoľvek a čokoľvek na ňu
+	if state.variant.unter_announcer_active() and not FaraonCard.is_reverse(card) \
+			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
+			and not FaraonCard.is_faraon(card):
+		return true # D11: spodok-menič sa odhadzuje voľne
 	if FaraonCard.is_faraon(card) or FaraonCard.is_faraon(top):
 		return true
 	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict:
@@ -318,6 +345,23 @@ func _has_group_of(candidates: Array, card: String) -> bool:
 		if cards.has(card):
 			return true
 	return false
+
+
+## D11: najpočetnejší znak v ruke po odohraní `played` — to hlási spodok.
+func _best_rank(hand: Array, played: Array) -> int:
+	var counts := {}
+	for c in hand:
+		if played.has(c) or FaraonCard.is_reverse(c):
+			continue
+		var r := int(FaraonCard.rank_of(c))
+		counts[r] = counts.get(r, 0) + 1
+	var best := 0
+	var best_n := -1
+	for r in counts:
+		if counts[r] > best_n:
+			best_n = counts[r]
+			best = r
+	return best
 
 
 ## Most common suit among the cards kept after playing `played`.

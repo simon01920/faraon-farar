@@ -44,7 +44,7 @@ func start(player_ids: Array, variant: RulesVariant, seed_value: int,
 	state.current_index = clampi(start_index, 0, player_ids.size() - 1)
 
 	state.rng_seed = seed_value
-	state.draw_pile = FaraonDeck.shuffled(seed_value)
+	state.draw_pile = FaraonDeck.shuffled(seed_value, variant.reverse_card)
 	var events: Array = []
 	var dealt := {}
 	var max_size := 0
@@ -175,11 +175,30 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	if state.pending_sevens_draw > 0:
 		return _apply_sevens_defense(idx, cards, declared)
 
+	# D11: kým je ohlásená hodnota, hrá sa len ona alebo ďalší spodok.
+	if state.announced_rank != -1:
+		var is_rank_match: bool = not FaraonCard.is_reverse(cards[0]) \
+				and int(FaraonCard.rank_of(cards[0])) == state.announced_rank
+		var is_trump := cards.size() >= 1 and _is_announcer(cards.back())
+		if not (is_rank_match or is_trump):
+			return _fail("must_play_announced_rank")
+		return _place_and_resolve(idx, cards,
+				action.get("declared_suit", -1), false,
+				action.get("declared_rank", -1))
+
 	# Bežný ťah: prvá karta musí sedieť na kôpku.
 	if not _first_card_legal(cards[0]):
 		return _fail("card_does_not_match")
 
-	return _place_and_resolve(idx, cards, declared)
+	return _place_and_resolve(idx, cards, declared, false,
+			action.get("declared_rank", -1))
+
+
+## D11: spodky-meniče sú dolníky OKREM zeleného (ten ostáva faraónom).
+func _is_announcer(card: String) -> bool:
+	return not FaraonCard.is_reverse(card) \
+			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
+			and not FaraonCard.is_faraon(card)
 
 
 func _validate_cards_owned(player: GameState.PlayerState, cards: Array) -> String:
@@ -202,11 +221,17 @@ func _validate_cards_owned(player: GameState.PlayerState, cards: Array) -> Strin
 
 func _first_card_legal(card: String) -> bool:
 	var top := state.top_card()
+	# D7: Tanečnica padne na čokoľvek a čokoľvek padne na ňu.
+	if FaraonCard.is_reverse(card) or FaraonCard.is_reverse(top):
+		return true
 	if state.variant.faraon_is_wild():
 		if FaraonCard.is_faraon(card):
 			return true # faraón padne na čokoľvek
 		if FaraonCard.is_faraon(top):
 			return true # ...a čokoľvek padne na faraóna
+	# D11: spodok-menič sa odhadzuje voľne (ako voľný horník).
+	if state.variant.unter_announcer_active() and _is_announcer(card):
+		return true
 	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict:
 		return true
 	if FaraonCard.rank_of(card) == FaraonCard.rank_of(top):
@@ -251,14 +276,21 @@ func _apply_sevens_defense(idx: int, cards: Array, _declared: int) -> Dictionary
 		state.pending_sevens_draw = 0 # faraón ruší celú sedmičkovú reťaz
 		return _place_and_resolve(idx, cards, -1)
 	# D13: červená desiatka ako obrana na červenú sedmu — trest sa zapečatí.
-	if state.variant.red_ten and cards.size() == 1 and cards[0] == "XC" \
+	if state.variant.red_ten_active() and cards.size() == 1 and cards[0] == "XC" \
 			and state.top_card() == "7C":
 		return _place_and_resolve(idx, cards, -1)
-	# D12 prebíjacia varianta: zelený kráľ sa dá položiť na zelenú sedmu.
-	if state.variant.green_king and state.variant.green_king_counter \
+	# D12 prebíjacia varianta: zelený kráľ sa dá položiť na zelenú sedmu
+	# a zelená sedma na kráľa (reťaz pokračuje).
+	if state.variant.green_king_counter_active() \
 			and cards.size() == 1 and cards[0] == "KE" \
 			and state.top_card() == "7E":
 		return _place_and_resolve(idx, cards, -1)
+	if state.variant.green_king_active() and state.top_card() == "KE":
+		if state.variant.green_king_counter_active() \
+				and cards.size() == 1 and cards[0] == "7E":
+			return _place_and_resolve(idx, cards, -1)
+		# Kráľov trest sa bez prebíjacej varianty nedá odraziť.
+		return _fail("penalty_sealed_must_draw")
 	for c in cards:
 		if not FaraonCard.is_sedma(c):
 			return _fail("must_answer_with_sedma_or_faraon")
@@ -279,7 +311,9 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 		state.discard_pile.append(c)
 	state.declared_suit = -1
 
-	var total: int = state.variant.seven_penalty_step
+	# Simonova oprava: PREDCHÁDZAJÚCA reťaz sa neráta, ale sedmy priložené
+	# SPOLU s červenou v tomto ťahu áno — 7C + ďalšia sedma = 2 × krok (6).
+	var total: int = state.variant.seven_penalty_step * cards.size()
 	state.pending_sevens_draw = 0
 	victim.status = Status.ACTIVE
 	victim.finished_at = -1
@@ -331,12 +365,16 @@ func _latest_returnable_index() -> int:
 ## Common tail of every successful card placement: move cards to the pile,
 ## resolve declarations, eso/sedma effects, spálená, finishing and advancing.
 func _place_and_resolve(idx: int, cards: Array, declared: int,
-		is_eso_counter: bool = false) -> Dictionary:
+		is_eso_counter: bool = false, declared_rank: int = -1) -> Dictionary:
 	var player := state.players[idx]
 	var last: String = cards.back()
 	var needs_declaration := FaraonCard.is_hornik(last)
 	if needs_declaration and (declared < 0 or declared > 3):
 		return _fail("declared_suit_required")
+	# D11: spodok-menič vyžaduje ohlásenie hodnoty (znaku).
+	var needs_rank := state.variant.unter_announcer_active() and _is_announcer(last)
+	if needs_rank and (declared_rank < 0 or declared_rank > 7):
+		return _fail("declared_rank_required")
 
 	for c in cards:
 		player.hand.erase(c)
@@ -347,15 +385,33 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 	if needs_declaration:
 		events.append({"type": "SUIT_DECLARED", "suit": declared})
 
-	var rank := FaraonCard.rank_of(cards[0])
+	var rank := FaraonCard.rank_of(cards[0]) if not FaraonCard.is_reverse(cards[0]) \
+			else -1 as FaraonCard.Rank
+	# D11: položenie ohlásenej hodnoty ruší hlásenie; nový spodok prehlási.
+	if state.announced_rank != -1 and int(rank) == state.announced_rank:
+		state.announced_rank = -1
+		events.append({"type": "RANK_ANNOUNCED", "rank": -1})
+	if needs_rank:
+		state.announced_rank = declared_rank
+		events.append({"type": "RANK_ANNOUNCED", "rank": declared_rank})
+
+	if FaraonCard.is_reverse(last):
+		# D7: Tanečnica otáča smer hry.
+		state.direction *= -1
+		events.append({"type": "DIRECTION_REVERSED"})
+	elif state.variant.tens_reverse_active() and rank == FaraonCard.Rank.R10:
+		# D15: v Hospodskom prší každá desiatka obracia smer.
+		state.direction *= -1
+		events.append({"type": "DIRECTION_REVERSED"})
+
 	if not is_eso_counter and rank == FaraonCard.Rank.ESO:
 		state.pending_aces = cards.size()
 	elif rank == FaraonCard.Rank.R7:
 		state.pending_sevens_draw += state.variant.seven_penalty_step * cards.size()
-	elif state.variant.green_king and cards.back() == "KE":
+	elif state.variant.green_king_active() and last == "KE":
 		# D12: zelený kráľ = +4 pre ďalšieho hráča (nezávislé od kroku sedmy).
 		state.pending_sevens_draw += 4
-	elif state.variant.red_ten and cards.back() == "XC":
+	elif state.variant.red_ten_active() and last == "XC":
 		# D13: červená desiatka = ďalší hráč ťahá 1 kartu (bez obrany).
 		state.pending_sevens_draw += 1
 		state.pending_hard_penalty = true

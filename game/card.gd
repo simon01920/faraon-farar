@@ -17,12 +17,23 @@ const SUIT_NAMES := ["žaluď", "červeň", "zeleň", "guľa"]
 const RANK_NAMES := ["sedma", "osma", "devina", "desina", "dolník", "horník", "kráľ", "eso"]
 
 
+## D7a: Tanečnica/Otočka — 33. karta navyše s vlastným ID mimo rank+suit
+## schémy. Padne na čokoľvek, čokoľvek padne na ňu a otáča smer hry.
+const REVERSE_ID := "RV"
+
+
 static func make_id(rank: Rank, suit: Suit) -> String:
 	return RANK_CHARS[rank] + SUIT_CHARS[suit]
 
 
 static func is_valid_id(id: String) -> bool:
+	if id == REVERSE_ID:
+		return true
 	return id.length() == 2 and RANK_CHARS.has(id[0]) and SUIT_CHARS.has(id[1])
+
+
+static func is_reverse(id: String) -> bool:
+	return id == REVERSE_ID
 
 
 static func rank_of(id: String) -> Rank:
@@ -54,6 +65,8 @@ static func is_hornik(id: String) -> bool:
 
 
 static func display_name(id: String) -> String:
+	if is_reverse(id):
+		return "tanečnica"
 	return "%s %s" % [SUIT_NAMES[suit_of(id)], RANK_NAMES[rank_of(id)]]
 
 

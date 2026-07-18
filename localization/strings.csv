@@ -130,8 +130,8 @@ RULE_PURISTA,Purista režim,Purist mode
 RULE_PURISTA_DESC,"Čistá mau-mau: vypne návrat červenou sedmou, spálenú, eso-reťaz aj špeciálne schopnosti zeleného dolníka. Súvisiace pravidlá nižšie sa zablokujú.","Pure mau-mau: disables the red-seven return, spálená, ace chaining and the green dolník's powers. Related rules below get locked."
 RULE_RED7_ON_ESO,Červená sedma aj na stopku,Red seven onto an active ace
 RULE_RED7_ON_ESO_DESC,"Pri návrate do hry sa červená sedma dá položiť aj na práve vyloženú stopku (eso) — reakcia spotrebuje tvoju stopku.","When returning a player, the red seven may land on a just-played ace — the reaction consumes your stop."
-RULE_ESO_REACTION,Reakcia na eso,Ace reaction window
-RULE_ESO_REACTION_DESC,"Zastavený hráč môže prebiť eso vlastným esom. Vypnutím má eso okamžitý efekt a stopka sa nedá prebiť.","A stopped player may counter an ace with their own. Turning this off makes the ace instant and uncounterable."
+RULE_ESO_REACTION,Pomalý faraón (reakcia na eso),Slow faraon (ace reaction)
+RULE_ESO_REACTION_DESC,"Pomalý režim (zapnuté): zastavený hráč môže prebiť eso vlastným esom. Rýchly režim (vypnuté): eso má okamžitý efekt a nedá sa naň reagovať.","Slow mode (on): a stopped player may counter with their own ace. Fast mode (off): the ace takes effect instantly and cannot be answered."
 RULE_ESO_NO_COUNTER,Eso sa nedá prebiť,Aces cannot be countered
 RULE_ESO_NO_COUNTER_DESC,"Žiadne reťazenie es: každé eso jednoducho preskočí nasledujúceho hráča a hra ide ďalej.","No ace chaining: each ace simply skips the next player and play moves on."
 RULE_SEVEN_INTERRUPT,Sedma počas ťahania trestu,Seven during penalty draw
@@ -144,6 +144,17 @@ RULE_GREEN_KING_COUNTER,Prebíjanie kráľa sedmou,King/seven counters
 RULE_GREEN_KING_COUNTER_DESC,"Zelený kráľ sa dá prebiť zelenou sedmou a naopak.","The green king can be countered by the green seven and vice versa."
 RULE_RED_TEN,Špeciálna červená desiatka,Special red ten
 RULE_RED_TEN_DESC,"Červená desiatka = ďalší hráč ťahá 1 kartu. Dá sa položiť ako obrana na červenú sedmu — potom už bez ďalšej obrany. Na desiatku sa dá položiť červená sedma.","Red ten = next player draws 1. It can defend against the red seven — after it no further defense is possible. The red seven can be played onto the ten."
+RULE_REVERSE_CARD,Tanečnica (Otočka),The Dancer (Reverse)
+RULE_REVERSE_CARD_DESC,"Do balíčka pribudne 33. špeciálna karta, ktorá otáča smer hry. Padne na čokoľvek a čokoľvek padne na ňu.","A 33rd special card joins the deck and reverses the play direction. It lands on anything and anything lands on it."
+RULE_UNTER_ANNOUNCER,Spodok je meničom,Unter announces a rank
+RULE_UNTER_ANNOUNCER_DESC,"Spodky (okrem zeleného — ten ostáva faraónom) sa odhadzujú voľne a hráč nimi ohlási znak, ktorý chce. Ostatní ťahajú, kým ho niekto nepoloží alebo neprebije ďalším spodkom.","Unters (except the green one — that stays the faraon) are played freely and announce a rank. Others draw until someone plays it or trumps with another unter."
+RULE_PUB_MODE,Hospodské prší,Pub Prší
+RULE_PUB_MODE_DESC,"Krčmový submód: spodok je meničom, zelený kráľ dáva +4 (bez prebíjania sedmou) a každá desiatka obracia smer hry. Vylučuje sa s červenou desiatkou.","Pub submode: unters announce ranks, the green king gives +4 (no seven counter) and every ten reverses the direction. Mutually exclusive with the red ten."
+GAME_DECLARE_RANK,Ohlás znak,Announce a rank
+GAME_ANNOUNCED,Hlásené: %s,Announced: %s
+ERR_MUST_PLAY_ANNOUNCED_RANK,Musíš položiť hlásený znak alebo ďalší spodok,Play the announced rank or another unter
+ERR_DECLARED_RANK_REQUIRED,Ohlás znak spodkom,Announce a rank with the unter
+TOAST_DIRECTION,Smer hry sa otočil!,Play direction reversed!
 RULE_HAND_SIZE,Počet rozdaných kariet,Cards dealt at start
 RULE_HAND_SIZE_DESC,Koľko kariet dostane každý hráč na začiatku hry.,How many cards each player is dealt at the start.
 RULE_SEVEN_STEP,Veľkosť trestu za sedmu,Seven penalty step

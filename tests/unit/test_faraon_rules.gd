@@ -300,24 +300,33 @@ func test_red_seven_returns_finished_player() -> void:
 			"B3.4 (2 hráči): obeť minula ťah vzatím kariet — hrá pokladajúci")
 
 
-func test_red_seven_return_takes_only_the_base_even_after_a_chain() -> void:
-	# B3.3 (B4 scenár 2): žaltová 7 → červená 7 → vracajúci sa hráč berie
-	# LEN 3 karty (základ), nie 6 — reťaz pred návratom sa nepočíta a
-	# návratom sa spotrebuje.
+func test_red_seven_return_counts_move_sevens_not_the_prior_chain() -> void:
+	# B3.3 + Simonova oprava: PREDCHÁDZAJÚCA reťaz (7Z) sa neráta, ale sedmy
+	# priložené spolu s červenou v ŤAHU NÁVRATU áno: [7C, 7G] → obeť berie
+	# 2 × 3 = 6 kariet (nie 3, nie 9).
 	var draw := ["8Z", "8C", "8E", "8G", "9Z", "9C", "9E", "9G", "XC"]
 	var r := make_rules([["7Z"], ["7C", "7G", "8G"]], "XZ", draw)
 	assert_true(play(r, "P0", ["7Z"]).ok)
 	assert_eq(r.state.pending_sevens_draw, 3)
 	var res := play(r, "P1", ["7C", "7G"])
 	assert_true(res.ok)
-	assert_eq(r.state.players[0].hand.size(), 3,
-			"obeť berie len základ (3), nie súčet reťaze")
+	assert_eq(r.state.players[0].hand.size(), 6,
+			"dve sedmy v ťahu návratu = 6 kariet; stará reťaz sa neráta")
 	assert_eq(r.state.pending_sevens_draw, 0, "reťaz je návratom spotrebovaná")
 	# A1: obeť musí dostať DREW event, inak sa neprehrá animácia vzatia.
 	var drew: Array = res.events.filter(
 			func(e): return e.type == "DREW" and e.player == "P0")
 	assert_eq(drew.size(), 1, "DREW event pre obeť (animácia vzatia kariet)")
-	assert_eq(drew[0].count, 3)
+	assert_eq(drew[0].count, 6)
+
+
+func test_red_seven_return_solo_takes_the_base() -> void:
+	# B4 scenár 1: sólo červená sedma bez reťaze → presne základ (3).
+	var r := make_rules([["9Z"], ["7C", "8G"], ["KZ", "KE"]], "8Z",
+			["XZ", "XC", "XE", "XG"])
+	play(r, "P0", ["9Z"])
+	assert_true(play(r, "P1", ["7C"]).ok)
+	assert_eq(r.state.players[0].hand.size(), 3)
 
 
 func test_red_seven_returns_automatically_in_multiplayer() -> void:
@@ -620,6 +629,98 @@ func test_d14_hornik_only_finish() -> void:
 	var r := make_rules([["9E"], ["8G", "9G"]], "9C", ["XZ", "XC"])
 	r.state.variant.finish_rule = "hornik_only"
 	assert_eq(play(r, "P0", ["9E"]).error, "must_finish_with_hornik")
+
+
+func test_d7_reverse_card_flips_direction() -> void:
+	# 3 hráči: po Tanečnici hrá PREDCHÁDZAJÚCI hráč (A→C→B namiesto A→B→C)
+	# a po druhej Tanečnici sa smer vráti.
+	var r := make_rules([["RV", "8Z", "9C"], ["9Z", "8G"], ["XZ", "9G"]], "XZ")
+	r.state.variant.reverse_card = true
+	var res := play(r, "P0", ["RV"])
+	assert_true(res.ok, "Tanečnica padne na čokoľvek")
+	assert_eq(r.state.direction, -1)
+	assert_eq(r.state.current_index, 2, "smer sa otočil: po P0 hrá P2")
+	assert_true(play(r, "P2", ["XZ"]).ok)
+	assert_eq(r.state.current_index, 1, "proti smeru: po P2 hrá P1")
+	assert_true(res.events.any(func(e): return e.type == "DIRECTION_REVERSED"))
+
+
+func test_d7_anything_lands_on_the_reverse_card() -> void:
+	var r := make_rules([["KC", "8G"], ["9Z", "8Z"]], "RV")
+	r.state.variant.reverse_card = true
+	assert_true(play(r, "P0", ["KC"]).ok, "na Tanečnicu padne čokoľvek")
+
+
+func test_d7_deck_includes_reverse_card_when_enabled() -> void:
+	assert_eq(FaraonDeck.build(false).size(), 32)
+	var with_rv := FaraonDeck.build(true)
+	assert_eq(with_rv.size(), 33, "D7a: Tanečnica je 33. karta navyše")
+	assert_true(with_rv.has(FaraonCard.REVERSE_ID))
+
+
+func test_d11_unter_announces_and_forces_the_rank() -> void:
+	var r := make_rules(
+			[["DZ", "8Z"], ["9C", "KC"], ["9E", "XG"]], "XZ",
+			["8C", "8E", "8G", "9G"])
+	r.state.variant.unter_announcer = true
+	# Spodok sa odhadzuje voľne a hlási znak (deviny = rank 2).
+	var res := r.apply("P0", FaraonActions.play(["DZ"], -1, FaraonCard.Rank.R9))
+	assert_true(res.ok, "spodok ide voľne, s ohlásením znaku")
+	assert_eq(r.state.announced_rank, int(FaraonCard.Rank.R9))
+	# Iný znak neprejde; hlásený znak áno (bez ohľadu na farbu).
+	assert_eq(play(r, "P1", ["KC"]).error, "must_play_announced_rank")
+	assert_true(play(r, "P1", ["9C"]).ok)
+	assert_eq(r.state.announced_rank, -1, "položenie hláseného znaku ruší hlásenie")
+
+
+func test_d11_draw_keeps_the_announce_alive() -> void:
+	var r := make_rules(
+			[["DZ", "8Z"], ["KC", "KZ"], ["9E", "XG"]], "XZ",
+			["8C", "8E", "8G", "9G"])
+	r.state.variant.unter_announcer = true
+	r.apply("P0", FaraonActions.play(["DZ"], -1, FaraonCard.Rank.R9))
+	assert_true(r.apply("P1", FaraonActions.draw()).ok, "bez znaku sa ťahá")
+	assert_eq(r.state.announced_rank, int(FaraonCard.Rank.R9),
+			"hlásenie prežíva, kým znak niekto nepoloží")
+	assert_true(play(r, "P2", ["9E"]).ok)
+	assert_eq(r.state.announced_rank, -1)
+
+
+func test_d11_green_dolnik_stays_the_faraon() -> void:
+	var r := make_rules([["DE", "8Z"], ["9Z", "8G"]], "XZ", ["8C", "8E"])
+	r.state.variant.unter_announcer = true
+	var res := play(r, "P0", ["DE"])
+	assert_true(res.ok)
+	assert_eq(r.state.announced_rank, -1,
+			"zelený dolník nehlási — ostáva faraónom")
+
+
+func test_d15_pub_mode_tens_reverse_and_king_is_sealed() -> void:
+	var r := make_rules(
+			[["XZ", "KE", "8Z"], ["XE", "9Z", "8G"], ["XG", "7E", "KC"]], "9Z",
+			["8C", "8E", "8G", "9G", "XC"])
+	r.state.variant.pub_mode = true
+	# Desiatka obracia smer: po P0 hrá P2 (proti smeru hodinových ručičiek).
+	assert_true(play(r, "P0", ["XZ"]).ok)
+	assert_eq(r.state.direction, -1)
+	assert_eq(r.state.current_index, 2)
+	assert_true(play(r, "P2", ["XG"]).ok, "desiatka na desiatku (znak)")
+	assert_eq(r.state.direction, 1, "druhá desiatka vracia smer")
+	assert_eq(r.state.current_index, 0, "v smere: po P2 hrá P0")
+	assert_true(play(r, "P0", ["KE"]).error != "", "KE na XG nejde (iný znak aj farba)")
+	assert_true(play(r, "P0", ["8Z"]).error != "", "8Z na XG tiež nejde")
+	assert_true(r.apply("P0", FaraonActions.draw()).ok)
+	assert_true(play(r, "P1", ["XE"]).ok, "desiatka na desiatku")
+	assert_eq(r.state.direction, -1, "tretia desiatka opäť obracia")
+	assert_eq(r.state.current_index, 0)
+	# Zelený kráľ = +4 a v Hospodskom prší sa NEDÁ prebiť zelenou sedmou.
+	assert_true(play(r, "P0", ["KE"]).ok, "KE na XE (zeleň)")
+	assert_eq(r.state.pending_sevens_draw, 4)
+	assert_eq(r.state.current_index, 2, "proti smeru: kráľov trest ide na P2")
+	assert_eq(play(r, "P2", ["7E"]).error, "penalty_sealed_must_draw",
+			"v Hospodskom prší sa kráľ nedá prebiť")
+	assert_true(r.apply("P2", FaraonActions.draw()).ok)
+	assert_eq(r.state.players[2].hand.size(), 2 + 4)
 
 
 func test_d2_hand_size_is_dealt() -> void:

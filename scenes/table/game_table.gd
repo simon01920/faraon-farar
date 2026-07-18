@@ -37,6 +37,7 @@ var _btn_ff: Button
 var _btn_interrupt_play: Button
 var _btn_interrupt_draw: Button
 var _suit_popup: PopupPanel
+var _rank_popup: PopupPanel
 var _fx: Control
 var _game_over_layer: Control
 var _game_over_label: Label
@@ -254,6 +255,25 @@ func _build_suit_popup() -> void:
 	_suit_popup.add_child(box)
 	add_child(_suit_popup)
 
+	# D11: popup na ohlásenie HODNOTY po vyložení spodka-meniča.
+	_rank_popup = PopupPanel.new()
+	_rank_popup.add_theme_stylebox_override("panel", panel_sb)
+	var rbox := VBoxContainer.new()
+	rbox.add_theme_constant_override("separation", 10)
+	rbox.add_child(UIKit.heading(tr("GAME_DECLARE_RANK"), 21))
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	for r in 8:
+		var b := UIKit.pill_button(FaraonCard.RANK_NAMES[r], Color("55617a"),
+				Vector2(118, 44), 15)
+		b.pressed.connect(_on_rank_chosen.bind(r))
+		grid.add_child(b)
+	rbox.add_child(grid)
+	_rank_popup.add_child(rbox)
+	add_child(_rank_popup)
+
 
 func _build_fx_layer() -> void:
 	_fx = Control.new()
@@ -423,6 +443,13 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_draw.bind(e.player, e.count, e.get("penalty", false)))
 		"PILE_REFLIPPED":
 			_enqueue(_anim_reflip.bind(e.top, e.remaining))
+		"DIRECTION_REVERSED":
+			_enqueue(func():
+				GameAudio.sfx("slap")
+				_toast(tr("TOAST_DIRECTION"))
+				await _sleep(0.4))
+		"RANK_ANNOUNCED":
+			return false # zobrazí sa cez chip pri _refresh_all
 		"PENALTY_INTERRUPT":
 			_enqueue(func():
 				if e.player == _me:
@@ -510,7 +537,14 @@ func _refresh_all() -> void:
 
 
 func _refresh_center_chips(s: GameState) -> void:
-	if s.declared_suit != -1:
+	if s.announced_rank != -1:
+		# D11: hlásená hodnota má prednosť pred farbou v tom istom chipe.
+		_declared_label.text = tr("GAME_ANNOUNCED") % \
+				FaraonCard.RANK_NAMES[s.announced_rank]
+		var rsb: StyleBoxFlat = _declared_chip.get_theme_stylebox("panel")
+		rsb.bg_color = Color("55617a")
+		_declared_chip.visible = true
+	elif s.declared_suit != -1:
 		_declared_label.text = tr(SUIT_KEYS[s.declared_suit])
 		var sb: StyleBoxFlat = _declared_chip.get_theme_stylebox("panel")
 		sb.bg_color = UIKit.SUIT_COLORS[s.declared_suit]
@@ -934,6 +968,9 @@ func _anim_start_deck_flip(bottom: String) -> void:
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pile.add_child(cv)
 		block.append(cv)
+	# Otáča sa CELÝ balíček — skutočný DeckStack sa skryje, pod zdvihnutým
+	# blokom ostáva len pozadie stola.
+	_deck.visible = false
 	await _sleep(0.1)
 
 	# C: „peek" — balíček sa zdvihne (zväčšenie + hlbšie tiene) a naklopí.
@@ -998,6 +1035,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 	settle.tween_property(pile, "position:y", pile.position.y + 16.0, 0.18 * k)
 	await settle.finished
 	pile.queue_free()
+	_deck.visible = true
 	GameAudio.place_sfx()
 	await _sleep(0.1)
 
@@ -1060,6 +1098,28 @@ func _build_pause_layer() -> void:
 	btn.offset_bottom = 70
 	btn.pressed.connect(func(): _pause_layer.visible = true)
 	add_child(btn)
+
+	# Dev režim: 🛠 tlačidlo (len lokálne hry) + klávesa F12 otvárajú panel.
+	if GameSettings.dev_mode() and server is LocalGameServer:
+		var dev_btn := UIKit.pill_button("🛠", Color("7a4a3a"), Vector2(56, 56), 20)
+		dev_btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		dev_btn.offset_left = 84
+		dev_btn.offset_right = 140
+		dev_btn.offset_top = 14
+		dev_btn.offset_bottom = 70
+		dev_btn.pressed.connect(_open_dev_panel)
+		add_child(dev_btn)
+
+
+func _open_dev_panel() -> void:
+	add_child(DevPanel.new(self))
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed \
+			and event.keycode == KEY_F12 \
+			and GameSettings.dev_mode() and server is LocalGameServer:
+		_open_dev_panel()
 
 	_pause_layer = Control.new()
 	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1349,6 +1409,14 @@ func _do_play() -> void:
 		_pending_play = ordered
 		_suit_popup.popup_centered()
 		return
+	# D11: spodok-menič vyžaduje ohlásenie hodnoty (znaku).
+	if _state().variant.unter_announcer_active() \
+			and not FaraonCard.is_reverse(ordered.back()) \
+			and FaraonCard.rank_of(ordered.back()) == FaraonCard.Rank.DOLNIK \
+			and not FaraonCard.is_faraon(ordered.back()):
+		_pending_play = ordered
+		_rank_popup.popup_centered()
+		return
 	server.propose(_me, FaraonActions.play(ordered))
 
 
@@ -1371,6 +1439,15 @@ func _on_suit_chosen(suit: int) -> void:
 		return
 	server.propose(_me,
 			FaraonActions.play(_pending_play, suit))
+	_pending_play = []
+
+
+func _on_rank_chosen(rank: int) -> void:
+	_rank_popup.hide()
+	if _pending_play.is_empty():
+		return
+	server.propose(_me,
+			FaraonActions.play(_pending_play, -1, rank))
 	_pending_play = []
 
 

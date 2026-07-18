@@ -23,7 +23,15 @@ const RULE_TOGGLES := {
 	"green_king": "RULE_GREEN_KING",
 	"green_king_counter": "RULE_GREEN_KING_COUNTER",
 	"red_ten": "RULE_RED_TEN",
+	"reverse_card": "RULE_REVERSE_CARD",
+	"unter_announcer": "RULE_UNTER_ANNOUNCER",
+	"pub_mode": "RULE_PUB_MODE",
 }
+
+## D15 Hospodské prší konfiguruje D11+D12 samo a vylučuje sa s D13.
+const DISABLED_BY_PUB := [
+	"unter_announcer", "green_king", "green_king_counter", "red_ten",
+]
 
 ## Hodnotové pravidlá: key -> [label key, widget, options].
 const RULE_VALUES := {
@@ -38,6 +46,7 @@ const DISABLED_BY_PURISTA := [
 	"faraon_blocks_eso", "spalena_multiply", "red7_on_active_eso",
 	"eso_reaction", "eso_no_counter", "seven_interrupt", "faraon_interrupt",
 	"green_king", "green_king_counter", "red_ten", "red7_return_scope",
+	"unter_announcer", "pub_mode",
 ]
 
 
@@ -123,6 +132,18 @@ static func set_card_skin(skin_id: String) -> void:
 ## when [dev] show_dev_skins=true is set manually in settings.cfg.
 static func dev_skins_enabled() -> bool:
 	return _load().get_value("dev", "show_dev_skins", false)
+
+
+## Dev režim (ladiaci panel v hre): 7 ťukov na nadpis Nastavení alebo
+## [dev] dev_mode=true v settings.cfg.
+static func dev_mode() -> bool:
+	return _load().get_value("dev", "dev_mode", false)
+
+
+static func set_dev_mode(on: bool) -> void:
+	var cfg := _load()
+	cfg.set_value("dev", "dev_mode", on)
+	cfg.save(PATH)
 
 
 ## Active table look id (TableLook registry).
