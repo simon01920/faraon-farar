@@ -39,24 +39,43 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 		var bid := "BOT%d" % (i + 1)
 		ids.append(bid)
 		_bot_ids.append(bid)
+	# B1: prvého štartéra určuje RNG so zvýhodnením hráča podľa obtiažnosti
+	# (Ľahká 100 % hráč, Stredná 55 %, Ťažká rovnaké šance pre všetkých).
+	var start_index := _first_starter_index(ids.size(), bot_difficulty)
+	_variant.end_on_first_finish = mode != FaraonMatch.Mode.NORMAL
 	match_state = null if mode == FaraonMatch.Mode.NORMAL \
-			else FaraonMatch.new(mode, ids)
-	_start_round(ids, {}, seed_value)
+			else FaraonMatch.new(mode, ids, ids[start_index])
+	_start_round(ids, {}, seed_value, start_index)
 
 
-## Deals the next round of a running Olympic match with the shrunken hands.
+func _first_starter_index(player_count: int, difficulty: int) -> int:
+	match difficulty:
+		BotStrategy.Difficulty.EASY:
+			return 0 # ľudský hráč začína vždy
+		BotStrategy.Difficulty.MEDIUM:
+			if randf() < 0.55:
+				return 0
+			return randi_range(1, player_count - 1) # inak náhodný bot
+		_:
+			return randi_range(0, player_count - 1) # plne náhodné
+
+
+## Rozdá ďalšie sub-kolo bežiaceho zápasu (rozstrel alebo nové kolo) s
+## prídelmi a rotovaným štartérom z meta-vrstvy.
 func next_round() -> void:
 	if match_state == null or match_state.finished:
 		return
-	_start_round(match_state.participants(), match_state.hand_sizes())
+	_start_round(match_state.sub_round_players(), match_state.hand_sizes(), 0,
+			match_state.sub_start_index())
 
 
-func _start_round(ids: Array, hand_sizes: Dictionary, seed_value: int = 0) -> void:
+func _start_round(ids: Array, hand_sizes: Dictionary, seed_value: int = 0,
+		start_index: int = 0) -> void:
 	if seed_value == 0:
 		seed_value = randi()
 	fast_forward = false
 	_round_settled = false
-	var events := rules.start(ids, _variant, seed_value, hand_sizes)
+	var events := rules.start(ids, _variant, seed_value, hand_sizes, start_index)
 	state_updated.emit(events)
 	_schedule_bot()
 
@@ -102,7 +121,7 @@ func propose(player_id: String, action: Dictionary) -> Dictionary:
 		if rules.state.phase == GameState.Phase.GAME_OVER \
 				and match_state != null and not _round_settled:
 			_round_settled = true
-			var info := match_state.apply_round_result(rules.state)
+			var info := match_state.on_sub_round_over(rules.state)
 			res.events.append({"type": "MATCH_UPDATE", "info": info})
 		state_updated.emit(res.events)
 		_schedule_bot()

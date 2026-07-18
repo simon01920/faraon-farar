@@ -1,39 +1,96 @@
 class_name RulesVariant
 extends RefCounted
-## Rules-variant configuration. Faraón spread by word of mouth and has many
-## house-rule flavours — the base ruleset (rules/faraon.pdf) stays the
-## default and individual house rules are opt-in toggles. In multiplayer the
-## room creator's toggles will be authoritative for the whole room.
+## Konfigurácia domácich pravidiel. Faraón sa šíril ústne a má množstvo
+## regionálnych verzií — predvolený set je najrozšírenejšia/najférovejšia
+## dohľadateľná verzia, všetko ostatné sú opt-in prepínače. V multiplayeri
+## sú autoritatívne prepínače zakladateľa miestnosti.
+##
+## D7 (Tanečnica/Otočka), D11 (spodok-menič), D15 (Hospodské prší) a D16
+## (Neuner) čakajú na Simonove rozhodnutia o zaradení kariet do balíka —
+## pozri architecture/house_rules_open_questions.md.
 
 enum Kind { CLASSIC, OLYMPIC }
 
 var kind: Kind = Kind.CLASSIC
-## Cards dealt to each player at round start. Olympic decreases this per lost
-## round (handled by the meta-game layer, not the in-round engine).
+
+## D2: počet kariet rozdaných na začiatku (slider 4–7, default 5). Olympijské
+## režimy ho znižujú per hráč cez meta-vrstvu (FaraonMatch).
 var initial_hand_size: int = 5
 
-## House rule: faraón (zelený dolník) also blocks esá — a stopped player may
-## cancel the whole ace chain by playing it. OFF = PDF default (faraón is
-## powerless against an eso).
+## Faraón blokuje aj esá — zastavený hráč ním môže zrušiť celú reťaz.
 var faraon_blocks_eso := false
 
-## House rule: horník behaves like a regular card — playable only on a suit
-## or rank match (and only then changes the suit). OFF = PDF default (horník
-## lands on anything that isn't an unresolved eso/sedma).
+## Horník sa správa ako bežná karta (len na farbu/znak; až potom mení farbu).
 var hornik_strict := false
 
-## House rule: ace stops are dealt around the table INCLUDING the player who
-## laid them (2 aces head-to-head: opponent stands, you stand, opponent
-## plays). OFF = PDF default (the chain owner gets a free continuation once
-## every stopped player passes).
-var eso_round_robin := false
-
-## House rule: consecutive spálená multiplies — the 2nd four-of-a-kind in a
-## row grants two extra moves, the 3rd three, etc. OFF = PDF default (every
-## spálená grants exactly one extra move).
+## Násobenie spálenej: druhá štvorica v rade dáva dva extra ťahy atď.
 var spalena_multiply := false
 
-const RULE_KEYS := ["faraon_blocks_eso", "hornik_strict", "eso_round_robin", "spalena_multiply"]
+## D1: červená sedma sa pri návrate dá položiť aj na AKTÍVNU stopku (eso) —
+## reakcia spotrebuje hráčov stop. OFF = na aktívne eso sa odpovedá len esom.
+var red7_on_active_eso := false
+
+## D3 / D9-off: eso sa nedá prebiť ďalším esom — zastavený hráč len stojí.
+var eso_no_counter := false
+
+## D4: sedma vytiahnutá počas trestného ťahania sa dá ihneď vyložiť (trest
+## kroku ide na ďalšieho hráča, zvyšok vlastného trestu padá). Default OFF.
+var seven_interrupt := false
+
+## D5: faraón vytiahnutý počas trestného ťahania sa dá ihneď vyložiť a ruší
+## zvyšok trestu. Default ON — správanie odsúhlasené v pred-multiplayer
+## prompte; nové zadanie navrhuje OFF, čaká na Simonovo potvrdenie.
+var faraon_interrupt := true
+
+## D6: veľkosť trestu za jednu sedmu (2/3/4, default 3 = doterajšia stupnica).
+var seven_penalty_step := 3
+
+## D8: rozsah vracania červenou sedmou — "anyone" (hocikto, kto vypadol od
+## začiatku hry; default podľa zadania) alebo "round" (len z aktuálneho kola).
+var red7_return_scope := "anyone"
+
+## D10: Purista režim — čistá mau-mau: bez návratu červenou sedmou, bez
+## spálenej, bez eso-reťaze (eso = jednoduchý skip) a faraón je obyčajný
+## dolník. Nastavením sa efektívne vypnú závislé pravidlá.
+var purista := false
+
+## D12: zelený kráľ = ďalší hráč ťahá 4 karty; vnorená prebíjacia varianta
+## (KE ↔ 7E sa prebíjajú navzájom).
+var green_king := false
+var green_king_counter := false
+
+## D13: červená desiatka = ďalší hráč ťahá 1 kartu; dá sa položiť ako
+## obrana na červenú sedmu (potom už bez ďalšej obrany); na desiatku sa dá
+## položiť červená sedma.
+var red_ten := false
+
+## D14: obmedzenie poslednej karty: "none" / "no_seven" / "hornik_only".
+var finish_rule := "none"
+
+## B2 (runtime, nie používateľské pravidlo): sub-kolo olympijského zápasu
+## končí hneď prvým dohratým hráčom — zvyšok rieši rozstrel v meta-vrstve.
+var end_on_first_finish := false
+
+const RULE_KEYS := [
+	"faraon_blocks_eso", "hornik_strict", "spalena_multiply",
+	"red7_on_active_eso", "eso_no_counter", "seven_interrupt",
+	"faraon_interrupt", "purista", "green_king", "green_king_counter",
+	"red_ten", "end_on_first_finish",
+]
+const VALUE_KEYS := ["initial_hand_size", "seven_penalty_step",
+	"red7_return_scope", "finish_rule"]
+
+## Defaulty pre UI (štítok „predvolené" + reset) — jediný zdroj pravdy.
+const DEFAULTS := {
+	"faraon_blocks_eso": false, "hornik_strict": false,
+	"spalena_multiply": false, "red7_on_active_eso": false,
+	"eso_no_counter": false, "seven_interrupt": false,
+	"faraon_interrupt": true, "purista": false, "green_king": false,
+	"green_king_counter": false, "red_ten": false,
+	"initial_hand_size": 5, "seven_penalty_step": 3,
+	"red7_return_scope": "anyone", "finish_rule": "none",
+	"end_on_first_finish": false,
+}
 
 
 static func classic() -> RulesVariant:
@@ -47,9 +104,27 @@ static func olympic(hand_size: int = 5) -> RulesVariant:
 	return v
 
 
+## D10: Purista potláča špeciálne schopnosti — engine sa pýta cez tieto
+## efektívne gettery namiesto priameho čítania polí.
+func allows_red7_return() -> bool:
+	return not purista
+
+
+func allows_spalena() -> bool:
+	return not purista
+
+
+func counter_allowed() -> bool:
+	return not (eso_no_counter or purista)
+
+
+func faraon_is_wild() -> bool:
+	return not purista
+
+
 func to_dict() -> Dictionary:
-	var d := {"kind": kind, "initial_hand_size": initial_hand_size}
-	for k in RULE_KEYS:
+	var d := {"kind": kind}
+	for k in RULE_KEYS + VALUE_KEYS:
 		d[k] = get(k)
 	return d
 
@@ -57,7 +132,6 @@ func to_dict() -> Dictionary:
 static func from_dict(d: Dictionary) -> RulesVariant:
 	var v := RulesVariant.new()
 	v.kind = d.get("kind", Kind.CLASSIC) as Kind
-	v.initial_hand_size = d.get("initial_hand_size", 5)
-	for k in RULE_KEYS:
-		v.set(k, d.get(k, false))
+	for k in RULE_KEYS + VALUE_KEYS:
+		v.set(k, d.get(k, DEFAULTS.get(k)))
 	return v

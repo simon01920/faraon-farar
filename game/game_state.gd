@@ -58,13 +58,15 @@ var declared_suit: int = -1
 ## Total penalty cards accumulated by unanswered sedmas (3 per sedma).
 var pending_sevens_draw: int = 0
 ## True while a penalty draw is paused because the player just drew the
-## faraón: they may play it (cancelling the rest) or keep drawing.
+## faraón (D5) or a seven (D4): they may play that card or keep drawing.
 var penalty_interrupt: bool = false
+## The exact card that paused the penalty draw ("" = none).
+var interrupt_card: String = ""
+## D13: the pending draw was sealed by a red ten — no further defense.
+var pending_hard_penalty: bool = false
 ## Remaining players to be stopped by the open eso chain (0 = no chain).
+## A2: stops only skip players in seating order — no continuation owner.
 var pending_aces: int = 0
-## Player index that gets the free continuation turn when the eso chain is
-## exhausted by passes; -1 = nobody (start-card eso).
-var ace_owner_index: int = -1
 var phase: int = Phase.PLAYING
 var loser_index: int = -1
 ## Increments after every completed action; timestamps player finishes.
@@ -127,8 +129,9 @@ func to_dict() -> Dictionary:
 		"declared_suit": declared_suit,
 		"pending_sevens_draw": pending_sevens_draw,
 		"penalty_interrupt": penalty_interrupt,
+		"interrupt_card": interrupt_card,
+		"pending_hard_penalty": pending_hard_penalty,
 		"pending_aces": pending_aces,
-		"ace_owner_index": ace_owner_index,
 		"phase": phase,
 		"loser_index": loser_index,
 		"turn_counter": turn_counter,
@@ -149,8 +152,9 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.declared_suit = d.get("declared_suit", -1)
 	s.pending_sevens_draw = d.get("pending_sevens_draw", 0)
 	s.penalty_interrupt = d.get("penalty_interrupt", false)
+	s.interrupt_card = d.get("interrupt_card", "")
+	s.pending_hard_penalty = d.get("pending_hard_penalty", false)
 	s.pending_aces = d.get("pending_aces", 0)
-	s.ace_owner_index = d.get("ace_owner_index", -1)
 	s.phase = d.get("phase", Phase.PLAYING)
 	s.loser_index = d.get("loser_index", -1)
 	s.turn_counter = d.get("turn_counter", 0)

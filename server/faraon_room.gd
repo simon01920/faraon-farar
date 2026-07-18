@@ -125,7 +125,9 @@ func start_game(peer: int, variant_dict: Dictionary) -> Dictionary:
 	var ids: Array = []
 	for m in members:
 		ids.append(m.seat)
-	var events := rules.start(ids, variant, int(_rng.randi()))
+	# B1 multiplayer: prvý štartér je určený plne náhodne (ekviprobabilne).
+	var events := rules.start(ids, variant, int(_rng.randi()), {},
+			_rng.randi_range(0, ids.size() - 1))
 	for m in members:
 		if m.connected:
 			_push(m.peer, "cl_game_started", [_view_for(m.seat)])

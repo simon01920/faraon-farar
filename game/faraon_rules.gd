@@ -5,26 +5,22 @@ extends RefCounted
 ## The server (or the in-process local server) is the only place apply() runs;
 ## clients merely propose actions and render broadcast state.
 ##
-## Documented interpretations of ambiguous PDF spots (flagged to Simon in the
-## rules-engine checkpoint; adjust here if he rules otherwise):
-## 1. Eso chain with 3+ players: countering with m esos clears your own stop,
-##    makes you the chain owner and extends the chain by m stops
-##    (pending = pending - 1 + m). When the chain dies out by passes, the
-##    owner gets the free continuation turn. Matches both PDF examples.
-## 2. Spálená (four of a kind) grants the extra turn only for non-eso,
-##    non-sedma ranks: eso quads already continue via the chain mechanics,
-##    sedma quads pass the penalty on — an extra turn would force the player
-##    to answer their own sevens.
-## 3. Faraón is fully neutral (PDF p.4, confirmed by Simon): it lands on
-##    anything and anything lands on it — no suit declaration. Only horník
-##    declares a suit.
-## 4. Start card eso/sedma is validated against the deck's bottom card; a
-##    horník at the bottom never validates it. Start horník takes its suit
-##    from the lowest non-horník card of the deck.
-## 5. Červená sedma return window: a finished player can be returned while
-##    turn_counter - finished_at <= number of seated players ("same round").
-##    Finishing with an eso protects from return only in a 2-player game
-##    (PDF: auto-win, "výnimka pri troch a viac hráčoch").
+## Rozhodnutia podľa zadania „fix-polish-featureadd" (A2, B3, D pravidlá):
+## 1. Eso = čistý skip: 1 eso preskočí presne 1 hráča a na rade je ďalší
+##    v poradí. ŽIADNE voľné pokračovanie pre vlastníka reťaze (staré
+##    ESO_CONTINUATION odstránené). Prebitie esa predlžuje reťaz o počet
+##    priložených es (pokiaľ to D3/D9 nezakazujú).
+## 2. Spálená dáva extra ťah len pre ne-eso/ne-sedma štvorice.
+## 3. Faraón je plne neutrálny (padne na čokoľvek, čokoľvek padne naň);
+##    farbu hlási len horník. V Purista režime (D10) je obyčajný dolník.
+## 4. Štartové eso/sedma sa validujú spodnou kartou balíka; horník na
+##    spodku sa nepočíta. Štartový horník berie farbu z najnižšej
+##    ne-horníkovej karty.
+## 5. Návrat červenou sedmou (B3): obeť si berie VŽDY len základ trestu
+##    (krok z D6, default 3) bez ohľadu na dĺžku reťaze; reťaz sa tým
+##    spotrebuje; „ťah" vráteného hráča je vzatie kariet — na rade je
+##    hráč nasledujúci za pokladajúcim (v 2-hráčovej hre teda znovu on).
+##    Rozsah vrátiteľnosti riadi D8 (default: hocikto od začiatku hry).
 
 const Status := GameState.PlayerStatus
 const Phase := GameState.Phase
@@ -34,9 +30,10 @@ var state: GameState
 
 ## Starts a new round. `hand_sizes` optionally overrides the dealt hand size
 ## per player id (Olympic modes deal shrinking hands); players without an
-## entry get variant.initial_hand_size. Returns the events produced by setup.
+## entry get variant.initial_hand_size. `start_index` = kto začína (B1 —
+## rotáciu a prvé RNG určenie rieši meta-vrstva). Returns the setup events.
 func start(player_ids: Array, variant: RulesVariant, seed_value: int,
-		hand_sizes: Dictionary = {}) -> Array:
+		hand_sizes: Dictionary = {}, start_index: int = 0) -> Array:
 	assert(player_ids.size() >= 2 and player_ids.size() <= 5)
 	state = GameState.new()
 	state.variant = variant
@@ -44,6 +41,7 @@ func start(player_ids: Array, variant: RulesVariant, seed_value: int,
 		var p := GameState.PlayerState.new()
 		p.id = id
 		state.players.append(p)
+	state.current_index = clampi(start_index, 0, player_ids.size() - 1)
 
 	state.rng_seed = seed_value
 	state.draw_pile = FaraonDeck.shuffled(seed_value)
@@ -78,7 +76,6 @@ func _apply_start_card_effects(card: String, events: Array) -> void:
 				and FaraonCard.rank_of(bottom) == FaraonCard.rank_of(card):
 			if FaraonCard.is_eso(card):
 				state.pending_aces = 1
-				state.ace_owner_index = -1
 				events.append({"type": "START_ESO_VALID"})
 			else:
 				state.pending_sevens_draw = 3
@@ -136,23 +133,41 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	if err != "":
 		return _fail(err)
 
-	# Paused penalty draw: the only playable card is the just-drawn faraón,
-	# which wipes the remaining penalty (anything else = keep drawing).
+	# D14: obmedzenie poslednej karty — ťah, ktorý by vyprázdnil ruku
+	# zakázanou kartou, je neplatný (platí pre všetky vetvy vrátane obrán).
+	if cards.size() == player.hand.size():
+		var last_rank := FaraonCard.rank_of(cards.back())
+		if state.variant.finish_rule == "no_seven" \
+				and last_rank == FaraonCard.Rank.R7:
+			return _fail("cannot_finish_with_seven")
+		if state.variant.finish_rule == "hornik_only" \
+				and last_rank != FaraonCard.Rank.HORNIK:
+			return _fail("must_finish_with_hornik")
+
+	# Pauza počas trestného ťahania (D4/D5): hrateľná je len karta, ktorá
+	# pauzu vyvolala — faraón ruší zvyšok trestu, sedma ho posiela ďalej.
 	if state.penalty_interrupt:
-		if cards.size() == 1 and FaraonCard.is_faraon(cards[0]):
+		if cards.size() == 1 and cards[0] == state.interrupt_card:
 			state.penalty_interrupt = false
-			state.pending_sevens_draw = 0
+			state.interrupt_card = ""
+			if FaraonCard.is_faraon(cards[0]):
+				state.pending_sevens_draw = 0
+			else:
+				# D4: zvyšok vlastného trestu padá, ďalší hráč čelí kroku
+				# novej sedmy (pripočíta ho _place_and_resolve).
+				state.pending_sevens_draw = 0
 			return _place_and_resolve(idx, cards, -1)
-		return _fail("interrupt_faraon_or_draw")
+		return _fail("interrupt_card_or_draw")
 
 	if state.pending_aces > 0:
 		return _apply_eso_counter(idx, cards)
 
-	# Červená sedma: whenever a returnable player exists, the return fires
-	# automatically and deterministically (latest eliminated this round) and
-	# takes priority over the plain seven penalty. Only when nobody is
-	# returnable does 7C fall through to standard seven behaviour.
-	if FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.R7 and cards.has("7C"):
+	# Červená sedma: keď existuje vrátiteľný hráč, návrat sa spustí
+	# automaticky a deterministicky (naposledy vypadnutý). Purista (D10)
+	# návrat vypína — 7C je potom obyčajná sedma.
+	if state.variant.allows_red7_return() \
+			and FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.R7 \
+			and cards.has("7C"):
 		var victim_idx := _latest_returnable_index()
 		if victim_idx != -1:
 			return _apply_red_seven_return(idx, cards, victim_idx)
@@ -160,7 +175,7 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	if state.pending_sevens_draw > 0:
 		return _apply_sevens_defense(idx, cards, declared)
 
-	# Normal play: first card must sit on the pile.
+	# Bežný ťah: prvá karta musí sedieť na kôpku.
 	if not _first_card_legal(cards[0]):
 		return _fail("card_does_not_match")
 
@@ -187,10 +202,11 @@ func _validate_cards_owned(player: GameState.PlayerState, cards: Array) -> Strin
 
 func _first_card_legal(card: String) -> bool:
 	var top := state.top_card()
-	if FaraonCard.is_faraon(card):
-		return true # faraón lands on anything
-	if FaraonCard.is_faraon(top):
-		return true # ...and anything lands on the faraón (PDF p.4)
+	if state.variant.faraon_is_wild():
+		if FaraonCard.is_faraon(card):
+			return true # faraón padne na čokoľvek
+		if FaraonCard.is_faraon(top):
+			return true # ...a čokoľvek padne na faraóna
 	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict:
 		return true
 	if FaraonCard.rank_of(card) == FaraonCard.rank_of(top):
@@ -201,25 +217,47 @@ func _first_card_legal(card: String) -> bool:
 
 
 func _apply_eso_counter(idx: int, cards: Array) -> Dictionary:
-	# House rule: faraón cancels the whole ace chain.
+	# Domáce pravidlo: faraón ruší celú eso-reťaz.
 	if state.variant.faraon_blocks_eso and cards.size() == 1 \
 			and FaraonCard.is_faraon(cards[0]):
 		state.pending_aces = 0
-		state.ace_owner_index = -1
 		return _place_and_resolve(idx, cards, -1)
+	# D1: návrat červenou sedmou položený priamo na aktívnu stopku — hráčov
+	# stop sa touto reakciou spotrebuje, zvyšok reťaze beží ďalej.
+	if state.variant.red7_on_active_eso \
+			and FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.R7 \
+			and cards.has("7C"):
+		var victim_idx := _latest_returnable_index()
+		if victim_idx != -1:
+			state.pending_aces -= 1
+			return _apply_red_seven_return(idx, cards, victim_idx)
+	# D3 / D9-off: eso sa nedá prebiť — jediná odpoveď je stáť.
+	if state.variant.eso_no_counter:
+		return _fail("must_answer_with_eso")
 	for c in cards:
 		if not FaraonCard.is_eso(c):
-			return _fail("must_answer_with_eso") # faraón is unusable vs eso
-	# Countering clears the counterer's own stop, extends the chain and takes
-	# over its ownership (interpretation 1 in the header).
+			return _fail("must_answer_with_eso") # faraón na eso nejde
+	# Prebitie: zruší vlastný stop hráča a predĺži reťaz o priložené esá.
 	state.pending_aces = state.pending_aces - 1 + cards.size()
-	state.ace_owner_index = -1 if state.variant.eso_round_robin else idx
 	return _place_and_resolve(idx, cards, -1, true)
 
 
 func _apply_sevens_defense(idx: int, cards: Array, _declared: int) -> Dictionary:
-	if cards.size() == 1 and FaraonCard.is_faraon(cards[0]):
-		state.pending_sevens_draw = 0 # faraón kills the whole seven chain
+	# D13: trest zapečatený červenou desiatkou sa už nedá odraziť.
+	if state.pending_hard_penalty:
+		return _fail("penalty_sealed_must_draw")
+	if state.variant.faraon_is_wild() and cards.size() == 1 \
+			and FaraonCard.is_faraon(cards[0]):
+		state.pending_sevens_draw = 0 # faraón ruší celú sedmičkovú reťaz
+		return _place_and_resolve(idx, cards, -1)
+	# D13: červená desiatka ako obrana na červenú sedmu — trest sa zapečatí.
+	if state.variant.red_ten and cards.size() == 1 and cards[0] == "XC" \
+			and state.top_card() == "7C":
+		return _place_and_resolve(idx, cards, -1)
+	# D12 prebíjacia varianta: zelený kráľ sa dá položiť na zelenú sedmu.
+	if state.variant.green_king and state.variant.green_king_counter \
+			and cards.size() == 1 and cards[0] == "KE" \
+			and state.top_card() == "7E":
 		return _place_and_resolve(idx, cards, -1)
 	for c in cards:
 		if not FaraonCard.is_sedma(c):
@@ -227,8 +265,12 @@ func _apply_sevens_defense(idx: int, cards: Array, _declared: int) -> Dictionary
 	return _place_and_resolve(idx, cards, -1)
 
 
-## Caller guarantees: cards are all sevens including 7C, victim is returnable.
-## The return ignores suit/rank matching entirely (PDF p.4).
+## Volajúci garantuje: cards sú samé sedmy vrátane 7C, obeť je vrátiteľná.
+## Návrat ignoruje farbu/znak. B3: obeť si berie VŽDY len základ (krok D6,
+## default 3) — dĺžka predchádzajúcej reťaze sa nepočíta a reťaz sa návratom
+## spotrebuje. Vzatie kariet je obetin „ťah", takže na rade je hráč
+## nasledujúci za POKLADAJÚCIM (obeť sa preskočí, ak by sedela hneď za ním
+## — v 2-hráčovej hre je tak na rade znovu pokladajúci).
 func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Dictionary:
 	var victim := state.players[victim_idx]
 	var player := state.players[idx]
@@ -237,7 +279,7 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 		state.discard_pile.append(c)
 	state.declared_suit = -1
 
-	var total := state.pending_sevens_draw + 3 * cards.size()
+	var total: int = state.variant.seven_penalty_step
 	state.pending_sevens_draw = 0
 	victim.status = Status.ACTIVE
 	victim.finished_at = -1
@@ -245,13 +287,18 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	victim.finish_position = -1
 	var events: Array = [{"type": "CARDS_PLAYED", "player": player.id, "cards": cards}]
 	var drawn := _draw_cards(victim, total, events)
+	# A1: bez DREW eventu klient neprehrá animáciu vzatia kariet — rovnaký
+	# event ako pri každom inom ťahaní, len pre obeť.
+	events.append({"type": "DREW", "player": victim.id, "count": drawn,
+			"penalty": true})
 	events.append({"type": "PLAYER_RETURNED", "player": victim.id,
 			"by": player.id, "drew": drawn})
 	_handle_possible_finish(idx, cards, events)
 	if state.phase == Phase.PLAYING:
-		# Turn continues after the victim's seat (PDF: "je na ťahu hráč a až
-		# potom súper" — in 2p that is the returner again).
-		_advance_turn(victim_idx)
+		_advance_turn(idx)
+		if state.current_index == victim_idx:
+			# Obeť práve minula svoj ťah vzatím kariet.
+			_advance_turn(victim_idx)
 	return {"ok": true, "error": "", "events": events}
 
 
@@ -259,8 +306,11 @@ func _is_returnable(p: GameState.PlayerState) -> bool:
 	if p.status != Status.FINISHED:
 		return false
 	if p.finished_with_eso and state.players.size() == 2:
-		return false # eso finish is an untouchable win in a 2-player game
-	return state.turn_counter - p.finished_at <= state.players.size()
+		return false # ukončenie esom je v 2-hráčovej hre nedotknuteľná výhra
+	if state.variant.red7_return_scope == "round":
+		# D8 „Len z aktuálneho kola": vrátiteľnosť zaniká po obehu stola.
+		return state.turn_counter - p.finished_at <= state.players.size()
+	return true # D8 „Kohokoľvek" (default)
 
 
 ## The deterministic červená-sedma target: the player who was eliminated most
@@ -300,15 +350,21 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 	var rank := FaraonCard.rank_of(cards[0])
 	if not is_eso_counter and rank == FaraonCard.Rank.ESO:
 		state.pending_aces = cards.size()
-		state.ace_owner_index = -1 if state.variant.eso_round_robin else idx
 	elif rank == FaraonCard.Rank.R7:
-		state.pending_sevens_draw += 3 * cards.size()
+		state.pending_sevens_draw += state.variant.seven_penalty_step * cards.size()
+	elif state.variant.green_king and cards.back() == "KE":
+		# D12: zelený kráľ = +4 pre ďalšieho hráča (nezávislé od kroku sedmy).
+		state.pending_sevens_draw += 4
+	elif state.variant.red_ten and cards.back() == "XC":
+		# D13: červená desiatka = ďalší hráč ťahá 1 kartu (bez obrany).
+		state.pending_sevens_draw += 1
+		state.pending_hard_penalty = true
 
 	var finished := _handle_possible_finish(idx, cards, events)
 	if state.phase != Phase.PLAYING:
 		return {"ok": true, "error": "", "events": events}
 
-	var spalena := cards.size() == 4 \
+	var spalena := cards.size() == 4 and state.variant.allows_spalena() \
 			and rank != FaraonCard.Rank.ESO and rank != FaraonCard.Rank.R7
 	if spalena and not finished:
 		# Guaranteed extra move; the multiply house rule banks one additional
@@ -319,9 +375,17 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 		events.append({"type": "SPALENA_EXTRA_TURN", "player": player.id})
 		# current_index stays — the guaranteed double move.
 	elif state.extra_turns > 0 and not finished:
-		state.extra_turns -= 1 # banked spálená move consumed, stay on turn
+		state.extra_turns -= 1 # nabankovaný spálená ťah, hráč ostáva
 	else:
 		_advance_turn(idx)
+		# D3/D9-off: eso má okamžitý efekt — stopky sa spotrebujú hneď bez
+		# PASS akcií (nikto ich aj tak nemôže prebiť).
+		if state.pending_aces > 0 and not state.variant.counter_allowed():
+			while state.pending_aces > 0 and state.active_count() > 1:
+				events.append({"type": "STOPPED",
+						"player": state.players[state.current_index].id})
+				state.pending_aces -= 1
+				_advance_turn(state.current_index)
 	return {"ok": true, "error": "", "events": events}
 
 
@@ -350,6 +414,12 @@ func _handle_possible_finish(idx: int, cards: Array, events: Array) -> bool:
 		state.loser_index = state.next_active_index(idx)
 		state.players[state.loser_index].finish_position = state.players.size()
 		events.append({"type": "GAME_OVER", "loser": state.players[state.loser_index].id})
+	elif state.variant.end_on_first_finish:
+		# B2: olympijské sub-kolo končí prvým dohratým — zvyšok pokračuje
+		# v rozstrele, ktorý pripraví meta-vrstva (FaraonMatch).
+		state.phase = Phase.GAME_OVER
+		state.loser_index = -1
+		events.append({"type": "GAME_OVER", "loser": ""})
 	return true
 
 
@@ -374,27 +444,36 @@ func _apply_draw(idx: int) -> Dictionary:
 	var events: Array = []
 	var drawn := 0
 	if state.pending_sevens_draw > 0 or state.penalty_interrupt:
-		# Penalty drawing runs card by card (confirmed rule): drawing the
-		# faraón mid-penalty pauses the draw — the player MAY play it to
-		# cancel the rest, or DRAW again to keep going. Not forced.
+		# Trestné ťahanie beží karta po karte: faraón (D5) alebo sedma (D4)
+		# vytiahnuté uprostred trestu ponúknu pauzu — hráč MÔŽE kartu vyložiť
+		# alebo ťahať ďalej. Nikdy nie povinnosť.
 		state.penalty_interrupt = false
-		var was_penalty := true
+		state.interrupt_card = ""
 		while state.pending_sevens_draw > 0:
 			if _draw_cards(player, 1, events) == 0:
-				break # every card is in hands — physically impossible
+				break # všetky karty sú v rukách — fyzicky sa nedá ťahať
 			drawn += 1
 			state.pending_sevens_draw -= 1
-			if FaraonCard.is_faraon(player.hand.back()) \
-					and state.pending_sevens_draw > 0:
+			var got: String = player.hand.back()
+			var offer := false
+			if state.pending_sevens_draw > 0:
+				if state.variant.faraon_interrupt and FaraonCard.is_faraon(got) \
+						and state.variant.faraon_is_wild():
+					offer = true
+				elif state.variant.seven_interrupt and FaraonCard.is_sedma(got):
+					offer = true
+			if offer:
 				state.penalty_interrupt = true
+				state.interrupt_card = got
 				events.append({"type": "DREW", "player": player.id,
 						"count": drawn, "penalty": true})
 				events.append({"type": "PENALTY_INTERRUPT", "player": player.id,
-						"remaining": state.pending_sevens_draw})
-				# Turn stays with the player until they decide.
+						"card": got, "remaining": state.pending_sevens_draw})
+				# Ťah ostáva hráčovi, kým sa nerozhodne.
 				return {"ok": true, "error": "", "events": events}
+		state.pending_hard_penalty = false # D13: zapečatený trest je vybavený
 		events.append({"type": "DREW", "player": player.id, "count": drawn,
-				"penalty": was_penalty})
+				"penalty": true})
 	else:
 		drawn = _draw_cards(player, 1, events)
 		events.append({"type": "DREW", "player": player.id, "count": drawn,
@@ -405,22 +484,14 @@ func _apply_draw(idx: int) -> Dictionary:
 	return {"ok": true, "error": "", "events": events}
 
 
+## A2: zastavený hráč jednoducho stojí a hra ide ďalej v poradí — jedno eso
+## preskočí presne jedného hráča, žiadne voľné pokračovanie pre vlastníka.
 func _apply_pass(idx: int) -> Dictionary:
 	if state.pending_aces <= 0:
 		return _fail("nothing_to_pass")
 	state.pending_aces -= 1
 	var events: Array = [{"type": "STOPPED", "player": state.players[idx].id}]
-	if state.pending_aces == 0:
-		var owner := state.ace_owner_index
-		state.ace_owner_index = -1
-		if owner != -1 and state.players[owner].status == Status.ACTIVE:
-			_advance_turn(idx)
-			state.current_index = owner # free continuation for the chain owner
-			events.append({"type": "ESO_CONTINUATION", "player": state.players[owner].id})
-		else:
-			_advance_turn(idx)
-	else:
-		_advance_turn(idx)
+	_advance_turn(idx)
 	return {"ok": true, "error": "", "events": events}
 
 

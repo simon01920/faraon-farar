@@ -179,29 +179,31 @@ func test_faraon_cannot_answer_eso() -> void:
 
 # --- eso chains -----------------------------------------------------------
 
-func test_eso_stops_opponent_then_owner_continues() -> void:
+func test_eso_skips_opponent_in_two_players() -> void:
+	# A2: v 2-hráčovej hre preskočenie súpera znamená, že ten istý hráč
+	# ťahá znova.
 	var r := make_rules([["AZ", "KC"], ["9Z", "8G"]], "8Z")
 	assert_true(play(r, "P0", ["AZ"]).ok)
 	assert_eq(r.state.pending_aces, 1)
 	assert_eq(play(r, "P1", ["9Z"]).error, "must_answer_with_eso",
-			"a stopped player may only answer with eso or pass")
+			"zastavený hráč smie len prebiť esom alebo stáť")
 	assert_eq(r.apply("P1", FaraonActions.draw()).error, "must_answer_eso_or_pass")
 	assert_true(r.apply("P1", FaraonActions.pass_turn()).ok)
-	assert_eq(r.state.current_index, 0, "chain owner gets the free continuation")
+	assert_eq(r.state.current_index, 0, "2p: preskočenie = P0 hrá znova")
 	assert_eq(r.state.pending_aces, 0)
 
 
-func test_eso_counter_transfers_chain_ownership() -> void:
+func test_eso_counter_extends_skip_chain() -> void:
 	var r := make_rules([["AZ", "KC"], ["AG", "8G"]], "8Z")
 	play(r, "P0", ["AZ"])
-	assert_true(play(r, "P1", ["AG"]).ok, "countering with own eso is legal")
+	assert_true(play(r, "P1", ["AG"]).ok, "prebitie vlastným esom je legálne")
 	assert_eq(r.state.pending_aces, 1)
-	assert_eq(r.state.current_index, 0, "original attacker must now answer")
+	assert_eq(r.state.current_index, 0, "stop sa vracia pôvodnému útočníkovi")
 	r.apply("P0", FaraonActions.pass_turn())
-	assert_eq(r.state.current_index, 1, "counterer continues after the pass")
+	assert_eq(r.state.current_index, 1, "po stopke hrá ďalší v poradí")
 
 
-func test_three_esos_stop_three_players() -> void:
+func test_three_esos_skip_three_players() -> void:
 	var r := make_rules(
 		[["AZ", "AC", "AE", "KC"], ["8G"], ["9G"], ["XG"]], "XZ")
 	assert_true(play(r, "P0", ["AZ", "AC", "AE"]).ok)
@@ -209,55 +211,53 @@ func test_three_esos_stop_three_players() -> void:
 	r.apply("P1", FaraonActions.pass_turn())
 	r.apply("P2", FaraonActions.pass_turn())
 	r.apply("P3", FaraonActions.pass_turn())
-	assert_eq(r.state.current_index, 0, "after all stops the attacker continues")
+	assert_eq(r.state.current_index, 0,
+			"po troch stopkách je na rade ďalší v poradí = P0")
 
 
-func test_counter_in_multiplayer_shifts_continuation_by_one() -> void:
-	# PDF p.6: A plays three esos; if B counters, B ends up continuing.
+func test_counter_pushes_both_skips_past_the_counterer() -> void:
+	# A2 akceptačný scenár: A položí eso, B prebije druhým esom →
+	# preskakujú sa DVAJA hráči (C aj D... tu A a C), potom hrá ďalší.
 	var r := make_rules(
 		[["AZ", "AC", "AE", "KC"], ["AG", "8G"], ["9G"], ["XG"]], "XZ")
 	play(r, "P0", ["AZ", "AC", "AE"])
 	assert_true(play(r, "P1", ["AG"]).ok)
-	assert_eq(r.state.pending_aces, 3, "B clears own stop, adds one for A")
+	assert_eq(r.state.pending_aces, 3, "B ruší vlastný stop, pridáva jeden")
 	r.apply("P2", FaraonActions.pass_turn())
 	r.apply("P3", FaraonActions.pass_turn())
 	r.apply("P0", FaraonActions.pass_turn())
-	assert_eq(r.state.current_index, 1, "B owns the chain and continues")
+	assert_eq(r.state.current_index, 1,
+			"po spotrebovaní stopov hrá ďalší v poradí = P1")
 
 
-func test_single_eso_in_three_players_denies_exactly_one_turn() -> void:
-	# Investigation of "I could not get a turn after one ace" reports:
-	# P0 plays ONE eso -> P1 (and only P1) is stopped; P0 gets the free
-	# continuation; afterwards the order resumes P1 -> P2. P2 is never
-	# skipped, only delayed by P0's extra move.
+func test_single_eso_in_three_players_skips_exactly_one() -> void:
+	# A2 akceptačné kritérium: A položí 1 eso → B sa preskočí a na rade je
+	# C (hráč dva miesta od pokladajúceho). Žiadne voľné pokračovanie.
 	var r := make_rules([["AZ", "8Z", "KC"], ["9Z", "8G"], ["XZ", "9G"]], "XZ")
 	assert_true(play(r, "P0", ["AZ"]).ok)
-	assert_eq(r.state.current_index, 1, "the stop lands on the next player")
+	assert_eq(r.state.current_index, 1, "stop padá na najbližšieho hráča")
 	assert_true(r.apply("P1", FaraonActions.pass_turn()).ok)
-	assert_eq(r.state.current_index, 0, "owner's free continuation")
-	assert_true(play(r, "P0", ["8Z"]).ok)
-	assert_eq(r.state.current_index, 1,
-			"after the continuation the order resumes at P1 — nobody is skipped")
-	assert_true(play(r, "P1", ["8G"]).ok)
-	assert_eq(r.state.current_index, 2, "P2 gets the next regular turn")
+	assert_eq(r.state.current_index, 2,
+			"po B-čkovej stopke je na rade C — presne 1 preskočený hráč")
+	assert_true(play(r, "P2", ["XZ"]).ok)
+	assert_eq(r.state.current_index, 0, "poradie pokračuje normálne")
 
 
-func test_single_eso_with_finished_player_still_reaches_the_survivor() -> void:
-	# The screenshot scenario: 3p game, one player already finished. The
-	# remaining bot plays ONE eso: the human stands, the bot double-moves
-	# (continuation), then the human MUST be on turn.
+func test_single_eso_with_finished_player_reaches_the_survivor() -> void:
+	# 3p hra s dohratým hráčom: zostávajúci bot položí eso, človek stojí —
+	# keďže aktívni sú už len dvaja, „ďalší v poradí" je opäť bot (to je
+	# ekvivalent 2-hráčovej hry), ale hneď po jeho ťahu MUSÍ hrať človek.
 	var r := make_rules([["9G"], ["AG", "XG", "7G"], ["XC", "9C", "8C"]], "9Z",
 			["KZ", "KG", "KE", "XG"])
-	assert_true(play(r, "P0", ["9G"]).ok) # P0 finishes and is out of the loop
+	assert_true(play(r, "P0", ["9G"]).ok) # P0 dohral
 	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED)
 	assert_eq(r.state.current_index, 1)
 	assert_true(play(r, "P1", ["AG"]).ok)
-	assert_eq(r.state.current_index, 2, "P2 (the human) is the stopped one")
+	assert_eq(r.state.current_index, 2, "stopnutý je človek (P2)")
 	assert_true(r.apply("P2", FaraonActions.pass_turn()).ok)
-	assert_eq(r.state.current_index, 1, "owner continuation for the bot")
+	assert_eq(r.state.current_index, 1, "2 aktívni: ďalší v poradí je bot")
 	assert_true(play(r, "P1", ["XG"]).ok)
-	assert_eq(r.state.current_index, 2,
-			"after the double move the human is guaranteed the turn")
+	assert_eq(r.state.current_index, 2, "po ťahu bota má človek garantovaný ťah")
 
 
 # --- sedmy ----------------------------------------------------------------
@@ -296,19 +296,28 @@ func test_red_seven_returns_finished_player() -> void:
 	assert_true(res.ok, "return must ignore suit/rank matching")
 	assert_eq(r.state.players[0].status, GameState.PlayerStatus.ACTIVE)
 	assert_eq(r.state.players[0].hand.size(), 3, "returned player draws three")
-	assert_eq(r.state.current_index, 1, "returner is on turn after the victim")
+	assert_eq(r.state.current_index, 1,
+			"B3.4 (2 hráči): obeť minula ťah vzatím kariet — hrá pokladajúci")
 
 
-func test_red_seven_return_includes_victims_finishing_seven() -> void:
-	# PDF p.5: victim finished with a seven; returner plays 7C + one more
-	# seven -> victim draws nine in total.
+func test_red_seven_return_takes_only_the_base_even_after_a_chain() -> void:
+	# B3.3 (B4 scenár 2): žaltová 7 → červená 7 → vracajúci sa hráč berie
+	# LEN 3 karty (základ), nie 6 — reťaz pred návratom sa nepočíta a
+	# návratom sa spotrebuje.
 	var draw := ["8Z", "8C", "8E", "8G", "9Z", "9C", "9E", "9G", "XC"]
 	var r := make_rules([["7Z"], ["7C", "7G", "8G"]], "XZ", draw)
 	assert_true(play(r, "P0", ["7Z"]).ok)
 	assert_eq(r.state.pending_sevens_draw, 3)
 	var res := play(r, "P1", ["7C", "7G"])
 	assert_true(res.ok)
-	assert_eq(r.state.players[0].hand.size(), 9)
+	assert_eq(r.state.players[0].hand.size(), 3,
+			"obeť berie len základ (3), nie súčet reťaze")
+	assert_eq(r.state.pending_sevens_draw, 0, "reťaz je návratom spotrebovaná")
+	# A1: obeť musí dostať DREW event, inak sa neprehrá animácia vzatia.
+	var drew: Array = res.events.filter(
+			func(e): return e.type == "DREW" and e.player == "P0")
+	assert_eq(drew.size(), 1, "DREW event pre obeť (animácia vzatia kariet)")
+	assert_eq(drew[0].count, 3)
 
 
 func test_red_seven_returns_automatically_in_multiplayer() -> void:
@@ -328,6 +337,8 @@ func test_red_seven_returns_automatically_in_multiplayer() -> void:
 	assert_eq(r.state.pending_sevens_draw, 0,
 			"no seven penalty may be left for the next player")
 	assert_eq(r.state.players[2].hand.size(), 2, "P2 must not draw anything")
+	assert_eq(r.state.current_index, 2,
+			"B3.4 (viac hráčov): na rade je ďalší v poradí za pokladajúcim")
 
 
 func test_red_seven_returns_latest_eliminated_of_several() -> void:
@@ -417,7 +428,7 @@ func test_interrupt_rejects_other_plays() -> void:
 			["KZ", "KG", "KE", "XC", "DE", "XE"])
 	r.state.pending_sevens_draw = 6
 	r.apply("P0", FaraonActions.draw())
-	assert_eq(play(r, "P0", ["9Z"]).error, "interrupt_faraon_or_draw")
+	assert_eq(play(r, "P0", ["9Z"]).error, "interrupt_card_or_draw")
 
 
 func test_faraon_as_last_penalty_card_offers_nothing() -> void:
@@ -472,17 +483,158 @@ func test_toggle_hornik_strict() -> void:
 	assert_eq(r.state.declared_suit, S.CERVEN)
 
 
-func test_toggle_eso_round_robin() -> void:
-	# 2 aces head-to-head with the toggle: opponent stands, I stand, opponent
-	# plays — no free continuation for the attacker.
+func test_two_esos_in_two_players_wrap_the_second_stop_to_the_attacker() -> void:
+	# A2: stopky sa spotrebúvajú v poradí sedenia — pri dvoch esách v
+	# 2-hráčovej hre stojí súper, potom aj útočník, a hrá súper.
 	var r := make_rules([["AZ", "AC", "KC"], ["9Z", "8G"]], "XZ")
-	r.state.variant.eso_round_robin = true
 	play(r, "P0", ["AZ", "AC"])
 	assert_eq(r.state.pending_aces, 2)
 	assert_true(r.apply("P1", FaraonActions.pass_turn()).ok)
-	assert_eq(r.state.current_index, 0, "second stop lands on the attacker")
+	assert_eq(r.state.current_index, 0, "druhá stopka padá na útočníka")
 	assert_true(r.apply("P0", FaraonActions.pass_turn()).ok)
-	assert_eq(r.state.current_index, 1, "opponent plays after both stood")
+	assert_eq(r.state.current_index, 1, "po oboch stopkách hrá súper")
+
+
+# --- D pravidlá -------------------------------------------------------------
+
+func test_d3_eso_cannot_be_countered_and_resolves_instantly() -> void:
+	var r := make_rules([["AZ", "8Z"], ["AG", "9Z"], ["XZ", "9G"]], "XZ")
+	r.state.variant.eso_no_counter = true
+	var res := play(r, "P0", ["AZ"])
+	assert_true(res.ok)
+	assert_eq(r.state.pending_aces, 0, "stopka sa vyhodnotí okamžite")
+	assert_eq(r.state.current_index, 2,
+			"P1 je preskočený bez PASS akcie, hrá P2")
+	var stops: Array = res.events.filter(func(e): return e.type == "STOPPED")
+	assert_eq(stops.size(), 1)
+	assert_eq(stops[0].player, "P1")
+
+
+func test_d4_seven_drawn_mid_penalty_can_be_played_on() -> void:
+	# Ťahá 6, druhá vytiahnutá karta je sedma → pauza; vyloženie pošle
+	# krok trestu ďalej a vytiahnuté karty ostávajú.
+	var r := make_rules([["9C"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "7G", "XE"])
+	r.state.variant.seven_interrupt = true
+	r.state.pending_sevens_draw = 6
+	var res := r.apply("P0", FaraonActions.draw())
+	assert_true(res.ok)
+	assert_true(r.state.penalty_interrupt)
+	assert_eq(r.state.interrupt_card, "7G")
+	var res2 := play(r, "P0", ["7G"])
+	assert_true(res2.ok, "vyloženie vytiahnutej sedmy musí byť povolené")
+	assert_eq(r.state.pending_sevens_draw, 3,
+			"ďalší hráč čelí kroku novej sedmy; zvyšok vlastného trestu padá")
+	assert_eq(r.state.players[0].hand.size(), 2, "9C + XE ostávajú (7G odišla)")
+	assert_eq(r.state.current_index, 1)
+
+
+func test_d5_faraon_interrupt_can_be_disabled() -> void:
+	var r := make_rules([["9C"], ["8G"]], "8Z",
+			["KZ", "KG", "KE", "XC", "DE", "XE"])
+	r.state.variant.faraon_interrupt = false
+	r.state.pending_sevens_draw = 6
+	var res := r.apply("P0", FaraonActions.draw())
+	assert_true(res.ok)
+	assert_false(r.state.penalty_interrupt,
+			"s vypnutým D5 sa trest doťahá bez pauzy")
+	assert_eq(r.state.players[0].hand.size(), 7)
+
+
+func test_d6_penalty_step_changes_the_scale() -> void:
+	var r := make_rules([["7Z", "9C"], ["7G", "8G"], ["KZ", "KE"]], "7E",
+			["8Z", "8C", "8E", "8G", "9Z"])
+	r.state.variant.seven_penalty_step = 2
+	assert_true(play(r, "P0", ["7Z"]).ok)
+	assert_eq(r.state.pending_sevens_draw, 2, "krok 2: prvá sedma = 2")
+	assert_true(play(r, "P1", ["7G"]).ok)
+	assert_eq(r.state.pending_sevens_draw, 4, "krok 2: dve sedmy = 4")
+	assert_true(r.apply("P2", FaraonActions.draw()).ok)
+	assert_eq(r.state.players[2].hand.size(), 2 + 4)
+
+
+func test_d8_round_scope_expires_after_a_full_circuit() -> void:
+	var r := make_rules([["9C"], ["7C", "8G", "8C", "9G"], ["KZ", "KE", "XG"]],
+			"8C", ["XZ", "XC", "XE"])
+	r.state.variant.red7_return_scope = "round"
+	play(r, "P0", ["9C"]) # P0 dohral; vrch kôpky je 9C (červeň)
+	# Umelo posuň počítadlo ťahov za okno jedného obehu stola.
+	r.state.turn_counter += r.state.players.size() + 1
+	var res := play(r, "P1", ["7C"])
+	assert_true(res.ok, "7C na červeň je legálna ako bežná sedma")
+	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED,
+			"po uzavretí kola už červená sedma hráča nevracia")
+	assert_eq(r.state.pending_sevens_draw, 3, "7C padla ako obyčajná sedma")
+
+
+func test_d10_purista_disables_specials() -> void:
+	var r := make_rules(
+			[["7C", "DE", "8Z"], ["8G", "9G", "KC"], ["8C", "KE", "XG"]], "8Z",
+			["XZ", "XC", "XE", "9C"])
+	r.state.variant.purista = true
+	# Faraón nie je divoký: DE na 8Z nejde (dolník, iná farba/znak).
+	assert_eq(play(r, "P0", ["DE"]).error, "card_does_not_match")
+	# Sedma funguje ako trest, ale 7C nikoho nevracia.
+	assert_true(play(r, "P0", ["8Z"]).ok)
+	assert_true(play(r, "P1", ["8G"]).ok)
+	assert_true(play(r, "P2", ["8C"]).ok) # vrch je 8C — červeň pre 7C
+	assert_true(play(r, "P0", ["7C"]).ok, "7C je v Puristovi obyčajná sedma")
+	assert_eq(r.state.pending_sevens_draw, 3)
+
+
+func test_d12_green_king_adds_four() -> void:
+	var r := make_rules([["KE", "9C"], ["8E", "8G"], ["KZ", "XG"]], "9E",
+			["8Z", "8C", "XC", "XE", "9Z"])
+	r.state.variant.green_king = true
+	assert_true(play(r, "P0", ["KE"]).ok)
+	assert_eq(r.state.pending_sevens_draw, 4, "zelený kráľ = +4")
+	assert_true(r.apply("P1", FaraonActions.draw()).ok)
+	assert_eq(r.state.players[1].hand.size(), 2 + 4)
+
+
+func test_d13_red_ten_seals_the_seven_chain() -> void:
+	var r := make_rules([["7C", "9C"], ["XC", "8G"], ["7Z", "KZ", "XG"]], "9C",
+			["8Z", "8C", "8E", "XE", "9Z"])
+	r.state.variant.red_ten = true
+	assert_true(play(r, "P0", ["7C"]).ok, "7C tu nikoho nevracia (nikto nedohral)")
+	assert_eq(r.state.pending_sevens_draw, 3)
+	var res := play(r, "P1", ["XC"])
+	assert_true(res.ok, "červená desiatka je obrana na červenú sedmu")
+	assert_eq(r.state.pending_sevens_draw, 4, "reťaz + 1 za desiatku")
+	assert_eq(play(r, "P2", ["7Z"]).error, "penalty_sealed_must_draw",
+			"po desiatke už žiadna obrana")
+	assert_true(r.apply("P2", FaraonActions.draw()).ok)
+	assert_eq(r.state.players[2].hand.size(), 3 + 4)
+	assert_false(r.state.pending_hard_penalty, "pečať sa ťahaním vybaví")
+
+
+func test_d14_cannot_finish_with_a_seven() -> void:
+	var r := make_rules([["7Z"], ["8G", "9G"]], "7E", ["XZ", "XC"])
+	r.state.variant.finish_rule = "no_seven"
+	assert_eq(play(r, "P0", ["7Z"]).error, "cannot_finish_with_seven")
+	assert_true(r.apply("P0", FaraonActions.draw()).ok,
+			"hráč musí namiesto toho ťahať")
+
+
+func test_d14_hornik_only_finish() -> void:
+	var r := make_rules([["9E"], ["8G", "9G"]], "9C", ["XZ", "XC"])
+	r.state.variant.finish_rule = "hornik_only"
+	assert_eq(play(r, "P0", ["9E"]).error, "must_finish_with_hornik")
+
+
+func test_d2_hand_size_is_dealt() -> void:
+	var r := FaraonRules.new()
+	var v := RulesVariant.classic()
+	v.initial_hand_size = 7
+	r.start(["A", "B"], v, 4242)
+	assert_eq(r.state.players[0].hand.size(), 7)
+	assert_eq(r.state.players[1].hand.size(), 7)
+
+
+func test_b1_start_index_sets_the_first_player() -> void:
+	var r := FaraonRules.new()
+	r.start(["A", "B", "C"], RulesVariant.classic(), 4242, {}, 2)
+	assert_eq(r.state.current_index, 2, "štartéra určuje volajúci (B1)")
 
 
 func test_toggle_spalena_multiply_banks_extra_moves() -> void:

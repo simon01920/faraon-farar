@@ -64,23 +64,24 @@ func choose(state: GameState, id: String) -> Dictionary:
 	var w: Dictionary = WEIGHTS[difficulty]
 	memory.update(state)
 
-	# Paused penalty draw with the faraón in hand: cancelling the rest of
-	# the penalty is a clear tactical win — MEDIUM and HARD always take it;
-	# EASY keeps grinding cards, consistent with its non-strategic profile.
+	# Pauza počas trestného ťahania (faraón D5 / sedma D4 v ruke): vyloženie
+	# je jasná taktická výhra — MEDIUM a HARD ju využijú vždy; EASY ťahá
+	# ďalej, konzistentne so svojím nestrategickým profilom.
 	if state.penalty_interrupt:
-		if difficulty == Difficulty.EASY:
+		if difficulty == Difficulty.EASY or state.interrupt_card == "":
 			return FaraonActions.draw()
-		return FaraonActions.play(["DE"])
+		return FaraonActions.play([state.interrupt_card])
 
 	# Forced answers first: an open eso chain allows only eso/pass (faraón
 	# with the house rule). Countering both clears our stop and passes it on
 	# — strictly better than standing at every difficulty.
 	if state.pending_aces > 0:
-		var esos := _cards_of_rank(me.hand, FaraonCard.Rank.ESO)
-		if not esos.is_empty():
-			return FaraonActions.play(esos)
-		if state.variant.faraon_blocks_eso and me.hand.has("DE"):
-			return FaraonActions.play(["DE"])
+		if state.variant.counter_allowed():
+			var esos := _cards_of_rank(me.hand, FaraonCard.Rank.ESO)
+			if not esos.is_empty():
+				return FaraonActions.play(esos)
+			if state.variant.faraon_blocks_eso and me.hand.has("DE"):
+				return FaraonActions.play(["DE"])
 		return FaraonActions.pass_turn()
 
 	if state.pending_sevens_draw > 0:
@@ -251,12 +252,16 @@ func _cards_of_rank(hand: Array, rank: int) -> Array:
 
 
 func _has_returnable_target(state: GameState, me: GameState.PlayerState) -> bool:
+	if not state.variant.allows_red7_return():
+		return false
 	for p in state.players:
 		if p == me or p.status != GameState.PlayerStatus.FINISHED:
 			continue
 		if p.finished_with_eso and state.players.size() == 2:
 			continue
-		if state.turn_counter - p.finished_at <= state.players.size():
+		# D8: rozsah vrátiteľnosti zrkadlí engine (_is_returnable).
+		if state.variant.red7_return_scope != "round" \
+				or state.turn_counter - p.finished_at <= state.players.size():
 			return true
 	return false
 

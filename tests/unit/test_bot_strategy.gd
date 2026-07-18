@@ -98,6 +98,7 @@ func test_medium_and_hard_play_the_faraon_on_interrupt() -> void:
 	var s := make_state([["9C", "DE"], ["8G"]], "8Z")
 	s.pending_sevens_draw = 4
 	s.penalty_interrupt = true
+	s.interrupt_card = "DE"
 	for diff in [Diff.MEDIUM, Diff.HARD]:
 		var action := BotStrategy.new(diff).choose(s, "P0")
 		assert_eq(action.cards, ["DE"],
@@ -108,6 +109,7 @@ func test_easy_keeps_drawing_on_interrupt() -> void:
 	var s := make_state([["9C", "DE"], ["8G"]], "8Z")
 	s.pending_sevens_draw = 4
 	s.penalty_interrupt = true
+	s.interrupt_card = "DE"
 	assert_eq(BotStrategy.new(Diff.EASY, 5).choose(s, "P0").action,
 			FaraonActions.DRAW)
 

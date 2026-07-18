@@ -190,8 +190,8 @@ func _build_hand_and_actions() -> void:
 			Color("2e7d4f"), Vector2(210, 52))
 	_btn_interrupt_play.visible = false
 	_btn_interrupt_play.pressed.connect(func():
-		if not _busy:
-			server.propose(_me, FaraonActions.play(["DE"])))
+		if not _busy and _state().interrupt_card != "":
+			server.propose(_me, FaraonActions.play([_state().interrupt_card])))
 	_actions.add_child(_btn_interrupt_play)
 
 	_btn_interrupt_draw = UIKit.pill_button(tr("GAME_INTERRUPT_DRAW"),
@@ -616,6 +616,9 @@ func _refresh_actions() -> void:
 	var interrupt := s.penalty_interrupt and my_turn
 	_btn_interrupt_play.visible = interrupt
 	_btn_interrupt_draw.visible = interrupt
+	if interrupt:
+		_btn_interrupt_play.text = tr("GAME_INTERRUPT_PLAY") \
+				if s.interrupt_card == "DE" else tr("GAME_INTERRUPT_PLAY_SEVEN")
 	_btn_play.visible = not _busy and not interrupt
 	_btn_play.disabled = not my_turn or _selected.is_empty()
 	_btn_pass.visible = my_turn and s.pending_aces > 0
@@ -1391,6 +1394,10 @@ func _show_game_over(_loser_id: String) -> void:
 
 	# Olympic modes: match state (cards next round / out) under the round.
 	if m != null:
+		if not m.finished and m.sub_round_players().size() >= 2 \
+				and not m.kolo_placements.is_empty():
+			_ranking_box.add_child(UIKit.heading(tr("GAME_SHOOTOUT"), 18,
+					UIKit.GOLD.darkened(0.1)))
 		_ranking_box.add_child(UIKit.heading(
 				tr("MATCH_STANDINGS") + "  ·  " + tr("MATCH_ROUND") % m.round_number,
 				17, UIKit.CREAM.darkened(0.2)))
