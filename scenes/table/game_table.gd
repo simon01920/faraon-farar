@@ -1110,17 +1110,6 @@ func _build_pause_layer() -> void:
 		dev_btn.pressed.connect(_open_dev_panel)
 		add_child(dev_btn)
 
-
-func _open_dev_panel() -> void:
-	add_child(DevPanel.new(self))
-
-
-func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed \
-			and event.keycode == KEY_F12 \
-			and GameSettings.dev_mode() and server is LocalGameServer:
-		_open_dev_panel()
-
 	_pause_layer = Control.new()
 	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.visible = false
@@ -1175,6 +1164,17 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var quit := UIKit.pill_button(tr("MENU_BACK"), UIKit.RED, Vector2(280, 50))
 	quit.pressed.connect(func(): exit_to_menu_requested.emit())
 	box.add_child(quit)
+
+
+func _open_dev_panel() -> void:
+	add_child(DevPanel.new(self))
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed \
+			and event.keycode == KEY_F12 \
+			and GameSettings.dev_mode() and server is LocalGameServer:
+		_open_dev_panel()
 
 
 func _pause_toggle(label_key: String, getter: Callable, setter: Callable) -> Control:
