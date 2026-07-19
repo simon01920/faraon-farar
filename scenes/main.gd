@@ -18,7 +18,7 @@ func _ready() -> void:
 	# Dedicated server build (or --server): headless room host, no UI at all.
 	if OS.has_feature("dedicated_server") \
 			or OS.get_cmdline_user_args().has("--server"):
-		_hub().start_server(NetProtocol.DEFAULT_PORT)
+		_hub().start_server(_parse_port())
 		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	TranslationServer.set_locale(GameSettings.get_locale())
@@ -35,6 +35,20 @@ func _ready() -> void:
 	var join_code := _parse_join_code()
 	if join_code != "" and _current_screen is MainMenu:
 		_current_screen.auto_join(join_code)
+
+
+## Port servera: `--port=N` za `--`, inak env FARAON_PORT, inak default 9000.
+func _parse_port() -> int:
+	for arg in OS.get_cmdline_user_args():
+		var s := str(arg)
+		if s.begins_with("--port="):
+			var p := s.trim_prefix("--port=").to_int()
+			if p > 0 and p < 65536:
+				return p
+	var env := OS.get_environment("FARAON_PORT")
+	if env.is_valid_int() and env.to_int() > 0 and env.to_int() < 65536:
+		return env.to_int()
+	return NetProtocol.DEFAULT_PORT
 
 
 func _parse_join_code() -> String:
