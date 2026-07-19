@@ -21,6 +21,10 @@ var rules: FaraonRules
 var variant: RulesVariant
 ## Drained by the transport layer: {peer: int, fn: String, args: Array}.
 var outbox: Array = []
+## Živý stôl: seat -> počet práve označených kariet. Čisto kozmetický,
+## efemérny stav MIMO rules enginu — nevaliduje sa, neukladá do GameState;
+## čistí sa pri každej aplikovanej akcii, odpojení a štarte kola.
+var selections := {}
 
 var _rng := RandomNumberGenerator.new()
 
@@ -96,8 +100,40 @@ func on_disconnect(peer: int, now: float) -> void:
 		if m.peer == peer and m.connected:
 			m.connected = false
 			m.disconnected_at = now
+			# Rozpracovaný výber odpojeného hráča nesmie ostať „zaseknutý"
+			# nadvihnutý na stole ostatných.
+			_clear_selection(m.seat)
 			_broadcast_lobby()
 			return
+
+
+## Priebežný výber hráča (počet označených kariet) — relay ostatným bez
+## akejkoľvek hernej validácie (kozmetika); server len clampne rozsah.
+func set_selection(peer: int, count: int) -> void:
+	if phase != Phase.PLAYING:
+		return
+	var m := member_by_peer(peer)
+	if m.is_empty():
+		return
+	count = clampi(count, 0, 8)
+	if int(selections.get(m.seat, 0)) == count:
+		return
+	if count == 0:
+		selections.erase(m.seat)
+	else:
+		selections[m.seat] = count
+	for mm in members:
+		if mm.connected and mm.peer != peer:
+			_push(mm.peer, "cl_selection", [m.seat, count])
+
+
+func _clear_selection(seat: String) -> void:
+	if int(selections.get(seat, 0)) == 0:
+		return
+	selections.erase(seat)
+	for mm in members:
+		if mm.connected:
+			_push(mm.peer, "cl_selection", [seat, 0])
 
 
 ## Removes members whose grace expired. Returns true when the room is empty
@@ -120,6 +156,7 @@ func start_game(peer: int, variant_dict: Dictionary) -> Dictionary:
 	if members.size() < 2:
 		return _fail("need_players")
 	phase = Phase.PLAYING
+	selections.clear() # čistý stôl — žiadne výbery z minulej hry
 	variant = RulesVariant.from_dict(variant_dict if variant_dict != null else {})
 	rules = FaraonRules.new()
 	var ids: Array = []
@@ -145,6 +182,8 @@ func propose(peer: int, action: Dictionary) -> Dictionary:
 		return _fail("not_in_room")
 	var res := rules.apply(m.seat, action)
 	if res.ok:
+		# Aplikovaná akcia zneplatňuje rozpracovaný výber daného hráča.
+		_clear_selection(m.seat)
 		for mm in members:
 			if mm.connected:
 				_push(mm.peer, "cl_game_events", [res.events, _view_for(mm.seat)])
@@ -178,6 +217,9 @@ func _view_for(seat: String) -> Dictionary:
 	for m in members:
 		names[m.seat] = m.name
 	view["names"] = names
+	# Reconnect/late-join dostane aj aktuálne výbery — žiadny „zaseknutý"
+	# alebo chýbajúci nadvihnutý stav.
+	view["selections"] = selections.duplicate()
 	return view
 
 

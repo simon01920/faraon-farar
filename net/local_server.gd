@@ -7,6 +7,8 @@ extends Node
 
 signal state_updated(events: Array)
 signal action_rejected(player_id: String, error: String)
+## Živý stôl: hráč/bot si práve označil `count` kariet (0 = výber zrušený).
+signal selection_updated(player_id: String, count: int)
 
 const HUMAN_ID := "YOU"
 
@@ -113,6 +115,12 @@ func game_mode() -> String:
 	return "olympic" if match_state.mode == FaraonMatch.Mode.OLYMPIC else "reverse"
 
 
+## Lokálna hra nemá kam vysielať výber človeka (boti sa nepozerajú) —
+## metóda existuje pre jednotné rozhranie s RoomClientom.
+func update_selection(_count: int) -> void:
+	pass
+
+
 func propose(player_id: String, action: Dictionary) -> Dictionary:
 	var res := rules.apply(player_id, action)
 	if res.ok:
@@ -147,6 +155,18 @@ func _bot_move(bot_id: String) -> void:
 	if rules.state.players[rules.state.current_index].id != bot_id:
 		return
 	var action := _bot.choose(rules.state, bot_id)
+	# „Živý stôl": pred položením bot krátko ukáže, koľko kariet si
+	# pripravuje (nadvihnuté ruby so žiarou) — rovnaká spätná väzba, akú
+	# dostávajú súperi v multiplayeri.
+	if action.get("action", "") == FaraonActions.PLAY_CARDS:
+		var n: int = action.get("cards", []).size()
+		selection_updated.emit(bot_id, n)
+		await get_tree().create_timer(0.12 if fast_forward else 0.55).timeout
+		selection_updated.emit(bot_id, 0)
+		# Svet sa mohol počas pauzy zmeniť (reštart, nové kolo, výmena ťahu).
+		if rules.state == null or rules.state.phase != GameState.Phase.PLAYING \
+				or rules.state.players[rules.state.current_index].id != bot_id:
+			return
 	var res := propose(bot_id, action)
 	if not res.ok:
 		# A stuck bot must never freeze the table; drawing is always legal

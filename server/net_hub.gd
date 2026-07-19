@@ -14,6 +14,8 @@ signal room_updated(info: Dictionary)
 signal game_started(view: Dictionary)
 signal game_events(events: Array, view: Dictionary)
 signal move_rejected(reason: String)
+## Kozmetický „živý stôl": súper na seate si označil count kariet.
+signal selection_changed(seat: String, count: int)
 
 const TICK_INTERVAL := 5.0
 
@@ -161,6 +163,21 @@ func sv_propose(action) -> void:
 	_flush()
 
 
+## Priebežný výber kariet — kozmetický kanál MIMO autoritatívnej cesty
+## ťahov: žiadna herná validácia (len clamp), klient throttluje odosielanie.
+@rpc("any_peer", "call_remote", "reliable")
+func sv_selection(count) -> void:
+	if not is_server:
+		return
+	if not (count is int or count is float):
+		return
+	var peer := multiplayer.get_remote_sender_id()
+	var room := manager.room_of(peer)
+	if room != null:
+		room.set_selection(peer, int(count))
+		_flush()
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func sv_snapshot() -> void:
 	if not is_server:
@@ -205,3 +222,9 @@ func cl_game_events(events, view) -> void:
 @rpc("authority", "call_remote", "reliable")
 func cl_action_rejected(reason) -> void:
 	move_rejected.emit(str(reason))
+
+
+@rpc("authority", "call_remote", "reliable")
+func cl_selection(seat, count) -> void:
+	if seat is String and (count is int or count is float):
+		selection_changed.emit(seat, int(count))

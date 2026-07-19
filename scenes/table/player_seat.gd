@@ -22,6 +22,9 @@ var _badge_label: Label
 var _finished := false
 var _pulse: Tween
 var _shown_count := 0
+## Koľko rubov z vejára je „nadvihnutých" — súper si práve pripravuje toľko
+## kariet na položenie (hodnoty ostávajú skryté, ide len o počet).
+var _selected_shown := 0
 
 
 func _init(id: String, p_name: String, color: Color, human := false) -> void:
@@ -80,6 +83,7 @@ func set_count(n: int) -> void:
 	if is_human or _finished:
 		return
 	var shown := mini(_shown_count, MAX_FAN)
+	var raised := mini(_selected_shown, shown)
 	for i in shown:
 		var cv := CardVisual.new("", FAN_W)
 		var off := i - (shown - 1) / 2.0
@@ -88,7 +92,23 @@ func set_count(n: int) -> void:
 				-40.0 + absf(off) * 2.5)
 		cv.pivot_offset = Vector2(FAN_W / 2.0, FAN_W * 1.5)
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if i >= shown - raised:
+			# Vybraný rub sa vysunie z vejára von (po vlastnej osi karty,
+			# t. j. smerom k stredu stola z pohľadu diváka) + zlatá žiara.
+			# Hodnota karty ostáva skrytá — hýbe sa len rub.
+			cv.position += Vector2(0, -12).rotated(cv.rotation)
+			cv.set_glow(true)
+			cv.z_index = 1
 		_fan.add_child(cv)
+
+
+## Živý stôl: súper si práve označil `n` kariet na položenie — príslušný
+## počet rubov sa nadvihne z vejára so žiarou. 0 = výber zmizol.
+func set_selected_count(n: int) -> void:
+	if _selected_shown == maxi(n, 0):
+		return
+	_selected_shown = maxi(n, 0)
+	set_count(_shown_count)
 
 
 func set_finished(finished: bool, place: int = 0) -> void:

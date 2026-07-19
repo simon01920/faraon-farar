@@ -54,6 +54,25 @@ func setup(game_server) -> void:
 	_me = server.local_player_id()
 	server.state_updated.connect(_on_state_updated)
 	server.action_rejected.connect(_on_action_rejected)
+	if server.has_signal("selection_updated"):
+		server.selection_updated.connect(_on_selection_updated)
+
+
+## Súper (bot alebo hráč v multiplayeri) si označil `count` kariet — jeho
+## vejár nadvihne príslušný počet rubov so žiarou. Hodnoty ostávajú skryté.
+func _on_selection_updated(player_id: String, count: int) -> void:
+	if player_id == _me:
+		return
+	var seat: PlayerSeat = _seats.get(player_id)
+	if seat != null and is_instance_valid(seat):
+		seat.set_selected_count(count)
+
+
+## Pošle aktuálnu veľkosť vlastného výberu serveru (multiplayer to vysiela
+## súperom; lokálny server je no-op).
+func _push_selection() -> void:
+	if server != null and server.has_method("update_selection"):
+		server.update_selection(_selected.size())
 
 
 func _state() -> GameState:
@@ -418,6 +437,12 @@ func _on_state_updated(events: Array) -> void:
 	if new_round:
 		_game_over_layer.visible = false
 	_selected.clear()
+	_push_selection() # akcia prebehla — rozpracovaný výber už neplatí
+	# Každá aplikovaná akcia zneplatňuje aj zobrazené výbery súperov (server
+	# ich čistí tiež; toto kryje lokálny stôl a oneskorené správy).
+	for seat in _seats.values():
+		if is_instance_valid(seat):
+			seat.set_selected_count(0)
 	var had_anims := false
 	for e in events:
 		had_anims = _enqueue_event(e) or had_anims
@@ -1394,6 +1419,7 @@ func _on_card_tapped(cv: CardVisual) -> void:
 	else:
 		_selected.clear()
 		_selected.append(id)
+	_push_selection() # súperi vidia priebežný výber (počet nadvihnutých rubov)
 	_refresh_hand(s)
 	_refresh_actions()
 

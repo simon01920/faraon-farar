@@ -19,6 +19,7 @@ var selected := false:
 var hover_preview := false
 
 var _shadow: Panel
+var _glow: Panel
 var _face: TextureRect
 var _order_badge: Label
 var _lift := 0.0
@@ -34,6 +35,21 @@ func _init(id: String = "", width: float = 120.0) -> void:
 	mouse_entered.connect(_set_hover.bind(true))
 	mouse_exited.connect(_set_hover.bind(false))
 	var k := width / 120.0 # scale shadow geometry with card size
+
+	# Zlatá žiara „karta je vybraná na položenie" — samostatná vrstva POD
+	# kartou, odlíšená od hover stavu (ten kartu len zväčší/zdvihne).
+	_glow = Panel.new()
+	var gsb := StyleBoxFlat.new()
+	gsb.bg_color = Color(0, 0, 0, 0)
+	gsb.set_corner_radius_all(int(10 * k))
+	gsb.shadow_color = Color(1.0, 0.84, 0.42, 0.85) # teplá zlatá (UIKit.GOLD)
+	gsb.shadow_size = int(15 * k)
+	gsb.shadow_offset = Vector2.ZERO
+	_glow.add_theme_stylebox_override("panel", gsb)
+	_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_glow.visible = false
+	add_child(_glow)
 
 	_shadow = Panel.new()
 	var sb := StyleBoxFlat.new()
@@ -99,6 +115,12 @@ func _set_hover(on: bool) -> void:
 	_update_selection()
 
 
+## Žiara výberu nezávislá od `selected` settera — ruka ju viaže na výber,
+## súperov vejár (ruby) ju zapína priamo cez set_glow.
+func set_glow(on: bool) -> void:
+	_glow.visible = on
+
+
 func _update_selection() -> void:
 	# The hand layout owns the position; selection/hover lift the art and
 	# pop the card above its neighbours (z-order) so it reads in full.
@@ -108,6 +130,7 @@ func _update_selection() -> void:
 	if _hovered:
 		lift += 26.0
 	set_lift(lift)
+	set_glow(selected) # glow = „vybraná na položenie", hover žiaru nemá
 	if hover_preview:
 		z_index = 2 if _hovered else (1 if selected else 0)
 		scale = Vector2(1.12, 1.12) if _hovered else Vector2.ONE
@@ -125,6 +148,7 @@ func set_order(n: int) -> void:
 func set_lift(px: float) -> void:
 	_lift = px
 	_face.position.y = -px
+	_glow.position.y = -px # žiara obopína kartu, tak letí s ňou
 	var k := base_width / 120.0
 	var sb: StyleBoxFlat = _shadow.get_theme_stylebox("panel")
 	sb.shadow_size = int(8 * k + px * 0.7)
