@@ -14,3 +14,6 @@ tools/probe_*.png
 tools/probe_*.png.import
 build/
 /reverse_specialcard.png
+
+# Docasne subory importera prekladov
+*.tmp
