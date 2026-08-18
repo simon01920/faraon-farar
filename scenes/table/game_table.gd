@@ -477,7 +477,12 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(func():
 				if e.player == _me:
 					Haptics.tap()
-				_toast(tr("TOAST_INTERRUPT") % _display_name(e.player))
+				# Pauzu vyvolá faraón (D5) alebo sedma (D4) — hláška musí
+				# sedieť na kartu, ktorá naozaj prišla.
+				var key := "TOAST_INTERRUPT" \
+						if FaraonCard.is_faraon(str(e.get("card", ""))) \
+						else "TOAST_INTERRUPT_SEVEN"
+				_toast(tr(key) % _display_name(e.player))
 				await _sleep(0.4))
 		"STOPPED":
 			_enqueue(func():

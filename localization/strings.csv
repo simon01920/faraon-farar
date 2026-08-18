@@ -194,6 +194,7 @@ ERR_CANNOT_FINISH_WITH_SEVEN,Hru nemôžeš ukončiť sedmou,You cannot finish w
 ERR_MUST_FINISH_WITH_HORNIK,Hru môžeš ukončiť len horníkom,You can only finish with an ober,Hru můžeš ukončit jen svrškem
 ERR_PENALTY_SEALED_MUST_DRAW,Trest je zapečatený desiatkou — musíš ťahať,The penalty is sealed by the ten — you must draw,Trest je zapečetěný desítkou — musíš líznout
 TOAST_INTERRUPT,%s vytiahol faraóna!,%s drew the faraon!,%s líznul faraona!
+TOAST_INTERRUPT_SEVEN,%s vytiahol sedmu!,%s drew a seven!,%s líznul sedmu!
 ERR_INTERRUPT_FARAON_OR_DRAW,Polož faraóna alebo ťahaj ďalej,Play the faraon or keep drawing,Polož faraona nebo lízej dál
 GAME_STOPPED_BADGE,STOJÍ,STOPPED,STOJÍ
 GAME_WINNER,Dohral,Finished,Dohrál
