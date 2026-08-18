@@ -6,6 +6,10 @@ var _current_screen: Control
 var _server: LocalGameServer
 var _room_client: RoomClient
 var _last_bot_count := 1
+## Monetizácia: rozhoduje kedy sa smie zobraziť reklama (mock sieť, kým nie je
+## nainštalovaný reálny AdMob plugin — pozri monetization/STORE_SETUP.md).
+var _ads: AdsController
+var _banner: CanvasLayer
 
 
 ## The NetHub autoload, looked up at runtime so scripts also compile under
@@ -27,6 +31,13 @@ func _ready() -> void:
 	_room_client = RoomClient.new()
 	add_child(_room_client)
 	_hub().game_started.connect(_on_mp_game_started)
+	# Monetizácia: reklamné okno sa resetuje po >=6h neprítomnosti (rieši sa
+	# pri štarte, žiadny časovač na pozadí). Reálny AdMob/StoreKit plugin sa
+	# napojí sem cez AdsController.new(<sieť>); default je mock.
+	_ads = AdsController.new()
+	_ads.on_app_open()
+	Iap.refresh_entitlements()
+	_build_banner()
 	_show_menu()
 	# Invite deep link MVP: `faraon://join/KOD` or `--join=KOD` on the
 	# command line pre-fills and auto-joins the room. (Registering the URL
@@ -67,8 +78,10 @@ func _show_menu() -> void:
 	menu.room_client = _room_client
 	menu.local_game_requested.connect(_start_local_game)
 	menu.tutorial_requested.connect(_show_tutorial)
+	menu.remove_ads_changed.connect(_refresh_banner)
 	_current_screen = menu
 	add_child(menu)
+	_refresh_banner() # banner len v menu a len pre free hráča
 	# Prvý štart: keď herný mód vybral jazyk zariadenia (čeština → Prší),
 	# nechaj hráča potvrdiť. Pri Faraónovi sa nepýtame.
 	if GameSettings.preset_needs_confirmation():
@@ -153,10 +166,13 @@ func _on_mp_game_started(_view: Dictionary) -> void:
 	if _current_screen is GameTable and _current_screen.server == _room_client:
 		return
 	_clear_screen()
+	_refresh_banner() # v hre žiadny banner
 	var table := GameTable.new()
 	table.setup(_room_client)
-	table.exit_to_menu_requested.connect(_show_menu)
-	table.new_game_requested.connect(_show_menu) # rematch goes via the lobby
+	table.game_finished.connect(func(): _ads.on_game_completed())
+	# rematch goes via the lobby; interstitial (ak dozrela) až po výsledkoch
+	table.exit_to_menu_requested.connect(func(): _ads.run_after_results(_show_menu))
+	table.new_game_requested.connect(func(): _ads.run_after_results(_show_menu))
 	_current_screen = table
 	add_child(table)
 
@@ -189,13 +205,61 @@ func _on_new_game() -> void:
 
 func _build_table() -> void:
 	_clear_screen()
+	_refresh_banner() # v hre žiadny banner
 	var table := GameTable.new()
 	table.setup(_server)
-	table.exit_to_menu_requested.connect(_show_menu)
-	table.new_game_requested.connect(_on_new_game)
-	table.restart_requested.connect(func(): _start_local_game(_last_bot_count))
+	table.game_finished.connect(func(): _ads.on_game_completed())
+	# Odchod z výsledkov cez reklamnú bránu; medzikolo/Reštart neukáže nič,
+	# lebo interstitial sa nazbrojí len keď sa session naozaj skončí.
+	table.exit_to_menu_requested.connect(func(): _ads.run_after_results(_show_menu))
+	table.new_game_requested.connect(func(): _ads.run_after_results(_on_new_game))
+	table.restart_requested.connect(func():
+		_ads.run_after_results(func(): _start_local_game(_last_bot_count)))
 	_current_screen = table
 	add_child(table)
+
+
+# --- reklamný banner v menu ------------------------------------------------
+
+## Vyhradený priestor pre banner na spodku obrazovky. Mock verzia zobrazuje
+## nenápadný placeholder, aby bolo vidno umiestnenie; reálny AdMob banner ho
+## nahradí (network.show_banner cez AdsController). Prázdny pre premium.
+func _build_banner() -> void:
+	_banner = CanvasLayer.new()
+	_banner.layer = 5
+	var strip := PanelContainer.new()
+	strip.name = "Strip"
+	strip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	strip.offset_top = -58
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := UIKit.panel_style(Color("0d241d"), 0)
+	sb.border_color = UIKit.GOLD.darkened(0.55)
+	sb.border_width_top = 1
+	strip.add_theme_stylebox_override("panel", sb)
+	var label := Label.new()
+	label.text = tr("AD_BANNER_PLACEHOLDER")
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.4))
+	strip.add_child(label)
+	_banner.add_child(strip)
+	add_child(_banner)
+	_banner.visible = false
+
+
+## Banner sa ukáže len v menu a len free hráčovi.
+func _refresh_banner() -> void:
+	if _banner == null:
+		return
+	var in_menu := _current_screen is MainMenu
+	var free := _ads != null and not _ads.is_premium()
+	_banner.visible = in_menu and free
+	if _ads != null:
+		if _banner.visible:
+			_ads.show_menu_banner() # reálny SDK banner (mock = no-op)
+		else:
+			_ads.hide_banner()
 
 
 func _clear_screen() -> void:

@@ -11,6 +11,9 @@ const SUIT_KEYS := ["SUIT_ZALUD", "SUIT_CERVEN", "SUIT_ZELEN", "SUIT_GULA"]
 signal exit_to_menu_requested
 signal new_game_requested
 signal restart_requested
+## Celá herná session sa skončila (nie medzikolo olympijského zápasu) a
+## výsledková obrazovka je zobrazená — moment na započítanie hry pre reklamy.
+signal game_finished
 
 var server # LocalGameServer or RoomClient - same duck-typed surface
 ## The local player's id on this server ("YOU" locally, seat id online).
@@ -1624,3 +1627,9 @@ func _show_game_over(_loser_id: String) -> void:
 		if award.level_after > award.level_before:
 			_ranking_box.add_child(UIKit.heading(
 					tr("LEVEL_UP") % award.level_after, 21, Color("6fd08c")))
+
+	# Reklamy: hru započítaj len keď sa session naozaj skončila — medzikolo
+	# olympijského zápasu (m != null and not m.finished) pokračuje „Ďalším
+	# kolom", tam reklama nikdy nebude.
+	if m == null or m.finished:
+		game_finished.emit()

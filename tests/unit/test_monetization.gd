@@ -109,11 +109,18 @@ func test_offline_defers_a_single_interstitial_then_shows_once_online() -> void:
 	assert_eq(ctrl.on_game_completed(), AdsController.Decision.DEFER)
 	assert_eq(net.interstitials_shown, 0)
 	assert_true(MonetizationStore.interstitial_pending())
-	# Online, 5. hra (sama o sebe bez reklamy) — zobrazí sa PRÁVE JEDNA dlžná.
+	# Online, 5. hra (sama o sebe bez reklamy) — jediná dlžná sa nazbrojí.
 	net.online = true
 	assert_eq(ctrl.on_game_completed(), AdsController.Decision.SHOW)
-	assert_eq(net.interstitials_shown, 1, "žiadne nahromadené reklamy")
+	assert_true(ctrl.interstitial_armed(), "reklama je pripravená, nie zobrazená")
+	assert_eq(net.interstitials_shown, 0, "počas výsledkov sa nič neukáže")
 	assert_false(MonetizationStore.interstitial_pending())
+	# Odchod z výsledkovej obrazovky — vtedy sa zobrazí PRÁVE JEDNA.
+	var continued := [false]
+	ctrl.run_after_results(func(): continued[0] = true)
+	assert_eq(net.interstitials_shown, 1, "žiadne nahromadené reklamy")
+	assert_true(continued[0], "pokračovanie beží až po zatvorení reklamy")
+	assert_false(ctrl.interstitial_armed())
 
 
 func test_decide_table() -> void:
@@ -123,6 +130,14 @@ func test_decide_table() -> void:
 	assert_eq(AdsController.decide(false, true, true), D.SHOW, "dlžná sa ukáže")
 	assert_eq(AdsController.decide(true, false, false), D.DEFER, "offline odloží")
 	assert_eq(AdsController.decide(false, false, false), D.NONE)
+
+
+func test_run_after_results_is_instant_when_nothing_armed() -> void:
+	var ctrl := AdsController.new(AdNetwork.MockAdNetwork.new())
+	var ran := [false]
+	ctrl.run_after_results(func(): ran[0] = true)
+	assert_true(ran[0], "bez pripravenej reklamy pokračovanie beží hneď")
+	assert_eq(ctrl.network.interstitials_shown, 0)
 
 
 func test_banner_hidden_for_premium() -> void:

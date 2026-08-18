@@ -8,6 +8,8 @@ extends Control
 
 signal local_game_requested(bot_count: int)
 signal tutorial_requested
+## Premium sa zmenil (nákup/obnovenie) — app root skryje/ukáže banner.
+signal remove_ads_changed
 
 ## Injected by the app root; shared with the table when an online game runs.
 var room_client: RoomClient
@@ -19,6 +21,10 @@ var room_client: RoomClient
 var _menu_screen: ScrollContainer
 var _settings_screen: ScrollContainer
 var _rules_box: VBoxContainer
+var _remove_ads_box: VBoxContainer
+## Purchase facade (mock backend by default) — created lazily, exercises the
+## whole premium flow without a real store.
+var _iap: Iap
 var _dev_taps := 0
 var _appearance_screen: ScrollContainer
 var _mp_screen: ScrollContainer
@@ -167,6 +173,8 @@ func _build_menu() -> void:
 		_settings_screen.visible = true
 		_menu_screen.visible = false)
 	box.add_child(settings)
+	# Spodná rezerva, aby posledné tlačidlo nezaliezlo pod reklamný banner.
+	box.add_child(_spacer(70))
 
 
 func _build_settings_screen() -> void:
@@ -212,6 +220,12 @@ func _build_settings_screen() -> void:
 	box.add_child(settings_title)
 
 	box.add_child(_language_row())
+	box.add_child(_spacer(6))
+
+	_remove_ads_box = VBoxContainer.new()
+	_remove_ads_box.add_theme_constant_override("separation", 10)
+	box.add_child(_remove_ads_box)
+	_rebuild_remove_ads()
 	box.add_child(_spacer(6))
 
 	box.add_child(UIKit.heading(tr("SETTINGS_AUDIO"), 21, UIKit.CREAM))
@@ -297,6 +311,121 @@ func _confirm_rules_reset() -> void:
 		_rebuild_rule_rows())
 	add_child(dialog)
 	dialog.popup_centered()
+
+
+# --- odstránenie reklám (mikrotransakcie) ----------------------------------
+
+## Nenápadná sekcia v Nastaveniach. Premium hráčovi ukáže len poďakovanie;
+## free hráčovi oba produkty vedľa seba (ceny zo store) + Obnoviť nákupy.
+## Žiadne agresívne „len teraz" nutkanie — konzistentne s nerušivou filozofiou.
+func _rebuild_remove_ads() -> void:
+	for c in _remove_ads_box.get_children():
+		c.queue_free()
+	_remove_ads_box.add_child(UIKit.heading(tr("REMOVE_ADS_TITLE"), 21, UIKit.CREAM))
+
+	if MonetizationStore.is_premium(int(Time.get_unix_time_from_system())):
+		var active := Label.new()
+		active.text = tr("REMOVE_ADS_ACTIVE")
+		active.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		active.add_theme_font_size_override("font_size", 15)
+		active.add_theme_color_override("font_color", Color("6fd08c"))
+		_remove_ads_box.add_child(active)
+		return
+
+	_ensure_iap()
+	var note := Label.new()
+	note.text = tr("REMOVE_ADS_NOTE")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", 14)
+	note.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.25))
+	_remove_ads_box.add_child(note)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.add_child(_product_card(Iap.PRODUCT_YEARLY, tr("REMOVE_ADS_YEARLY"),
+			tr("REMOVE_ADS_PER_YEAR"), false))
+	row.add_child(_product_card(Iap.PRODUCT_LIFETIME, tr("REMOVE_ADS_LIFETIME"),
+			"", true))
+	_remove_ads_box.add_child(row)
+
+	var restore := UIKit.pill_button(tr("REMOVE_ADS_RESTORE"),
+			Color("55617a"), Vector2(280, 44), 15)
+	restore.pressed.connect(func(): _iap.restore_purchases())
+	var restore_row := HBoxContainer.new()
+	restore_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	restore_row.add_child(restore)
+	_remove_ads_box.add_child(restore_row)
+
+
+func _ensure_iap() -> void:
+	if _iap != null:
+		return
+	_iap = Iap.new()
+	_iap.purchased.connect(func(_id):
+		remove_ads_changed.emit()
+		_rebuild_remove_ads())
+	_iap.restored.connect(func(count):
+		remove_ads_changed.emit()
+		_rebuild_remove_ads())
+	# Ceny prídu zo store asynchrónne — prekresli až po ich doručení
+	# (call_deferred zabráni re-entrancii pri synchronnom mocku).
+	_iap.products_updated.connect(func(_p): call_deferred("_rebuild_remove_ads"))
+	_iap.query_products()
+
+
+## Jedna produktová karta: názov, cena zo store (nie hardcoded), tlačidlo kúpiť.
+## `highlight` = zvýrazni ako výhodnejšiu voľbu (lifetime), bez manipulácie.
+func _product_card(product_id: String, title: String, price_suffix: String,
+		highlight: bool) -> Control:
+	var card := PanelContainer.new()
+	var sb := UIKit.panel_style(Color(0, 0, 0, 0.28), 14)
+	sb.shadow_size = 0
+	if highlight:
+		sb.border_color = UIKit.GOLD.darkened(0.1)
+		sb.set_border_width_all(2)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", sb)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	v.custom_minimum_size = Vector2(210, 0)
+	card.add_child(v)
+
+	var name_label := Label.new()
+	name_label.text = title
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.add_theme_color_override("font_color",
+			UIKit.GOLD if highlight else UIKit.CREAM)
+	v.add_child(name_label)
+
+	# Cena zo store (lokálna mena); fallback na formát, kým sa nenačíta.
+	var store_price := _iap.price_of(product_id)
+	var price := Label.new()
+	price.text = (store_price if store_price != "" else "…") + price_suffix
+	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price.add_theme_font_size_override("font_size", 20)
+	price.add_theme_color_override("font_color", UIKit.CREAM)
+	v.add_child(price)
+
+	if highlight:
+		var best := Label.new()
+		best.text = tr("REMOVE_ADS_BEST_VALUE")
+		best.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		best.add_theme_font_size_override("font_size", 12)
+		best.add_theme_color_override("font_color", UIKit.GOLD.darkened(0.1))
+		v.add_child(best)
+
+	var buy := UIKit.pill_button(tr("REMOVE_ADS_BUY"),
+			Color("2e7d4f"), Vector2(180, 44), 15)
+	buy.disabled = store_price == "" # počkaj na cenu zo store
+	buy.pressed.connect(func(): _iap.purchase(product_id))
+	v.add_child(buy)
+	return card
 
 
 ## Či je pravidlo v UI zablokované konfliktom (E: Purista, Hospodské prší,
