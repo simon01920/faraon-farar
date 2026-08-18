@@ -171,13 +171,18 @@ static func build_variant() -> RulesVariant:
 	return v
 
 
-## Podporované jazyky UI v poradí prepínača.
+## Podporované jazyky UI v poradí, v akom sa ponúkajú.
 const LOCALES := ["sk", "cs", "en"]
 
+## Názvy jazykov vo vlastnom jazyku (endonymá) — v rozbaľovacom zozname si
+## tak svoj jazyk nájde aj ten, kto aktuálnemu nerozumie.
+const LOCALE_NAMES := {
+	"sk": "Slovenčina", "cs": "Čeština", "en": "English",
+}
 
-## Jazyk aplikácie. Pri PRVOM spustení (bez uloženej voľby) sa odvodí zo
-## systémového jazyka zariadenia: čeština → cs, angličtina → en, čokoľvek
-## iné → sk. Hráčova voľba v nastaveniach má odvtedy prednosť.
+
+## Jazyk aplikácie. Pri PRVOM spustení (bez uloženej voľby) ho určí jazyk
+## zariadenia; hráčova voľba v nastaveniach má odvtedy vždy prednosť.
 static func get_locale() -> String:
 	var saved = _load().get_value("app", "locale", "")
 	if saved is String and LOCALES.has(saved):
@@ -185,15 +190,33 @@ static func get_locale() -> String:
 	return detect_locale(OS.get_locale())
 
 
+## Jazyk zariadenia → jazyk appky. Slovenčina a čeština si sadnú priamo,
+## pre všetko ostatné (vrátane angličtiny) je najzrozumiteľnejšia
+## angličtina — Slovák/Čech by inak dostal cudzí jazyk a naopak.
 static func detect_locale(os_locale: String) -> String:
 	var lang := os_locale.to_lower().replace("-", "_").split("_")[0]
-	return lang if LOCALES.has(lang) else "sk"
+	return lang if LOCALES.has(lang) else "en"
 
 
 static func set_locale(locale: String) -> void:
 	var cfg := _load()
 	cfg.set_value("app", "locale", locale)
 	cfg.save(PATH)
+
+
+## Vybral si hráč jazyk sám, alebo ho zatiaľ riadi zariadenie?
+static func locale_is_explicit() -> bool:
+	var saved = _load().get_value("app", "locale", "")
+	return saved is String and LOCALES.has(saved)
+
+
+## Späť na „riaď sa jazykom zariadenia" (používajú to aj dev probe skripty,
+## aby po sebe nenechali pripnutú voľbu).
+static func clear_locale() -> void:
+	var cfg := _load()
+	if cfg.has_section_key("app", "locale"):
+		cfg.erase_section_key("app", "locale")
+		cfg.save(PATH)
 
 
 ## Active card skin id. "Mariáš dvojhlavý" is the default for new AND

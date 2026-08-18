@@ -1,6 +1,6 @@
 keys,sk,en,cs
-APP_NAME,Faraón,Faraon,Faraon
-MENU_SUBTITLE,Slovenská kartová klasika,The Slovak card classic,Slovenská karetní klasika
+APP_NAME,Faraón,Faraon,Prší
+MENU_SUBTITLE,Slovenská kartová klasika,The Slovak card classic,Karetní klasika
 MENU_PLAY,Hrať,Play,Hrát
 MENU_OPPONENTS,Hrať proti súperom:,Play against opponents:,Hrát proti soupeřům:
 MENU_CREATE_ROOM,Vytvoriť miestnosť,Create room,Vytvořit místnost
@@ -113,7 +113,7 @@ SETTINGS_LANGUAGE,Jazyk,Language,Jazyk
 SETTINGS_MASTER_VOLUME,Hlavná hlasitosť,Master volume,Hlavní hlasitost
 SETTINGS_SFX_VOLUME,Zvukové efekty,Sound effects,Zvukové efekty
 SETTINGS_MUSIC_VOLUME,Hudba,Music,Hudba
-MENU_ALT_NAMES,Faraón / Prší,Faraón / Prší,Prší / Faraon
+MENU_ALT_NAMES,Farár / Prší,Farár / Prší,Faraon / Farář
 RULES_EXPLAINER,"Faraón (Farár / Prší) je ľudová hra, ktorá má veľa verzií podľa regiónu alebo skupiny ľudí — každý si ju hrá po svojom. Preto ti dávame možnosť prispôsobiť si niektoré pravidlá podľa toho, ako ich poznáš ty. Predvolené nastavenia vychádzajú z dohľadateľných zdrojov ako najrozšírenejšia a najférovejšia verzia pravidiel.","Faraón (Farár / Prší) is a folk game with many regional versions — everyone plays it their own way. That's why you can tune some rules to match the way you know them. The defaults follow the most widespread and fairest documented version.","Faraon (Farář / Prší) je lidová hra, která má spoustu verzí podle regionu nebo party — každý ji hraje po svém. Proto ti dáváme možnost přizpůsobit si některá pravidla podle toho, jak je znáš ty. Výchozí nastavení vychází z dohledatelných zdrojů jako nejrozšířenější a nejférovější verze pravidel."
 RULES_RESET,Obnoviť predvolené nastavenia,Reset to defaults,Obnovit výchozí nastavení
 RULES_RESET_CONFIRM,Naozaj vrátiť všetky domáce pravidlá na predvolené hodnoty?,Really reset all house rules to their defaults?,Opravdu vrátit všechna domácí pravidla na výchozí hodnoty?

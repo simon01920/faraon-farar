@@ -1038,16 +1038,35 @@ func _language_row() -> Control:
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(title)
 
-	# Prepínač cykluje cez podporované jazyky (SK → CS → EN → SK).
-	var cur := _locale_index()
-	var lang := UIKit.pill_button(
-			GameSettings.LOCALES[cur].to_upper(),
-			Color("6b5a3e"), Vector2(110, 44), 18)
-	lang.pressed.connect(func():
-		var next: String = GameSettings.LOCALES[
-				(_locale_index() + 1) % GameSettings.LOCALES.size()]
-		GameSettings.set_locale(next)
-		TranslationServer.set_locale(next)
+	# Rozbaľovací zoznam jazykov — jazyky sú pomenované vo vlastnom jazyku,
+	# takže sa v ňom nájde aj ten, kto práve rozumie inému.
+	var lang := OptionButton.new()
+	lang.custom_minimum_size = Vector2(190, 46)
+	lang.add_theme_font_size_override("font_size", 17)
+	lang.add_theme_color_override("font_color", UIKit.CREAM)
+	lang.add_theme_stylebox_override("normal",
+			UIKit.panel_style(Color("6b5a3e"), 22))
+	lang.add_theme_stylebox_override("hover",
+			UIKit.panel_style(Color("6b5a3e").lightened(0.12), 22))
+	lang.add_theme_stylebox_override("pressed",
+			UIKit.panel_style(Color("6b5a3e").darkened(0.15), 22))
+	lang.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var popup := lang.get_popup()
+	popup.add_theme_font_size_override("font_size", 17)
+	popup.add_theme_color_override("font_color", UIKit.CREAM)
+	popup.add_theme_stylebox_override("panel",
+			UIKit.panel_style(Color("1d3f33"), 12))
+	popup.add_theme_stylebox_override("hover",
+			UIKit.panel_style(Color("6b5a3e"), 8))
+	for i in GameSettings.LOCALES.size():
+		lang.add_item(GameSettings.LOCALE_NAMES[GameSettings.LOCALES[i]], i)
+	lang.select(_locale_index())
+	lang.item_selected.connect(func(index: int):
+		var picked: String = GameSettings.LOCALES[index]
+		if picked == TranslationServer.get_locale():
+			return
+		GameSettings.set_locale(picked)
+		TranslationServer.set_locale(picked)
 		get_tree().reload_current_scene())
 	h.add_child(lang)
 	return row

@@ -5,6 +5,17 @@ extends SceneTree
 
 
 var _saved_locale := "sk"
+var _had_explicit_locale := false
+
+
+func _find_option_button(node: Node) -> OptionButton:
+	if node is OptionButton:
+		return node
+	for c in node.get_children():
+		var found := _find_option_button(c)
+		if found != null:
+			return found
+	return null
 
 
 func _snap(name: String) -> void:
@@ -16,12 +27,13 @@ func _snap(name: String) -> void:
 func _initialize() -> void:
 	# Detekcia jazyka zariadenia (sekcia 3): kontrola bez UI.
 	for pair in [["cs_CZ", "cs"], ["cs", "cs"], ["sk_SK", "sk"], ["en-US", "en"],
-			["de_DE", "sk"], ["", "sk"]]:
+			["de_DE", "en"], ["", "en"]]:
 		var got := GameSettings.detect_locale(pair[0])
 		print("detect_locale(%s) = %s %s" % [pair[0], got,
 				"OK" if got == pair[1] else "ZLE (cakane %s)" % pair[1]])
 	# main.gd si jazyk načíta z nastavení, takže ho treba prepnúť ešte pred
 	# vytvorením scény; pôvodnú hodnotu vrátime na konci.
+	_had_explicit_locale = GameSettings.locale_is_explicit()
 	_saved_locale = GameSettings.get_locale()
 	GameSettings.set_locale("cs")
 	TranslationServer.set_locale("cs")
@@ -47,10 +59,25 @@ func _run() -> void:
 		var t := TranslationServer.translate(k)
 		print("%s -> %s%s" % [k, t, "  <== CHYBA: nepreložené" if t == k else ""])
 
+	print("APP_NAME=%s | MENU_ALT_NAMES=%s" % [
+			TranslationServer.translate("APP_NAME"),
+			TranslationServer.translate("MENU_ALT_NAMES")])
 	menu._menu_screen.visible = false
 	menu._settings_screen.visible = true
 	await create_timer(0.3).timeout
 	_snap("probe_cs_settings")
+	var picker := _find_option_button(menu._settings_screen)
+	if picker != null:
+		var names: Array = []
+		for i in picker.item_count:
+			names.append(picker.get_item_text(i))
+		print("jazyky v dropdowne: ", ", ".join(names),
+				" | vybraný: ", picker.get_item_text(picker.selected))
+		picker.show_popup()
+		await create_timer(0.4).timeout
+		_snap("probe_cs_lang_popup")
+		picker.get_popup().hide()
+		await create_timer(0.2).timeout
 	menu._settings_screen.visible = false
 	menu._menu_screen.visible = true
 
@@ -61,5 +88,9 @@ func _run() -> void:
 	while table._busy:
 		await create_timer(0.2).timeout
 	_snap("probe_cs_table")
-	GameSettings.set_locale(_saved_locale) # nechaj nastavenia tak, ako boli
+	# Nechaj nastavenia presne tak, ako boli — vrátane stavu „bez voľby".
+	if _had_explicit_locale:
+		GameSettings.set_locale(_saved_locale)
+	else:
+		GameSettings.clear_locale()
 	quit()
