@@ -248,13 +248,17 @@ func _build_banner() -> void:
 	_banner.visible = false
 
 
-## Banner sa ukáže len v menu a len free hráčovi.
+## Banner sa ukáže len v menu a len free hráčovi. Menu sa zároveň o výšku
+## bannera skráti, takže obsah pod ním nikdy nie je prekrytý — banner má
+## vlastný vyhradený pruh, nie vrstvu cez tlačidlá.
 func _refresh_banner() -> void:
 	if _banner == null:
 		return
 	var in_menu := _current_screen is MainMenu
 	var free := _ads != null and not _ads.is_premium()
 	_banner.visible = in_menu and free
+	if in_menu:
+		_current_screen.offset_bottom = -58 if _banner.visible else 0
 	if _ads != null:
 		if _banner.visible:
 			_ads.show_menu_banner() # reálny SDK banner (mock = no-op)

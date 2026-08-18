@@ -173,8 +173,8 @@ func _build_menu() -> void:
 		_settings_screen.visible = true
 		_menu_screen.visible = false)
 	box.add_child(settings)
-	# Spodná rezerva, aby posledné tlačidlo nezaliezlo pod reklamný banner.
-	box.add_child(_spacer(70))
+	# Malá spodná rezerva (o banner sa stará offset_bottom v app roote).
+	box.add_child(_spacer(12))
 
 
 func _build_settings_screen() -> void:
@@ -342,12 +342,14 @@ func _rebuild_remove_ads() -> void:
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 14)
 	row.add_child(_product_card(Iap.PRODUCT_YEARLY, tr("REMOVE_ADS_YEARLY"),
 			tr("REMOVE_ADS_PER_YEAR"), false))
 	row.add_child(_product_card(Iap.PRODUCT_LIFETIME, tr("REMOVE_ADS_LIFETIME"),
 			"", true))
 	_remove_ads_box.add_child(row)
+	# HBox natiahne obe karty na výšku najvyššej; vnútorný expander v karte
+	# pritlačí tlačidlá Kúpiť na spoločnú spodnú líniu.
 
 	var restore := UIKit.pill_button(tr("REMOVE_ADS_RESTORE"),
 			Color("55617a"), Vector2(280, 44), 15)
@@ -376,6 +378,8 @@ func _ensure_iap() -> void:
 
 ## Jedna produktová karta: názov, cena zo store (nie hardcoded), tlačidlo kúpiť.
 ## `highlight` = zvýrazni ako výhodnejšiu voľbu (lifetime), bez manipulácie.
+## Obe karty majú rovnakú šírku a tlačidlo pritlačené na spodok, takže dvojica
+## v riadku sedí na jednej línii bez ohľadu na počet riadkov obsahu.
 func _product_card(product_id: String, title: String, price_suffix: String,
 		highlight: bool) -> Control:
 	var card := PanelContainer.new()
@@ -384,15 +388,15 @@ func _product_card(product_id: String, title: String, price_suffix: String,
 	if highlight:
 		sb.border_color = UIKit.GOLD.darkened(0.1)
 		sb.set_border_width_all(2)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 12
-	sb.content_margin_bottom = 12
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 14
+	sb.content_margin_bottom = 14
 	card.add_theme_stylebox_override("panel", sb)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	v.custom_minimum_size = Vector2(210, 0)
+	v.add_theme_constant_override("separation", 6)
+	v.custom_minimum_size = Vector2(230, 158)
 	card.add_child(v)
 
 	var name_label := Label.new()
@@ -412,16 +416,24 @@ func _product_card(product_id: String, title: String, price_suffix: String,
 	price.add_theme_color_override("font_color", UIKit.CREAM)
 	v.add_child(price)
 
-	if highlight:
-		var best := Label.new()
-		best.text = tr("REMOVE_ADS_BEST_VALUE")
-		best.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		best.add_theme_font_size_override("font_size", 12)
-		best.add_theme_color_override("font_color", UIKit.GOLD.darkened(0.1))
-		v.add_child(best)
+	# Badge „Najvýhodnejšie" má vyhradený riadok v OBOCH kartách — karta bez
+	# neho dostane prázdny riadok rovnakej výšky, takže obsah sa nerozíde.
+	var best := Label.new()
+	best.text = tr("REMOVE_ADS_BEST_VALUE") if highlight else " "
+	best.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	best.add_theme_font_size_override("font_size", 12)
+	best.add_theme_color_override("font_color", UIKit.GOLD.darkened(0.1))
+	v.add_child(best)
+
+	# Expander zhltne prebytočnú výšku — tlačidlá oboch kariet končia na
+	# spoločnej spodnej línii.
+	var filler := Control.new()
+	filler.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(filler)
 
 	var buy := UIKit.pill_button(tr("REMOVE_ADS_BUY"),
-			Color("2e7d4f"), Vector2(180, 44), 15)
+			Color("2e7d4f"), Vector2(194, 46), 15)
+	buy.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	buy.disabled = store_price == "" # počkaj na cenu zo store
 	buy.pressed.connect(func(): _iap.purchase(product_id))
 	v.add_child(buy)
@@ -1170,23 +1182,39 @@ func _language_row() -> Control:
 	# Rozbaľovací zoznam jazykov — jazyky sú pomenované vo vlastnom jazyku,
 	# takže sa v ňom nájde aj ten, kto práve rozumie inému.
 	var lang := OptionButton.new()
-	lang.custom_minimum_size = Vector2(190, 46)
+	lang.custom_minimum_size = Vector2(200, 46)
+	lang.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lang.add_theme_font_size_override("font_size", 17)
 	lang.add_theme_color_override("font_color", UIKit.CREAM)
-	lang.add_theme_stylebox_override("normal",
-			UIKit.panel_style(Color("6b5a3e"), 22))
-	lang.add_theme_stylebox_override("hover",
-			UIKit.panel_style(Color("6b5a3e").lightened(0.12), 22))
-	lang.add_theme_stylebox_override("pressed",
-			UIKit.panel_style(Color("6b5a3e").darkened(0.15), 22))
+	# panel_style nemá vnútorné okraje — bez nich text lepí na ľavú hranu
+	# a šípka na pravú. Vycentrovaný text + symetrické okraje.
+	for style_name in ["normal", "hover", "pressed"]:
+		var col := Color("6b5a3e")
+		if style_name == "hover":
+			col = col.lightened(0.12)
+		elif style_name == "pressed":
+			col = col.darkened(0.15)
+		var sb_opt := UIKit.panel_style(col, 22)
+		sb_opt.content_margin_left = 22
+		sb_opt.content_margin_right = 34 # miesto pre rozbaľovaciu šípku
+		sb_opt.content_margin_top = 8
+		sb_opt.content_margin_bottom = 8
+		lang.add_theme_stylebox_override(style_name, sb_opt)
 	lang.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var popup := lang.get_popup()
 	popup.add_theme_font_size_override("font_size", 17)
 	popup.add_theme_color_override("font_color", UIKit.CREAM)
-	popup.add_theme_stylebox_override("panel",
-			UIKit.panel_style(Color("1d3f33"), 12))
-	popup.add_theme_stylebox_override("hover",
-			UIKit.panel_style(Color("6b5a3e"), 8))
+	var sb_panel := UIKit.panel_style(Color("1d3f33"), 12)
+	sb_panel.content_margin_left = 10
+	sb_panel.content_margin_right = 10
+	sb_panel.content_margin_top = 8
+	sb_panel.content_margin_bottom = 8
+	popup.add_theme_stylebox_override("panel", sb_panel)
+	var sb_hover := UIKit.panel_style(Color("6b5a3e"), 8)
+	sb_hover.content_margin_left = 8
+	sb_hover.content_margin_right = 8
+	popup.add_theme_stylebox_override("hover", sb_hover)
+	popup.add_theme_constant_override("v_separation", 6)
 	for i in GameSettings.LOCALES.size():
 		lang.add_item(GameSettings.LOCALE_NAMES[GameSettings.LOCALES[i]], i)
 	lang.select(_locale_index())
