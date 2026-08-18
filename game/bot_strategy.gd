@@ -73,7 +73,8 @@ func choose(state: GameState, id: String) -> Dictionary:
 		# Ťah vedie karta, ktorá pauzu vyvolala; ak je to sedma, priložia sa
 		# aj ostatné sedmy z ruky — trest, ktorý ide ďalej, tým narastie.
 		var group: Array = [state.interrupt_card]
-		if FaraonCard.is_sedma(state.interrupt_card):
+		if FaraonCard.is_sedma(state.interrupt_card) \
+				and state.variant.multi_card_play:
 			for c in _cards_of_rank(me.hand, FaraonCard.Rank.R7):
 				if c != state.interrupt_card:
 					group.append(c)
@@ -86,8 +87,9 @@ func choose(state: GameState, id: String) -> Dictionary:
 		if state.variant.counter_allowed():
 			var esos := _cards_of_rank(me.hand, FaraonCard.Rank.ESO)
 			if not esos.is_empty():
-				return FaraonActions.play(esos)
-			if state.variant.faraon_blocks_eso and me.hand.has("DE"):
+				return FaraonActions.play(_limit_group(state, esos))
+			if state.variant.faraon_blocks_eso and me.hand.has("DE") \
+					and state.variant.faraon_is_wild():
 				return FaraonActions.play(["DE"])
 		return FaraonActions.pass_turn()
 
@@ -100,7 +102,7 @@ func choose(state: GameState, id: String) -> Dictionary:
 			return not FaraonCard.is_reverse(c) \
 					and int(FaraonCard.rank_of(c)) == state.announced_rank)
 		if not matching.is_empty():
-			return FaraonActions.play(matching)
+			return FaraonActions.play(_limit_group(state, matching))
 		var trumps: Array = me.hand.filter(func(c):
 			return not FaraonCard.is_reverse(c) \
 					and FaraonCard.rank_of(c) == FaraonCard.Rank.DOLNIK \
@@ -113,7 +115,8 @@ func choose(state: GameState, id: String) -> Dictionary:
 	# the spot — every difficulty takes it (the engine picks the victim).
 	if state.active_count() == 1 and me.hand.has("7C") \
 			and _has_returnable_target(state, me):
-		return FaraonActions.play(_cards_of_rank(me.hand, FaraonCard.Rank.R7))
+		return FaraonActions.play(_limit_group(state,
+				_cards_of_rank(me.hand, FaraonCard.Rank.R7)))
 
 	return _choose_normal_play(state, me, w)
 
@@ -126,6 +129,7 @@ func _choose_sevens_defense(state: GameState, me: GameState.PlayerState,
 	var sevens := _cards_of_rank(me.hand, FaraonCard.Rank.R7)
 	if not sevens.is_empty():
 		# Passing the grown penalty on is nearly always right.
+		sevens = _limit_group(state, sevens)
 		candidates.append({"action": FaraonActions.play(sevens),
 				"score": 3.0 + w.size * sevens.size()
 						+ _block_bonus(state, me, FaraonCard.Rank.R7, w)})
@@ -136,7 +140,8 @@ func _choose_sevens_defense(state: GameState, me: GameState.PlayerState,
 		# Faraón smie viesť celú skupinu dolníkov — zruší trest a zhodí viac
 		# kariet naraz. EASY na to neprichádza, konzistentne s profilom.
 		var unters := _cards_of_rank(me.hand, FaraonCard.Rank.DOLNIK)
-		if unters.size() > 1 and difficulty != Difficulty.EASY:
+		if unters.size() > 1 and difficulty != Difficulty.EASY \
+				and state.variant.multi_card_play:
 			var group: Array = ["DE"]
 			for c in unters:
 				if c != "DE":
@@ -180,11 +185,14 @@ func _choose_normal_play(state: GameState, me: GameState.PlayerState,
 	# Wildcard fallbacks: loose horník changes the suit, faraón lands anywhere.
 	if not state.variant.hornik_strict:
 		for c in me.hand:
-			if FaraonCard.is_hornik(c) and not _has_group_of(candidates, c):
+			# P5: voľný horník nie je voľný, keď je na vrchu eso/sedma.
+			if FaraonCard.is_hornik(c) and _opener_legal(state, c) \
+					and not _has_group_of(candidates, c):
 				candidates.append({"action": FaraonActions.play([c], _best_suit(me.hand, [c])),
 						"score": w.size - w.save * 0.8 + _noise(w)})
 				break
-	if me.hand.has("DE") and not _has_group_of(candidates, "DE"):
+	if me.hand.has("DE") and state.variant.faraon_is_wild() \
+			and not _has_group_of(candidates, "DE"):
 		candidates.append({"action": FaraonActions.play(["DE"]),
 				"score": w.size - w.save * 1.0 + _noise(w)})
 
@@ -285,6 +293,13 @@ func _pick(candidates: Array, _w: Dictionary) -> Dictionary:
 
 # --- move construction (shared legality helpers) ---------------------------
 
+## P6: v móde bez viackartových ťahov (Prší) sa smie položiť len jedna karta.
+func _limit_group(state: GameState, group: Array) -> Array:
+	if state.variant.multi_card_play or group.size() <= 1:
+		return group
+	return [group[0]]
+
+
 func _cards_of_rank(hand: Array, rank: int) -> Array:
 	var out: Array = []
 	for c in hand:
@@ -311,9 +326,12 @@ func _opener_legal(state: GameState, card: String) -> bool:
 			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
 			and not FaraonCard.is_faraon(card):
 		return true # D11: spodok-menič sa odhadzuje voľne
-	if FaraonCard.is_faraon(card) or FaraonCard.is_faraon(top):
+	if state.variant.faraon_is_wild() \
+			and (FaraonCard.is_faraon(card) or FaraonCard.is_faraon(top)):
 		return true
-	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict:
+	# P5: v Prší menič nepadne na eso ani na sedmu.
+	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict \
+			and state.variant.changer_allowed_on(top):
 		return true
 	if FaraonCard.rank_of(card) == FaraonCard.rank_of(top):
 		return true
@@ -334,10 +352,12 @@ func _ordered_group(state: GameState, me: GameState.PlayerState,
 		if _opener_legal(state, c):
 			opener = c
 			break
-	if opener == "" and group.has("DE"):
+	if opener == "" and group.has("DE") and state.variant.faraon_is_wild():
 		opener = "DE"
 	if opener == "":
 		return []
+	if not state.variant.multi_card_play:
+		return [opener] # P6: v Prší sa kladie po jednej karte
 	var rest: Array = group.filter(func(c): return c != opener)
 	# Close on the suit we keep the most of; keep DE away from the last slot.
 	rest.sort_custom(func(a, b):

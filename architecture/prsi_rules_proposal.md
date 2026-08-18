@@ -1,9 +1,19 @@
-# Herný mód „Prší" — návrh pravidiel na schválenie
+# Herný mód „Prší" — pravidlá a rozhodnutia
 
-> **Stav: ČAKÁ NA SIMONOVO SCHVÁLENIE. Zatiaľ nie je napísaný ani riadok kódu.**
-> Zadanie (`faraon_penalty_cards_czech_modes_prompt.md`, sekcia 4) hovorí:
-> najprv zoznam pravidiel s vyznačením rozdielov oproti Faraónovi, potom
-> potvrdenie, až potom implementácia.
+> **Stav: SCHVÁLENÉ A IMPLEMENTOVANÉ** (Simonove odpovede nižšie).
+> Preset žije v `RulesVariant.PRESET_PRSI`, testy v
+> `tests/unit/test_prsi_mode.gd`, vizuálna kontrola `tools/prsi_probe.gd`.
+
+## 0. Simonove rozhodnutia
+
+| Otázka | Rozhodnutie |
+|---|---|
+| Q1 Počet rozdaných kariet | **4** |
+| Q2 Návrat červenou sedmou v Prší | **vypnutý** |
+| Q3 Viac kariet rovnakého znaku naraz | *bez odpovede* — implementované podľa odporúčania (**vypnuté**), prepínateľné v domácich pravidlách |
+| Q4 Česká terminológia (spodek/svršek/kule, „faraon") | **áno** |
+| Q5 Hlásenie poslednej karty | **áno** — toast + zvuk pri poslednej karte |
+| Auto-výber podľa jazyka | čeština → Prší, slovenčina/angličtina/iné → Faraón; **pri Prší sa appka pri prvom spustení opýta** |
 
 ## 1. Odkiaľ sú pravidlá
 
@@ -99,7 +109,7 @@ kariet (sedma/eso/dolník), nie na konkrétne faraónske mechaniky:
 4. Card-counting (`CardMemory`) je čisto po hodnotách → funguje bez zmeny;
    v Prší len prestane mať zmysel počítať faraóna (jedna karta menej).
 
-## 5. Otázky, na ktoré potrebujem odpoveď pred implementáciou
+## 5. Pôvodné otázky (odpovede sú v sekcii 0)
 
 **Q1 — Koľko kariet sa v Prší rozdáva?** Zdroje sa líšia: 4 (sdszs.cz,
 karetnihry) vs 5 (hracikarty.cz). *Odporúčam 4* (väčšina zdrojov + odlíši to
@@ -125,7 +135,23 @@ alebo chceš pre Prší niečo iné (napr. len „měnič" namiesto „svršek")
 
 ---
 
-Po tvojom potvrdení (stačí odpovedať Q1–Q5 a „ideš") je to podľa mňa
-**jeden pracovný blok**: 5 nových prepínačov v `RulesVariant`, preset,
-voľba v nastaveniach + auto-detekcia, 3 stráže v botoch, testy na každý
-nový prepínač a doplnenie tutoriálu o českú verziu.
+## 6. Čo z toho reálne pribudlo v kóde
+
+- `RulesVariant`: `faraon_wild`, `spalena_enabled`, `red7_return`,
+  `changer_blocked_on_specials`, `multi_card_play`, `seven_penalty_cap`
+  + `PRESETS`, `PRESET_PRSI`, `from_preset()`, `preset_default()`,
+  `changer_allowed_on()`, `capped_penalty()`, `matches_preset()`.
+- `FaraonRules`: strop trestu (aj pri štartovej sedme), blokovanie meniča
+  na ese/sedme, chyba `single_card_only`, zelený dolník bez žolíka je
+  v D11 bežný ohlasovač.
+- `GameSettings`: `get/set_rule_preset()`, `detect_rule_preset()`,
+  `preset_needs_confirmation()`; `rule_default()` a `build_variant()`
+  čítajú z presetu, takže badge „predvolené" aj reset sedia na mód.
+- UI: voľba módu v Nastaveniach, uvítací dialóg pri prvom spustení
+  (len keď mód vybral jazyk zariadenia), nové pravidlá v zozname aj
+  s blokovaním závislostí, výber jednej karty v Prší.
+- `BotStrategy`: `_limit_group()` + stráže na faraóna a menič — boti hrajú
+  legálne v oboch módoch (test na 24 seedoch × plná partia).
+- Tutoriál preskočí kroky, ktoré v zvolenom móde neplatia (v Prší ostanú
+  4 kroky: kladenie, eso, sedma, svršek).
+- Q5: `TOAST_LAST_CARD` sa zobrazí vždy, keď hráčovi ostane jediná karta.

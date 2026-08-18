@@ -69,8 +69,75 @@ func _show_menu() -> void:
 	menu.tutorial_requested.connect(_show_tutorial)
 	_current_screen = menu
 	add_child(menu)
+	# Prvý štart: keď herný mód vybral jazyk zariadenia (čeština → Prší),
+	# nechaj hráča potvrdiť. Pri Faraónovi sa nepýtame.
+	if GameSettings.preset_needs_confirmation():
+		_ask_rule_preset()
+		return
 	if not GameSettings.tutorial_seen():
 		_show_tutorial() # first launch: walk the newcomer through the rules
+
+
+## Uvítacia otázka pri prvom spustení — vlastný panel v štýle hry (systémový
+## AcceptDialog vyzerá ako cudzie okno). Objaví sa len vtedy, keď mód vybral
+## jazyk zariadenia; obe možnosti sú rovnocenné tlačidlá.
+func _ask_rule_preset() -> void:
+	var layer := Control.new()
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.62)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	var sb := UIKit.panel_style(Color("14342a"), 18)
+	sb.content_margin_left = 26
+	sb.content_margin_right = 26
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	sb.border_color = UIKit.GOLD.darkened(0.2)
+	sb.set_border_width_all(2)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 16)
+	panel.add_child(box)
+	box.add_child(UIKit.heading(tr("PRESET_ASK_TITLE"), 24, UIKit.GOLD))
+	var text := Label.new()
+	text.text = tr("PRESET_ASK_BODY")
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.custom_minimum_size = Vector2(500, 0)
+	text.add_theme_font_size_override("font_size", 16)
+	text.add_theme_color_override("font_color", UIKit.CREAM)
+	box.add_child(text)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	var b_prsi := UIKit.pill_button(tr("PRESET_PRSI"), UIKit.BLUE,
+			Vector2(210, 56), 19)
+	b_prsi.pressed.connect(_pick_rule_preset.bind("prsi", layer))
+	row.add_child(b_prsi)
+	var b_faraon := UIKit.pill_button(tr("PRESET_FARAON"), Color("2e7d4f"),
+			Vector2(210, 56), 19)
+	b_faraon.pressed.connect(_pick_rule_preset.bind("faraon", layer))
+	row.add_child(b_faraon)
+	box.add_child(row)
+	add_child(layer)
+
+
+func _pick_rule_preset(preset: String, dialog: Node) -> void:
+	GameSettings.set_rule_preset(preset)
+	if is_instance_valid(dialog):
+		dialog.queue_free()
+	# Menu sa postavilo ešte pred voľbou — prestav ho, nech sedia predvolené
+	# hodnoty pravidiel. Tutoriál sa spustí odtiaľ (voľba je už uložená).
+	_show_menu()
 
 
 func _show_tutorial() -> void:

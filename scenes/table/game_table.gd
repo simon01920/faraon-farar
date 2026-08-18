@@ -462,6 +462,7 @@ func _enqueue_event(e: Dictionary) -> bool:
 			_enqueue(_anim_start_deck_flip.bind(e.bottom))
 		"CARDS_PLAYED":
 			_enqueue(_anim_play_cards.bind(e.player, e.cards))
+			_enqueue(_announce_last_card.bind(e.player))
 		"DREW":
 			_enqueue(_anim_draw.bind(e.player, e.count, e.get("penalty", false)))
 		"PILE_REFLIPPED":
@@ -1427,6 +1428,9 @@ func _on_card_tapped(cv: CardVisual) -> void:
 			return
 	if _selected.has(id):
 		_selected.erase(id)
+	elif not s.variant.multi_card_play:
+		_selected.clear() # P6: v Prší sa kladie po jednej karte
+		_selected.append(id)
 	elif _selected.is_empty() \
 			or FaraonCard.rank_of(id) == FaraonCard.rank_of(_selected[0]):
 		_selected.append(id)
@@ -1445,6 +1449,22 @@ func _do_play() -> void:
 	# (1 = first on the pile, last = new top). No silent reordering — an
 	# invalid order comes back as a rejection toast and the player fixes it.
 	_submit_play(_selected.duplicate())
+
+
+## Q5: komu ostane jediná karta, ten to „hlási" — v Prší je to povinnosť,
+## vo Faraóne pekné upozornenie pre ostatných.
+func _announce_last_card(player_id: String) -> void:
+	var s := _state()
+	if s == null:
+		return
+	var p := s.player_by_id(player_id)
+	if p == null or p.hand.size() != 1:
+		return
+	GameAudio.sfx("slap")
+	if player_id == _me:
+		Haptics.tap()
+	_toast(tr("TOAST_LAST_CARD") % _display_name(player_id))
+	await _sleep(0.4)
 
 
 ## Pauza trestného ťahania: ťah vedie práve vytiahnutá karta, k nej sa

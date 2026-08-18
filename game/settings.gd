@@ -14,6 +14,11 @@ const SETTINGS_VERSION := 2
 ## eso_no_counter (vypnutá reakcia = eso sa nedá prebiť + okamžitý efekt).
 const RULE_TOGGLES := {
 	"purista": "RULE_PURISTA",
+	"multi_card_play": "RULE_MULTI_CARD",
+	"faraon_wild": "RULE_FARAON_WILD",
+	"spalena_enabled": "RULE_SPALENA_ENABLED",
+	"red7_return": "RULE_RED7_RETURN",
+	"changer_blocked_on_specials": "RULE_CHANGER_BLOCKED",
 	"faraon_blocks_eso": "RULE_FARAON_BLOCKS_ESO",
 	"hornik_strict": "RULE_HORNIK_STRICT",
 	"spalena_multiply": "RULE_SPALENA_MULTIPLY",
@@ -39,6 +44,7 @@ const DISABLED_BY_PUB := [
 const RULE_VALUES := {
 	"initial_hand_size": ["RULE_HAND_SIZE", "slider", [4, 7]],
 	"seven_penalty_step": ["RULE_SEVEN_STEP", "segment", [2, 3, 4]],
+	"seven_penalty_cap": ["RULE_SEVEN_CAP", "segment", [0, 8, 12]],
 	"red7_return_scope": ["RULE_RETURN_SCOPE", "segment", ["round", "anyone"]],
 	"finish_rule": ["RULE_FINISH", "segment", ["none", "no_seven", "hornik_only"]],
 }
@@ -48,8 +54,15 @@ const DISABLED_BY_PURISTA := [
 	"faraon_blocks_eso", "spalena_multiply", "red7_on_active_eso",
 	"eso_reaction", "eso_no_counter", "seven_interrupt", "faraon_interrupt",
 	"green_king", "green_king_counter", "red_ten", "red7_return_scope",
-	"unter_announcer", "pub_mode",
+	"unter_announcer", "pub_mode", "faraon_wild", "spalena_enabled",
+	"red7_return",
 ]
+
+## Bez viackartových ťahov nemá spálená (4 rovnaké naraz) čo spustiť.
+const DISABLED_BY_SINGLE_CARD := ["spalena_enabled", "spalena_multiply"]
+
+## Bez faraóna nemajú jeho odvodené pravidlá zmysel.
+const DISABLED_BY_NO_FARAON := ["faraon_blocks_eso", "faraon_interrupt"]
 
 
 static func _load() -> ConfigFile:
@@ -71,12 +84,48 @@ static func _migrate(cfg: ConfigFile) -> void:
 	cfg.save(PATH)
 
 
-## Predvolená hodnota pravidla (C2 badge + reset) — jediný zdroj: engine
-## DEFAULTS, plus UI-only kľúč eso_reaction (D9, default zapnuté).
+## Predvolená hodnota pravidla (C2 badge + reset) v AKTUÁLNOM hernom móde —
+## jediný zdroj: engine presety, plus UI-only kľúč eso_reaction (D9).
 static func rule_default(key: String) -> Variant:
 	if key == "eso_reaction":
 		return true
-	return RulesVariant.DEFAULTS.get(key, false)
+	return RulesVariant.preset_default(key, get_rule_preset())
+
+
+# --- herný mód (preset pravidiel): Faraón / Prší ---------------------------
+
+## Zvolený preset pravidiel. Ak hráč nikdy nevyberal, odvodí sa z jazyka
+## zariadenia (čeština → Prší, čokoľvek iné → Faraón) — pri Prší sa ho appka
+## pri prvom spustení ešte spýta (pozri preset_needs_confirmation).
+static func get_rule_preset() -> String:
+	var saved = _load().get_value("app", "rule_preset", "")
+	if saved is String and RulesVariant.PRESETS.has(saved):
+		return saved
+	return detect_rule_preset(OS.get_locale())
+
+
+static func detect_rule_preset(os_locale: String) -> String:
+	return "prsi" if detect_locale(os_locale) == "cs" else "faraon"
+
+
+static func set_rule_preset(preset: String) -> void:
+	if not RulesVariant.PRESETS.has(preset):
+		return
+	var cfg := _load()
+	cfg.set_value("app", "rule_preset", preset)
+	cfg.save(PATH)
+
+
+## Vybral už hráč mód vedome? (Auto-detekcia sa za voľbu nepovažuje.)
+static func preset_chosen() -> bool:
+	var saved = _load().get_value("app", "rule_preset", "")
+	return saved is String and RulesVariant.PRESETS.has(saved)
+
+
+## Simonovo zadanie: keď jazyk zariadenia vybral Prší, appka sa pri prvom
+## spustení opýta. Pri Faraónovi (slovenčina/angličtina/iné) sa nepýta.
+static func preset_needs_confirmation() -> bool:
+	return not preset_chosen() and detect_rule_preset(OS.get_locale()) == "prsi"
 
 
 static func get_rule(key: String) -> bool:
@@ -107,8 +156,9 @@ static func reset_rules() -> void:
 	cfg.save(PATH)
 
 
+## Pravidlá pre novú hru: preset zvoleného módu + hráčove úpravy nad ním.
 static func build_variant() -> RulesVariant:
-	var v := RulesVariant.classic()
+	var v := RulesVariant.from_preset(get_rule_preset())
 	for key in RulesVariant.RULE_KEYS:
 		if key == "end_on_first_finish":
 			continue # runtime flag, nie používateľské pravidlo

@@ -226,6 +226,24 @@ func _build_settings_screen() -> void:
 			Callable(), Callable()))
 	box.add_child(_spacer(6))
 
+	# Herný mód pravidiel (Faraón / Prší) — samostatná voľba, nezávislá od
+	# jazyka appky. Mení predvolené hodnoty všetkých pravidiel pod ňou.
+	box.add_child(UIKit.heading(tr("SETTINGS_RULE_PRESET"), 21, UIKit.CREAM))
+	var preset_hint := Label.new()
+	preset_hint.text = tr("SETTINGS_RULE_PRESET_HINT")
+	preset_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preset_hint.add_theme_font_size_override("font_size", 14)
+	preset_hint.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.1))
+	box.add_child(preset_hint)
+	box.add_child(_segmented_row(
+			[["faraon", "PRESET_FARAON"], ["prsi", "PRESET_PRSI"]],
+			func(): return GameSettings.get_rule_preset(),
+			func(p):
+				GameSettings.set_rule_preset(p)
+				_rebuild_rule_rows(),
+			Vector2(150, 46), 17, Color("55617a")))
+	box.add_child(_spacer(6))
+
 	box.add_child(UIKit.heading(tr("MENU_RULES"), 21, UIKit.CREAM))
 	# C3: vysvetlenie, prečo sú pravidlá prispôsobiteľné.
 	var explain := PanelContainer.new()
@@ -291,6 +309,12 @@ func _rule_disabled(key: String) -> bool:
 		return true
 	if GameSettings.get_rule("pub_mode") \
 			and GameSettings.DISABLED_BY_PUB.has(key):
+		return true
+	if not GameSettings.get_rule("multi_card_play") \
+			and GameSettings.DISABLED_BY_SINGLE_CARD.has(key):
+		return true
+	if not GameSettings.get_rule("faraon_wild") \
+			and GameSettings.DISABLED_BY_NO_FARAON.has(key):
 		return true
 	return false
 
@@ -372,7 +396,8 @@ func _rule_toggle_row(key: String, label_key: String) -> Control:
 	toggle.toggled.connect(func(on: bool):
 		GameSettings.set_rule(key, on)
 		# Purista / Hospodské prší / zelený kráľ menia dostupnosť riadkov.
-		if key == "purista" or key == "green_king" or key == "pub_mode":
+		if key == "purista" or key == "green_king" or key == "pub_mode" \
+				or key == "multi_card_play" or key == "faraon_wild":
 			_rebuild_rule_rows())
 	h.add_child(toggle)
 	return row
@@ -443,6 +468,8 @@ func _rule_segment_row(key: String, label_key: String, options: Array) -> Contro
 
 func _option_label(key: String, opt: Variant) -> String:
 	if opt is int:
+		if key == "seven_penalty_cap" and int(opt) == 0:
+			return tr("OPT_NO_CAP")
 		return str(opt)
 	match str(opt):
 		"anyone": return tr("OPT_ANYONE")

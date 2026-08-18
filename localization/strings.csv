@@ -119,6 +119,27 @@ RULES_RESET,Obnoviť predvolené nastavenia,Reset to defaults,Obnovit výchozí 
 RULES_RESET_CONFIRM,Naozaj vrátiť všetky domáce pravidlá na predvolené hodnoty?,Really reset all house rules to their defaults?,Opravdu vrátit všechna domácí pravidla na výchozí hodnoty?
 RULES_RESET_YES,Obnoviť,Reset,Obnovit
 RULES_DEFAULT_IS,Predvolené: %s,Default: %s,Výchozí: %s
+SETTINGS_RULE_PRESET,Herný mód,Game mode,Herní režim
+SETTINGS_RULE_PRESET_HINT,"Faraón = slovenské pravidlá, Prší = české. Mód nastaví predvolené hodnoty všetkých pravidiel nižšie — doladiť si ich môžeš v oboch. S jazykom appky to nesúvisí.","Faraón = the Slovak rules, Prší = the Czech ones. The mode sets the defaults for every rule below — you can still fine-tune them in both. Unrelated to the app language.","Faraon = slovenská pravidla, Prší = česká. Režim nastaví výchozí hodnoty všech pravidel níže — doladit si je můžeš v obou. S jazykem aplikace to nesouvisí."
+PRESET_FARAON,Faraón,Faraón,Faraon
+PRESET_PRSI,Prší,Prší,Prší
+PRESET_ASK_TITLE,Vitaj v hre!,Welcome!,Vítej ve hře!
+PRESET_ASK_BODY,"Podľa jazyka zariadenia sme predvolili české pravidlá Prší: rozdávajú sa 4 karty, sedma dáva 2 karty a nehrá sa s faraónom. Chceš hrať Prší, alebo slovenského Faraóna? Vybrať sa dá kedykoľvek v nastaveniach.","Based on your device language we preselected the Czech rules of Prší: 4 cards dealt, a seven draws 2, no faraon. Do you want to play Prší, or the Slovak Faraón? You can change this any time in the settings.","Podle jazyka zařízení jsme předvolili česká pravidla Prší: rozdávají se 4 karty, sedma dává 2 karty a nehraje se s faraonem. Chceš hrát Prší, nebo slovenského Faraona? Změnit to můžeš kdykoli v nastavení."
+TOAST_LAST_CARD,%s má poslednú kartu!,%s has one card left!,%s má poslední kartu!
+ERR_SINGLE_CARD_ONLY,V tomto móde sa kladie len jedna karta,Only one card per move in this mode,V tomto režimu se pokládá jen jedna karta
+RULE_MULTI_CARD,Viac kariet naraz,Several cards at once,Více karet najednou
+RULE_MULTI_CARD_DESC,"Dovolí položiť viac kariet rovnakého znaku v jednom ťahu (a tým aj spálenú). V českom Prší sa kladie po jednej karte.","Allows several cards of the same rank in one move (and with it the burn). Czech Prší is played one card at a time.","Dovolí položit více karet stejné hodnoty v jednom tahu (a tím i spálenou). V českém Prší se pokládá po jedné kartě."
+RULE_FARAON_WILD,Faraón je žolík,The faraon is wild,Faraon je žolík
+RULE_FARAON_WILD_DESC,"Zelený dolník padne na čokoľvek, čokoľvek padne naň a ruší trest za sedmy. Vypnuté = je to obyčajný spodok (české Prší).","The green unter lands on anything, anything lands on it and it cancels the seven penalty. Off = it is an ordinary unter (Czech Prší).","Zelený spodek padne na cokoli, cokoli padne na něj a ruší trest za sedmy. Vypnuto = je to obyčejný spodek (české Prší)."
+RULE_SPALENA_ENABLED,Spálená (4 rovnaké),The burn (four of a kind),Spálená (4 stejné)
+RULE_SPALENA_ENABLED_DESC,"Štyri rovnaké znaky naraz dávajú ťah navyše. V českom Prší sa spálená nehrá.","Four of a kind at once grants an extra move. Czech Prší has no burn.","Čtyři stejné hodnoty najednou dávají tah navíc. V českém Prší se spálená nehraje."
+RULE_RED7_RETURN,Návrat červenou sedmou,The red-seven return,Návrat červenou sedmou
+RULE_RED7_RETURN_DESC,"Červená sedma vráti do hry vypadnutého hráča. V českom Prší je to len regionálna varianta, preto je tam vypnutá.","The red seven brings an eliminated player back. In Czech Prší this is only a regional variant, so it is off there.","Červená sedma vrátí do hry vyřazeného hráče. V českém Prší je to jen regionální varianta, proto je tam vypnutá."
+RULE_CHANGER_BLOCKED,Menič nejde na eso a sedmu,Changer not on ace or seven,Měnič nejde na eso a sedmu
+RULE_CHANGER_BLOCKED_DESC,"Horník (svršek) sa nesmie položiť na eso ani na sedmu — pravidlo českého Prší.","The ober cannot be played onto an ace or a seven — a Czech Prší rule.","Svršek se nesmí položit na eso ani na sedmu — pravidlo českého Prší."
+RULE_SEVEN_CAP,Strop trestu za sedmy,Seven penalty cap,Strop trestu za sedmy
+RULE_SEVEN_CAP_DESC,"Najviac koľko kariet sa dá nahromadiť reťazou sediem. České Prší používa strop 8.","The most cards a chain of sevens can pile up. Czech Prší caps it at 8.","Nejvíc karet, které lze nahromadit řetězem sedem. České Prší používá strop 8."
+OPT_NO_CAP,Bez stropu,No cap,Bez stropu
 OPT_ON,Zapnuté,On,Zapnuto
 OPT_OFF,Vypnuté,Off,Vypnuto
 OPT_ANYONE,Kohokoľvek,Anyone,Kohokoli

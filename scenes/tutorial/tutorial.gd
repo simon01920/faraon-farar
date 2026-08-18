@@ -66,16 +66,23 @@ func _ready() -> void:
 	_next_btn.pressed.connect(_advance)
 	bottom.add_child(_next_btn)
 
+	# Tutoriál učí len to, čo v zvolenom móde naozaj platí — v Prší niet
+	# faraóna, spálenej, návratu červenou sedmou ani viackartových ťahov.
+	var v := GameSettings.build_variant()
 	_steps = [
 		["TUT_1_TITLE", "TUT_1_BODY", _demo_matching, "9Z"],
 		["TUT_2_TITLE", "TUT_2_BODY", _demo_eso, ""],
 		["TUT_3_TITLE", "TUT_3_BODY", _demo_sedma, ""],
-		["TUT_4_TITLE", "TUT_4_BODY", _demo_red_seven, ""],
-		["TUT_5_TITLE", "TUT_5_BODY", _demo_faraon, ""],
-		["TUT_6_TITLE", "TUT_6_BODY", _demo_hornik, ""],
-		["TUT_7_TITLE", "TUT_7_BODY", _demo_spalena, ""],
-		["TUT_8_TITLE", "TUT_8_BODY", _demo_order, "AZ"],
 	]
+	if v.allows_red7_return():
+		_steps.append(["TUT_4_TITLE", "TUT_4_BODY", _demo_red_seven, ""])
+	if v.faraon_is_wild():
+		_steps.append(["TUT_5_TITLE", "TUT_5_BODY", _demo_faraon, ""])
+	_steps.append(["TUT_6_TITLE", "TUT_6_BODY", _demo_hornik, ""])
+	if v.allows_spalena():
+		_steps.append(["TUT_7_TITLE", "TUT_7_BODY", _demo_spalena, ""])
+	if v.multi_card_play:
+		_steps.append(["TUT_8_TITLE", "TUT_8_BODY", _demo_order, "AZ"])
 	_show_step()
 
 

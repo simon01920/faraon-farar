@@ -85,7 +85,8 @@ func _apply_start_card_effects(card: String, events: Array) -> void:
 				state.pending_aces = 1
 				events.append({"type": "START_ESO_VALID"})
 			else:
-				state.pending_sevens_draw = 3
+				state.pending_sevens_draw = state.variant.capped_penalty(
+						state.variant.seven_penalty_step)
 				events.append({"type": "START_SEDMA_VALID"})
 	elif FaraonCard.is_hornik(card):
 		var suit := -1
@@ -215,12 +216,15 @@ func _contains_faraon(cards: Array) -> bool:
 func _is_announcer(card: String) -> bool:
 	return not FaraonCard.is_reverse(card) \
 			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
-			and not FaraonCard.is_faraon(card)
+			and not (FaraonCard.is_faraon(card) and state.variant.faraon_is_wild())
 
 
 func _validate_cards_owned(player: GameState.PlayerState, cards: Array) -> String:
 	if cards.is_empty():
 		return "no_cards"
+	# P6: v Prší sa kladie vždy len jedna karta.
+	if cards.size() > 1 and not state.variant.multi_card_play:
+		return "single_card_only"
 	var seen := {}
 	var rank := FaraonCard.rank_of(cards[0]) if FaraonCard.is_valid_id(cards[0]) else -1
 	for c in cards:
@@ -249,7 +253,9 @@ func _first_card_legal(card: String) -> bool:
 	# D11: spodok-menič sa odhadzuje voľne (ako voľný horník).
 	if state.variant.unter_announcer_active() and _is_announcer(card):
 		return true
-	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict:
+	# P5: v Prší svršek nepadne na eso ani na sedmu (inak mení farbu voľne).
+	if FaraonCard.is_hornik(card) and not state.variant.hornik_strict \
+			and state.variant.changer_allowed_on(top):
 		return true
 	if FaraonCard.rank_of(card) == FaraonCard.rank_of(top):
 		return true
@@ -262,7 +268,8 @@ func _apply_eso_counter(idx: int, cards: Array, declared: int = -1,
 		declared_rank: int = -1) -> Dictionary:
 	# Domáce pravidlo: faraón ruší celú eso-reťaz. Ako pri sedmovej obrane
 	# smie viesť skupinu dolníkov — zrušenie je jednorazové.
-	if state.variant.faraon_blocks_eso and _contains_faraon(cards):
+	if state.variant.faraon_blocks_eso and state.variant.faraon_is_wild() \
+			and _contains_faraon(cards):
 		if not FaraonCard.is_faraon(cards[0]):
 			return _fail("faraon_must_be_first")
 		state.pending_aces = 0
@@ -431,7 +438,10 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 	if not is_eso_counter and rank == FaraonCard.Rank.ESO:
 		state.pending_aces = cards.size()
 	elif rank == FaraonCard.Rank.R7:
-		state.pending_sevens_draw += state.variant.seven_penalty_step * cards.size()
+		# P2: Prší reťaz stropuje (2/4/6/8), Faraón je bez stropu.
+		state.pending_sevens_draw = state.variant.capped_penalty(
+				state.pending_sevens_draw
+				+ state.variant.seven_penalty_step * cards.size())
 	elif state.variant.green_king_active() and last == "KE":
 		# D12: zelený kráľ = +4 pre ďalšieho hráča (nezávislé od kroku sedmy).
 		state.pending_sevens_draw += 4
