@@ -1011,16 +1011,26 @@ func _language_row() -> Control:
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(title)
 
+	# Prepínač cykluje cez podporované jazyky (SK → CS → EN → SK).
+	var cur := _locale_index()
 	var lang := UIKit.pill_button(
-			"SK" if TranslationServer.get_locale().begins_with("sk") else "EN",
+			GameSettings.LOCALES[cur].to_upper(),
 			Color("6b5a3e"), Vector2(110, 44), 18)
 	lang.pressed.connect(func():
-		var next := "en" if TranslationServer.get_locale().begins_with("sk") else "sk"
+		var next: String = GameSettings.LOCALES[
+				(_locale_index() + 1) % GameSettings.LOCALES.size()]
 		GameSettings.set_locale(next)
 		TranslationServer.set_locale(next)
 		get_tree().reload_current_scene())
 	h.add_child(lang)
 	return row
+
+
+## Poradie aktuálneho jazyka v GameSettings.LOCALES (fallback: slovenčina).
+func _locale_index() -> int:
+	var lang := TranslationServer.get_locale().to_lower().split("_")[0]
+	var i: int = GameSettings.LOCALES.find(lang)
+	return i if i != -1 else 0
 
 
 ## One audio setting: big toggle + optional volume slider underneath.

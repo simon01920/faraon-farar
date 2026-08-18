@@ -121,8 +121,23 @@ static func build_variant() -> RulesVariant:
 	return v
 
 
+## Podporované jazyky UI v poradí prepínača.
+const LOCALES := ["sk", "cs", "en"]
+
+
+## Jazyk aplikácie. Pri PRVOM spustení (bez uloženej voľby) sa odvodí zo
+## systémového jazyka zariadenia: čeština → cs, angličtina → en, čokoľvek
+## iné → sk. Hráčova voľba v nastaveniach má odvtedy prednosť.
 static func get_locale() -> String:
-	return _load().get_value("app", "locale", "sk")
+	var saved = _load().get_value("app", "locale", "")
+	if saved is String and LOCALES.has(saved):
+		return saved
+	return detect_locale(OS.get_locale())
+
+
+static func detect_locale(os_locale: String) -> String:
+	var lang := os_locale.to_lower().replace("-", "_").split("_")[0]
+	return lang if LOCALES.has(lang) else "sk"
 
 
 static func set_locale(locale: String) -> void:

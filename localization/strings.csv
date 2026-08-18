@@ -1,227 +1,228 @@
-keys,sk,en
-APP_NAME,Faraón,Faraon
-MENU_SUBTITLE,Slovenská kartová klasika,The Slovak card classic
-MENU_PLAY,Hrať,Play
-MENU_OPPONENTS,Hrať proti súperom:,Play against opponents:
-MENU_CREATE_ROOM,Vytvoriť miestnosť,Create room
-MENU_JOIN_ROOM,Pripojiť sa,Join room
-MENU_JOIN_AS_DECK,Pripojiť ako zdieľaný balíček,Join as shared deck
-MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards
-MENU_MULTIPLAYER,Multiplayer,Multiplayer
-MENU_START,▶ Spustiť hru,▶ Start game
-MODE_NORMAL,Klasický,Classic
-MODE_OLYMPIC,Olympijský,Olympic
-MODE_REVERSE,Reverzný ol.,Reverse Ol.
-GAME_NEXT_ROUND,Ďalšie kolo,Next round
-ROUND_OVER,Koniec kola,Round over
-MATCH_ROUND,Kolo %d,Round %d
-MATCH_STANDINGS,Stav zápasu,Match standings
-MATCH_WIN,Vyhral si zápas! 🏆,You won the match! 🏆
-MATCH_LOSE,Zápas vyhral %s,%s won the match
-MATCH_OUT,vypadol,out
-MATCH_CARDS,%d kariet,%d cards
-POINTS_EARNED,+%d bodov,+%d points
-LEVEL_UP,Level %d! 🎉,Level %d! 🎉
-PROFILE_LEVEL,Level %d,Level %d
-PROFILE_NAME,Tvoje meno,Your name
-MENU_CHALLENGES,Výzvy,Challenges
-MENU_STATS,Štatistiky,Statistics
-MENU_HOW_TO,Ako hrať,How to play
-CHALLENGE_DONE,Denná výzva splnená! +%d b,Daily challenge done! +%d pts
-CHALLENGE_REWARD_NOTE,Každá splnená výzva = +%d bodov. Výzvy sa menia každý deň o polnoci.,Each completed challenge = +%d points. Challenges rotate at midnight.
-CH_PLAY_3,Zahraj 3 hry,Play 3 games
-CH_WIN_HARD,Vyhraj proti ťažkým botom,Beat the hard bots
-CH_SPALENA,Polož spálenú (4 rovnaké),Play a burned four-of-a-kind
-CH_WIN_3PLUS,Vyhraj hru s 3+ hráčmi,Win a game with 3+ players
-CH_PLAY_ESA,Zahraj 2 esá,Play 2 aces
-CH_RETURN_RED7,Vráť hráča červenou sedmou,Return a player with the red seven
-CH_WIN_OLYMPIC,Vyhraj olympijské kolo,Win an olympic round
-CH_FINISH_TOP2,Skonči 2× v top 2,Finish top 2 twice
-STREAK_DAYS,%d dní po sebe,%d days in a row
-STREAK_KEEP,"Zahraj dnes aspoň jednu hru, aby si neprišiel o streak!","Play at least one game today to keep your streak!"
-STREAK_SAFE,Dnešný streak je zachránený. ✅,Today's streak is safe. ✅
-STATS_POINTS,%d bodov,%d points
-STATS_WINRATE,Výhry celkovo,Overall wins
-STATS_BY_DIFFICULTY,Podľa obtiažnosti,By difficulty
-STATS_PLACES,Umiestnenia,Placements
-STATS_FAV_MODE,Najhranejší režim,Favourite mode
-STATS_LONGEST_STREAK,Najdlhší streak,Longest streak
-TUT_SKIP,Preskočiť,Skip
-TUT_NEXT,Ďalej ▶,Next ▶
-TUT_DONE,Hotovo ✓,Done ✓
-TUT_WRONG,"Táto karta nesedí — musí súhlasiť farba alebo znak. Skús druhú.","That card doesn't fit — the suit or rank must match. Try the other one."
-TUT_RIGHT,Presne tak! Pokračuj tlačidlom Ďalej.,Exactly! Continue with Next.
-TUT_1_TITLE,Kladenie kariet,Placing cards
-TUT_1_BODY,"Na kôpku môžeš položiť kartu rovnakej farby alebo rovnakého znaku. Na stole je žaluďová osmička — ťukni na kartu, ktorá sa dá zahrať.","You can play a card of the same suit or the same rank. The pile shows the eight of acorns — tap the card that can be played."
-TUT_2_TITLE,Eso — stopka,Ace — the stop
-TUT_2_BODY,"Eso zastaví najbližšieho hráča: vynechá jeden ťah (ak sa nebráni vlastným esom) a hra ide ďalej v poradí. Jedno eso = jeden vynechaný ťah. Sleduj ukážku.","An ace stops the next player: they skip one turn (unless they defend with their own ace) and play moves on. One ace = one skipped turn. Watch the demo."
-TUT_3_TITLE,Sedma — trestné karty,Seven — penalty cards
-TUT_3_BODY,"Za sedmu si súper ťahá 3 karty. Sedmy sa sčítavajú: dve sedmy = 6 kariet, tri = 9! Obranou je vlastná sedma alebo faraón.","A seven makes the opponent draw 3 cards. Sevens stack: two sevens = 6 cards, three = 9! The defence is your own seven or the faraon."
-TUT_4_TITLE,Červená sedma,The red seven
-TUT_4_BODY,"Červená sedma má zvláštnu moc: vráti do hry hráča, ktorý už dohral. Vrátený hráč si vezme 3 karty — to je celý jeho ťah — a hra pokračuje hráčom za tebou.","The red seven has a special power: it returns a player who already finished. They take 3 cards — that counts as their whole turn — and play continues with the player after you."
-TUT_5_TITLE,Faraón (zelený dolník),The faraon
-TUT_5_BODY,"Faraón je žolík: položíš ho na čokoľvek a čokoľvek naň. Zabíja aj celú reťaz sedmičiek — trest padá na nulu.","The faraon is the wild card: play it on anything, anything lands on it. It also kills a whole seven chain — the penalty drops to zero."
-TUT_6_TITLE,Horník mení farbu,The hornik changes suit
-TUT_6_BODY,"Horníkom určíš farbu, ktorá sa musí hrať ďalej — skvelý na prevzatie kontroly nad hrou.","With a hornik you declare the suit that must follow — great for taking control of the game."
-TUT_7_TITLE,Spálená,The burn
-TUT_7_BODY,"Štyri rovnaké znaky naraz = spálená! Získavaš ťah navyše. Karty si zoraď tak, aby si vedel pokračovať.","Four of a kind at once = a burn! You get an extra move. Order the cards so you can continue."
-TUT_8_TITLE,Poradie kladenia,Play order
-TUT_8_BODY,"Pri viacerých kartách určuješ poradie ťukaním — čísla ukazujú, čo padne na kôpku prvé. Ťukni na ESO, ktoré má byť prvé (sedí na kôpku).","With several cards you set the order by tapping — the numbers show what lands first. Tap the ACE that should go first (it matches the pile)."
-DIFF_EASY,Ľahkí,Easy
-DIFF_MEDIUM,Strední,Medium
-DIFF_HARD,Ťažkí,Hard
-MENU_SOON,(čoskoro),(soon)
-MP_CREATE,Vytvoriť miestnosť,Create room
-MP_CODE_HINT,Kód miestnosti,Room code
-MP_JOIN,Pripojiť sa,Join
-MP_LEAVE,Odísť z miestnosti,Leave room
-MP_INVITE,Pozvi priateľa 📋,Invite a friend 📋
-MP_INVITE_TEXT,Zahraj si so mnou Faraón! Kód miestnosti: %s — otvor hru a zadaj kód (alebo faraon://join/%s),Play Faraón with me! Room code: %s — open the game and enter the code (or faraon://join/%s)
-MP_INVITE_COPIED,Pozvánka skopírovaná do schránky!,Invite copied to clipboard!
-MP_CONNECTING,Pripájam sa na server...,Connecting to the server...
-MP_CONN_FAILED,Server je nedostupný. Skús neskôr.,Server unavailable. Try again later.
-MP_WAITING_INPUT,"Vytvor miestnosť, alebo zadaj kód.","Create a room, or enter a code."
-MP_WAITING,Čaká sa na hráčov...,Waiting for players...
-MP_ERR_NO_SUCH_ROOM,Miestnosť s týmto kódom neexistuje,No room with that code
-MP_ERR_ROOM_FULL,Miestnosť je plná,The room is full
-MP_ERR_GAME_RUNNING,Hra už prebieha,The game is already running
-MENU_SETTINGS,Nastavenia,Settings
-MENU_APPEARANCE,Vzhľad,Appearance
-APPEARANCE_CARDS,Kartový štýl,Card style
-APPEARANCE_TABLE,Vzhľad stola,Table look
-TABLE_FELT,Zelené plátno (klasika),Green felt (classic)
-TABLE_WOOD,Svetlé drevo,Light wood
-TABLE_RUSTIC_WOOD,Rustikálne drevo,Rustic wood
-TABLE_DARK_WOOD,Tmavé drevo,Dark wood
-TABLE_FELT_BRIGHT,Turnajová zelená,Tournament green
-TABLE_POKER_GREEN,Pokrový vzor,Poker pattern
-TABLE_FELT_BLUE,Modrá plsť,Blue felt
-TABLE_OAK_LIGHT,Svetlý dub,Light oak
-TABLE_MAPLE_LIGHT,Javor,Maple
-TABLE_WALNUT_WARM,Orech,Walnut
-TABLE_PLANKS_GOLDEN,Zlaté dosky,Golden planks
-TABLE_TEAK_SUN,Teak v slnku,Sunlit teak
-TABLE_WOOD_SCUFFED,Ošúchané drevo,Scuffed wood
-TABLE_PLANKS_DARK,Tmavé dosky,Dark planks
-LOCKED_LEVEL,Level %d 🔒,Level %d 🔒
-MENU_RULES,Domáce pravidlá,House rules
-MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.
-MENU_BACK,Späť do menu,Back to menu
-MENU_BACK_SHORT,Späť,Back
-MENU_QUIT,Koniec,Quit
-SETTINGS_LANGUAGE,Jazyk,Language
-SETTINGS_MASTER_VOLUME,Hlavná hlasitosť,Master volume
-SETTINGS_SFX_VOLUME,Zvukové efekty,Sound effects
-SETTINGS_MUSIC_VOLUME,Hudba,Music
-MENU_ALT_NAMES,Faraón / Prší,Faraón / Prší
-RULES_EXPLAINER,"Faraón (Farár / Prší) je ľudová hra, ktorá má veľa verzií podľa regiónu alebo skupiny ľudí — každý si ju hrá po svojom. Preto ti dávame možnosť prispôsobiť si niektoré pravidlá podľa toho, ako ich poznáš ty. Predvolené nastavenia vychádzajú z dohľadateľných zdrojov ako najrozšírenejšia a najférovejšia verzia pravidiel.","Faraón (Farár / Prší) is a folk game with many regional versions — everyone plays it their own way. That's why you can tune some rules to match the way you know them. The defaults follow the most widespread and fairest documented version."
-RULES_RESET,Obnoviť predvolené nastavenia,Reset to defaults
-RULES_RESET_CONFIRM,Naozaj vrátiť všetky domáce pravidlá na predvolené hodnoty?,Really reset all house rules to their defaults?
-RULES_RESET_YES,Obnoviť,Reset
-RULES_DEFAULT_IS,Predvolené: %s,Default: %s
-OPT_ON,Zapnuté,On
-OPT_OFF,Vypnuté,Off
-OPT_ANYONE,Kohokoľvek,Anyone
-OPT_ROUND,Len z aktuálneho kola,Current round only
-OPT_NONE,Bez obmedzenia,No restriction
-OPT_NO_SEVEN,Nie sedmou,Not with a seven
-OPT_HORNIK_ONLY,Len horníkom,Ober only
-RULE_PURISTA,Purista režim,Purist mode
-RULE_PURISTA_DESC,"Čistá mau-mau: vypne návrat červenou sedmou, spálenú, eso-reťaz aj špeciálne schopnosti zeleného dolníka. Súvisiace pravidlá nižšie sa zablokujú.","Pure mau-mau: disables the red-seven return, spálená, ace chaining and the green dolník's powers. Related rules below get locked."
-RULE_RED7_ON_ESO,Červená sedma aj na stopku,Red seven onto an active ace
-RULE_RED7_ON_ESO_DESC,"Pri návrate do hry sa červená sedma dá položiť aj na práve vyloženú stopku (eso) — reakcia spotrebuje tvoju stopku.","When returning a player, the red seven may land on a just-played ace — the reaction consumes your stop."
-RULE_ESO_REACTION,Pomalý faraón (reakcia na eso),Slow faraon (ace reaction)
-RULE_ESO_REACTION_DESC,"Pomalý režim (zapnuté): zastavený hráč môže prebiť eso vlastným esom. Rýchly režim (vypnuté): eso má okamžitý efekt a nedá sa naň reagovať.","Slow mode (on): a stopped player may counter with their own ace. Fast mode (off): the ace takes effect instantly and cannot be answered."
-RULE_ESO_NO_COUNTER,Eso sa nedá prebiť,Aces cannot be countered
-RULE_ESO_NO_COUNTER_DESC,"Žiadne reťazenie es: každé eso jednoducho preskočí nasledujúceho hráča a hra ide ďalej.","No ace chaining: each ace simply skips the next player and play moves on."
-RULE_SEVEN_INTERRUPT,Sedma počas ťahania trestu,Seven during penalty draw
-RULE_SEVEN_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš sedmu, môžeš ju hneď vyložiť — trest ide na ďalšieho hráča a vytiahnuté karty si nechávaš.","If you draw a seven while taking a penalty, you may play it at once — the penalty passes on and you keep the cards drawn so far."
-RULE_FARAON_INTERRUPT,Faraón počas ťahania trestu,Faraon during penalty draw
-RULE_FARAON_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš zeleného dolníka, môžeš ho hneď vyložiť a zvyšok trestu sa ruší.","If you draw the green dolník while taking a penalty, you may play it at once and the rest of the penalty is cancelled."
-RULE_GREEN_KING,Špeciálny zelený kráľ,Special green king
-RULE_GREEN_KING_DESC,"Po zahraní zeleného kráľa ťahá ďalší hráč 4 karty (nezávisle od trestu za sedmu).","After the green king the next player draws 4 cards (independent of the seven penalty)."
-RULE_GREEN_KING_COUNTER,Prebíjanie kráľa sedmou,King/seven counters
-RULE_GREEN_KING_COUNTER_DESC,"Zelený kráľ sa dá prebiť zelenou sedmou a naopak.","The green king can be countered by the green seven and vice versa."
-RULE_RED_TEN,Špeciálna červená desiatka,Special red ten
-RULE_RED_TEN_DESC,"Červená desiatka = ďalší hráč ťahá 1 kartu. Dá sa položiť ako obrana na červenú sedmu — potom už bez ďalšej obrany. Na desiatku sa dá položiť červená sedma.","Red ten = next player draws 1. It can defend against the red seven — after it no further defense is possible. The red seven can be played onto the ten."
-RULE_REVERSE_CARD,Tanečnica (Otočka),The Dancer (Reverse)
-RULE_REVERSE_CARD_DESC,"Do balíčka pribudne 33. špeciálna karta, ktorá otáča smer hry. Padne na čokoľvek a čokoľvek padne na ňu.","A 33rd special card joins the deck and reverses the play direction. It lands on anything and anything lands on it."
-RULE_UNTER_ANNOUNCER,Spodok je meničom,Unter announces a rank
-RULE_UNTER_ANNOUNCER_DESC,"Spodky (okrem zeleného — ten ostáva faraónom) sa odhadzujú voľne a hráč nimi ohlási znak, ktorý chce. Ostatní ťahajú, kým ho niekto nepoloží alebo neprebije ďalším spodkom.","Unters (except the green one — that stays the faraon) are played freely and announce a rank. Others draw until someone plays it or trumps with another unter."
-RULE_PUB_MODE,Hospodské prší,Pub Prší
-RULE_PUB_MODE_DESC,"Krčmový submód: spodok je meničom, zelený kráľ dáva +4 (bez prebíjania sedmou) a každá desiatka obracia smer hry. Vylučuje sa s červenou desiatkou.","Pub submode: unters announce ranks, the green king gives +4 (no seven counter) and every ten reverses the direction. Mutually exclusive with the red ten."
-GAME_DECLARE_RANK,Ohlás znak,Announce a rank
-GAME_ANNOUNCED,Hlásené: %s,Announced: %s
-ERR_MUST_PLAY_ANNOUNCED_RANK,Musíš položiť hlásený znak alebo ďalší spodok,Play the announced rank or another unter
-ERR_DECLARED_RANK_REQUIRED,Ohlás znak spodkom,Announce a rank with the unter
-TOAST_DIRECTION,Smer hry sa otočil!,Play direction reversed!
-RULE_HAND_SIZE,Počet rozdaných kariet,Cards dealt at start
-RULE_HAND_SIZE_DESC,Koľko kariet dostane každý hráč na začiatku hry.,How many cards each player is dealt at the start.
-RULE_SEVEN_STEP,Veľkosť trestu za sedmu,Seven penalty step
-RULE_SEVEN_STEP_DESC,"Trest za jednu sedmu; reťazenie násobí tento krok (napr. krok 2 = 2/4/6/8...).","Penalty per seven; chaining multiplies this step (e.g. step 2 = 2/4/6/8...)."
-RULE_RETURN_SCOPE,Koho vracia červená sedma,Who the red seven returns
-RULE_RETURN_SCOPE_DESC,"Kohokoľvek, kto vypadol od začiatku hry, alebo len hráča z práve prebiehajúceho kola.","Anyone who finished since the game began, or only a player from the current round."
-RULE_FINISH,Zakončenie hry,Finishing the game
-RULE_FINISH_DESC,"Obmedzenie poslednej karty: bez obmedzenia, nie sedmou, alebo výlučne horníkom.","Last-card restriction: none, not with a seven, or exclusively with the ober."
-RULE_FARAON_BLOCKS_ESO,Zelený dolník na všetko,Green dolník blocks everything
-RULE_FARAON_BLOCKS_ESO_DESC,Faraón zablokuje okrem sedmičiek aj esá — reťaz stopiek sa ním dá zrušiť.,The faraon also blocks aces — an ace chain can be cancelled with it.
-RULE_HORNIK_STRICT,Horník len na farbu a typ,Hornik only on suit or rank
-RULE_HORNIK_STRICT_DESC,Horník sa dá položiť len ak sedí farba alebo znak; až potom mení farbu.,The hornik can only be played on a matching suit or rank; only then it changes the suit.
-RULE_SPALENA_MULTIPLY,Násobenie spálenej,Burned multiplication
-RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — aj dve rôzne karty samostatne.,A second burned four-of-a-kind in a row grants two extra moves — even two different cards separately.
-GAME_MENU,Menu,Menu
-GAME_RESUME,Pokračovať,Resume
-GAME_RESTART,Reštart hry,Restart game
-SETTINGS_AUDIO,Zvuk a hudba,Sound & music
-SETTINGS_SOUND,Zvuky,Sounds
-SETTINGS_MUSIC,Hudba,Music
-SETTINGS_VIBRATIONS,Vibrácie,Vibrations
-GAME_YOUR_TURN,Si na ťahu,Your turn
-GAME_TURN_OF,Na ťahu: %s,Turn: %s
-GAME_DRAW_CARD,Ťahaj,Draw
-GAME_PLAY,Zahrať,Play
-GAME_PASS,Stojím,Stand
-GAME_FAST_FORWARD,Zrýchliť ⏩,Speed up ⏩
-GAME_DECLARE_SUIT,Vyber farbu,Choose a suit
-GAME_ESO_STOP,STOP!,STOP!
-GAME_INTERRUPT_PLAY,Položiť faraóna,Play the faraon
-GAME_INTERRUPT_PLAY_SEVEN,Vyložiť sedmu,Play the seven
-GAME_INTERRUPT_DRAW,Ťahať ďalej,Keep drawing
-GAME_SHOOTOUT,Rozstrel o ďalšie miesta,Shootout for the remaining places
-ERR_INTERRUPT_CARD_OR_DRAW,Vylož vytiahnutú kartu alebo ťahaj ďalej,Play the drawn card or keep drawing
-ERR_CANNOT_FINISH_WITH_SEVEN,Hru nemôžeš ukončiť sedmou,You cannot finish with a seven
-ERR_MUST_FINISH_WITH_HORNIK,Hru môžeš ukončiť len horníkom,You can only finish with an ober
-ERR_PENALTY_SEALED_MUST_DRAW,Trest je zapečatený desiatkou — musíš ťahať,The penalty is sealed by the ten — you must draw
-TOAST_INTERRUPT,%s vytiahol faraóna!,%s drew the faraon!
-ERR_INTERRUPT_FARAON_OR_DRAW,Polož faraóna alebo ťahaj ďalej,Play the faraon or keep drawing
-GAME_STOPPED_BADGE,STOJÍ,STOPPED
-GAME_WINNER,Dohral,Finished
-GAME_FINISHED_MARK,Dohral!,Done!
-GAME_CARD_COUNT,%d kariet,%d cards
-GAME_PENDING_DRAW,Sedma! Ťaháš +%d,Seven! Draw +%d
-GAME_OVER_WIN,Vyhral si!,You win!
-GAME_OVER_LOSE,Prehral si,You lost
-GAME_OVER_PLACE,Skončil si na %d. mieste,You finished in place %d
-GAME_NEW,Nová hra,New game
-PLAYER_YOU,Ty,You
-BOT_NAME,Robo %s,Bot %s
-TOAST_RETURNED,%s je späť v hre!,%s is back in the game!
-TOAST_SPALENA,Spálená! Extra ťah,Burned! Extra turn
-GAME_SPALENA_BANNER,SPÁLENÁ!,BURNED!
-TOAST_ESO_CONTINUE,%s pokračuje po esách,%s continues after aces
-TOAST_DECK_EMPTY,Balíček je prázdny,The deck is empty
-ERR_GENERIC,Neplatný ťah,Illegal move
-ERR_CARD_DOES_NOT_MATCH,Karta nesedí farbou ani znakom,Card matches neither suit nor rank
-ERR_MUST_ANSWER_WITH_ESO,Musíš odpovedať esom alebo stáť,Answer with an ace or stand
-ERR_MUST_ANSWER_ESO_OR_PASS,Musíš odpovedať esom alebo stáť,Answer with an ace or stand
-ERR_MUST_ANSWER_WITH_SEDMA_OR_FARAON,Iba sedma alebo faraón,Only a seven or the faraon
-ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same rank
-ERR_FIRST_CARD_ORDER,Takto karty položiť nejdú — karta č. 1 musí sedieť na kôpku,These cards can't go down like this — card no. 1 must match the pile
-ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit
-ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn
-SKIN_MARIAS,Mariáš dvojhlavý,Mariáš double-headed
-SKIN_DEV_PREVIEW,Dev náhľad,Dev preview
-SUIT_ZALUD,Žaluď,Acorns
-SUIT_CERVEN,Červeň,Hearts
-SUIT_ZELEN,Zeleň,Leaves
-SUIT_GULA,Guľa,Bells
+keys,sk,en,cs
+APP_NAME,Faraón,Faraon,Faraon
+MENU_SUBTITLE,Slovenská kartová klasika,The Slovak card classic,Slovenská karetní klasika
+MENU_PLAY,Hrať,Play,Hrát
+MENU_OPPONENTS,Hrať proti súperom:,Play against opponents:,Hrát proti soupeřům:
+MENU_CREATE_ROOM,Vytvoriť miestnosť,Create room,Vytvořit místnost
+MENU_JOIN_ROOM,Pripojiť sa,Join room,Připojit se
+MENU_JOIN_AS_DECK,Pripojiť ako zdieľaný balíček,Join as shared deck,Připojit jako sdílený balíček
+MENU_JOIN_AS_PLAYER,Hrať s vlastnými kartami,Play with your own cards,Hrát s vlastními kartami
+MENU_MULTIPLAYER,Multiplayer,Multiplayer,Multiplayer
+MENU_START,▶ Spustiť hru,▶ Start game,▶ Spustit hru
+MODE_NORMAL,Klasický,Classic,Klasický
+MODE_OLYMPIC,Olympijský,Olympic,Olympijský
+MODE_REVERSE,Reverzný ol.,Reverse Ol.,Reverzní ol.
+GAME_NEXT_ROUND,Ďalšie kolo,Next round,Další kolo
+ROUND_OVER,Koniec kola,Round over,Konec kola
+MATCH_ROUND,Kolo %d,Round %d,Kolo %d
+MATCH_STANDINGS,Stav zápasu,Match standings,Stav zápasu
+MATCH_WIN,Vyhral si zápas! 🏆,You won the match! 🏆,Vyhrál jsi zápas! 🏆
+MATCH_LOSE,Zápas vyhral %s,%s won the match,Zápas vyhrál %s
+MATCH_OUT,vypadol,out,vypadl
+MATCH_CARDS,%d kariet,%d cards,%d karet
+POINTS_EARNED,+%d bodov,+%d points,+%d bodů
+LEVEL_UP,Level %d! 🎉,Level %d! 🎉,Level %d! 🎉
+PROFILE_LEVEL,Level %d,Level %d,Level %d
+PROFILE_NAME,Tvoje meno,Your name,Tvoje jméno
+MENU_CHALLENGES,Výzvy,Challenges,Výzvy
+MENU_STATS,Štatistiky,Statistics,Statistiky
+MENU_HOW_TO,Ako hrať,How to play,Jak hrát
+CHALLENGE_DONE,Denná výzva splnená! +%d b,Daily challenge done! +%d pts,Denní výzva splněna! +%d b
+CHALLENGE_REWARD_NOTE,Každá splnená výzva = +%d bodov. Výzvy sa menia každý deň o polnoci.,Each completed challenge = +%d points. Challenges rotate at midnight.,Každá splněná výzva = +%d bodů. Výzvy se mění každý den o půlnoci.
+CH_PLAY_3,Zahraj 3 hry,Play 3 games,Zahraj 3 hry
+CH_WIN_HARD,Vyhraj proti ťažkým botom,Beat the hard bots,Vyhraj proti těžkým botům
+CH_SPALENA,Polož spálenú (4 rovnaké),Play a burned four-of-a-kind,Polož spálenou (4 stejné)
+CH_WIN_3PLUS,Vyhraj hru s 3+ hráčmi,Win a game with 3+ players,Vyhraj hru se 3+ hráči
+CH_PLAY_ESA,Zahraj 2 esá,Play 2 aces,Zahraj 2 esa
+CH_RETURN_RED7,Vráť hráča červenou sedmou,Return a player with the red seven,Vrať hráče červenou sedmou
+CH_WIN_OLYMPIC,Vyhraj olympijské kolo,Win an olympic round,Vyhraj olympijské kolo
+CH_FINISH_TOP2,Skonči 2× v top 2,Finish top 2 twice,Skonči 2× v top 2
+STREAK_DAYS,%d dní po sebe,%d days in a row,%d dní po sobě
+STREAK_KEEP,"Zahraj dnes aspoň jednu hru, aby si neprišiel o streak!","Play at least one game today to keep your streak!","Zahraj si dnes aspoň jednu hru, ať nepřijdeš o sérii!"
+STREAK_SAFE,Dnešný streak je zachránený. ✅,Today's streak is safe. ✅,Dnešní série je zachráněná. ✅
+STATS_POINTS,%d bodov,%d points,%d bodů
+STATS_WINRATE,Výhry celkovo,Overall wins,Výhry celkem
+STATS_BY_DIFFICULTY,Podľa obtiažnosti,By difficulty,Podle obtížnosti
+STATS_PLACES,Umiestnenia,Placements,Umístění
+STATS_FAV_MODE,Najhranejší režim,Favourite mode,Nejhranější režim
+STATS_LONGEST_STREAK,Najdlhší streak,Longest streak,Nejdelší série
+TUT_SKIP,Preskočiť,Skip,Přeskočit
+TUT_NEXT,Ďalej ▶,Next ▶,Dále ▶
+TUT_DONE,Hotovo ✓,Done ✓,Hotovo ✓
+TUT_WRONG,"Táto karta nesedí — musí súhlasiť farba alebo znak. Skús druhú.","That card doesn't fit — the suit or rank must match. Try the other one.","Tahle karta nesedí — musí souhlasit barva nebo hodnota. Zkus druhou."
+TUT_RIGHT,Presne tak! Pokračuj tlačidlom Ďalej.,Exactly! Continue with Next.,Přesně tak! Pokračuj tlačítkem Dále.
+TUT_1_TITLE,Kladenie kariet,Placing cards,Pokládání karet
+TUT_1_BODY,"Na kôpku môžeš položiť kartu rovnakej farby alebo rovnakého znaku. Na stole je žaluďová osmička — ťukni na kartu, ktorá sa dá zahrať.","You can play a card of the same suit or the same rank. The pile shows the eight of acorns — tap the card that can be played.","Na balíček můžeš položit kartu stejné barvy nebo stejné hodnoty. Na stole je žaludová osmička — ťukni na kartu, kterou lze zahrát."
+TUT_2_TITLE,Eso — stopka,Ace — the stop,Eso — stopka
+TUT_2_BODY,"Eso zastaví najbližšieho hráča: vynechá jeden ťah (ak sa nebráni vlastným esom) a hra ide ďalej v poradí. Jedno eso = jeden vynechaný ťah. Sleduj ukážku.","An ace stops the next player: they skip one turn (unless they defend with their own ace) and play moves on. One ace = one skipped turn. Watch the demo.","Eso zastaví nejbližšího hráče: vynechá jeden tah (pokud se nebrání vlastním esem) a hra jde dál v pořadí. Jedno eso = jeden vynechaný tah. Sleduj ukázku."
+TUT_3_TITLE,Sedma — trestné karty,Seven — penalty cards,Sedma — trestné karty
+TUT_3_BODY,"Za sedmu si súper ťahá 3 karty. Sedmy sa sčítavajú: dve sedmy = 6 kariet, tri = 9! Obranou je vlastná sedma alebo faraón.","A seven makes the opponent draw 3 cards. Sevens stack: two sevens = 6 cards, three = 9! The defence is your own seven or the faraon.","Za sedmu si soupeř líže 3 karty. Sedmy se sčítají: dvě sedmy = 6 karet, tři = 9! Obranou je vlastní sedma nebo faraon."
+TUT_4_TITLE,Červená sedma,The red seven,Červená sedma
+TUT_4_BODY,"Červená sedma má zvláštnu moc: vráti do hry hráča, ktorý už dohral. Vrátený hráč si vezme 3 karty — to je celý jeho ťah — a hra pokračuje hráčom za tebou.","The red seven has a special power: it returns a player who already finished. They take 3 cards — that counts as their whole turn — and play continues with the player after you.","Červená sedma má zvláštní moc: vrátí do hry hráče, který už dohrál. Vrácený hráč si vezme 3 karty — to je celý jeho tah — a hra pokračuje hráčem za tebou."
+TUT_5_TITLE,Faraón (zelený dolník),The faraon,Faraon (zelený spodek)
+TUT_5_BODY,"Faraón je žolík: položíš ho na čokoľvek a čokoľvek naň. Zabíja aj celú reťaz sedmičiek — trest padá na nulu.","The faraon is the wild card: play it on anything, anything lands on it. It also kills a whole seven chain — the penalty drops to zero.","Faraon je žolík: položíš ho na cokoli a cokoli na něj. Zabíjí i celý řetěz sedem — trest padá na nulu."
+TUT_6_TITLE,Horník mení farbu,The hornik changes suit,Svršek mění barvu
+TUT_6_BODY,"Horníkom určíš farbu, ktorá sa musí hrať ďalej — skvelý na prevzatie kontroly nad hrou.","With a hornik you declare the suit that must follow — great for taking control of the game.","Svrškem určíš barvu, která se musí hrát dál — skvělý na převzetí kontroly nad hrou."
+TUT_7_TITLE,Spálená,The burn,Spálená
+TUT_7_BODY,"Štyri rovnaké znaky naraz = spálená! Získavaš ťah navyše. Karty si zoraď tak, aby si vedel pokračovať.","Four of a kind at once = a burn! You get an extra move. Order the cards so you can continue.","Čtyři stejné hodnoty najednou = spálená! Získáváš tah navíc. Karty si seřaď tak, abys mohl pokračovat."
+TUT_8_TITLE,Poradie kladenia,Play order,Pořadí pokládání
+TUT_8_BODY,"Pri viacerých kartách určuješ poradie ťukaním — čísla ukazujú, čo padne na kôpku prvé. Ťukni na ESO, ktoré má byť prvé (sedí na kôpku).","With several cards you set the order by tapping — the numbers show what lands first. Tap the ACE that should go first (it matches the pile).","Při více kartách určuješ pořadí ťukáním — čísla ukazují, co padne na balíček první. Ťukni na ESO, které má být první (sedí na balíček)."
+DIFF_EASY,Ľahkí,Easy,Lehcí
+DIFF_MEDIUM,Strední,Medium,Střední
+DIFF_HARD,Ťažkí,Hard,Těžcí
+MENU_SOON,(čoskoro),(soon),(brzy)
+MP_CREATE,Vytvoriť miestnosť,Create room,Vytvořit místnost
+MP_CODE_HINT,Kód miestnosti,Room code,Kód místnosti
+MP_JOIN,Pripojiť sa,Join,Připojit se
+MP_LEAVE,Odísť z miestnosti,Leave room,Odejít z místnosti
+MP_INVITE,Pozvi priateľa 📋,Invite a friend 📋,Pozvi kamaráda 📋
+MP_INVITE_TEXT,Zahraj si so mnou Faraón! Kód miestnosti: %s — otvor hru a zadaj kód (alebo faraon://join/%s),Play Faraón with me! Room code: %s — open the game and enter the code (or faraon://join/%s),Zahraj si se mnou Faraona! Kód místnosti: %s — otevři hru a zadej kód (nebo faraon://join/%s)
+MP_INVITE_COPIED,Pozvánka skopírovaná do schránky!,Invite copied to clipboard!,Pozvánka zkopírována do schránky!
+MP_CONNECTING,Pripájam sa na server...,Connecting to the server...,Připojuji se k serveru...
+MP_CONN_FAILED,Server je nedostupný. Skús neskôr.,Server unavailable. Try again later.,Server je nedostupný. Zkus to později.
+MP_WAITING_INPUT,"Vytvor miestnosť, alebo zadaj kód.","Create a room, or enter a code.","Vytvoř místnost, nebo zadej kód."
+MP_WAITING,Čaká sa na hráčov...,Waiting for players...,Čeká se na hráče...
+MP_ERR_NO_SUCH_ROOM,Miestnosť s týmto kódom neexistuje,No room with that code,Místnost s tímto kódem neexistuje
+MP_ERR_ROOM_FULL,Miestnosť je plná,The room is full,Místnost je plná
+MP_ERR_GAME_RUNNING,Hra už prebieha,The game is already running,Hra už probíhá
+MENU_SETTINGS,Nastavenia,Settings,Nastavení
+MENU_APPEARANCE,Vzhľad,Appearance,Vzhled
+APPEARANCE_CARDS,Kartový štýl,Card style,Styl karet
+APPEARANCE_TABLE,Vzhľad stola,Table look,Vzhled stolu
+TABLE_FELT,Zelené plátno (klasika),Green felt (classic),Zelené sukno (klasika)
+TABLE_WOOD,Svetlé drevo,Light wood,Světlé dřevo
+TABLE_RUSTIC_WOOD,Rustikálne drevo,Rustic wood,Rustikální dřevo
+TABLE_DARK_WOOD,Tmavé drevo,Dark wood,Tmavé dřevo
+TABLE_FELT_BRIGHT,Turnajová zelená,Tournament green,Turnajová zelená
+TABLE_POKER_GREEN,Pokrový vzor,Poker pattern,Pokerový vzor
+TABLE_FELT_BLUE,Modrá plsť,Blue felt,Modrá plsť
+TABLE_OAK_LIGHT,Svetlý dub,Light oak,Světlý dub
+TABLE_MAPLE_LIGHT,Javor,Maple,Javor
+TABLE_WALNUT_WARM,Orech,Walnut,Ořech
+TABLE_PLANKS_GOLDEN,Zlaté dosky,Golden planks,Zlatá prkna
+TABLE_TEAK_SUN,Teak v slnku,Sunlit teak,Teak na slunci
+TABLE_WOOD_SCUFFED,Ošúchané drevo,Scuffed wood,Ošoupané dřevo
+TABLE_PLANKS_DARK,Tmavé dosky,Dark planks,Tmavá prkna
+LOCKED_LEVEL,Level %d 🔒,Level %d 🔒,Level %d 🔒
+MENU_RULES,Domáce pravidlá,House rules,Domácí pravidla
+MENU_RULES_HINT,Voliteľné domáce pravidlá. V multiplayeri platia pravidlá zakladateľa miestnosti — pri rozdieloch budú hráči vopred upozornení.,Optional house rules. In multiplayer the room creator's rules apply — players get notified about any mismatch up front.,Volitelná domácí pravidla. V multiplayeru platí pravidla zakladatele místnosti — při rozdílech budou hráči předem upozorněni.
+MENU_BACK,Späť do menu,Back to menu,Zpět do menu
+MENU_BACK_SHORT,Späť,Back,Zpět
+MENU_QUIT,Koniec,Quit,Konec
+SETTINGS_LANGUAGE,Jazyk,Language,Jazyk
+SETTINGS_MASTER_VOLUME,Hlavná hlasitosť,Master volume,Hlavní hlasitost
+SETTINGS_SFX_VOLUME,Zvukové efekty,Sound effects,Zvukové efekty
+SETTINGS_MUSIC_VOLUME,Hudba,Music,Hudba
+MENU_ALT_NAMES,Faraón / Prší,Faraón / Prší,Prší / Faraon
+RULES_EXPLAINER,"Faraón (Farár / Prší) je ľudová hra, ktorá má veľa verzií podľa regiónu alebo skupiny ľudí — každý si ju hrá po svojom. Preto ti dávame možnosť prispôsobiť si niektoré pravidlá podľa toho, ako ich poznáš ty. Predvolené nastavenia vychádzajú z dohľadateľných zdrojov ako najrozšírenejšia a najférovejšia verzia pravidiel.","Faraón (Farár / Prší) is a folk game with many regional versions — everyone plays it their own way. That's why you can tune some rules to match the way you know them. The defaults follow the most widespread and fairest documented version.","Faraon (Farář / Prší) je lidová hra, která má spoustu verzí podle regionu nebo party — každý ji hraje po svém. Proto ti dáváme možnost přizpůsobit si některá pravidla podle toho, jak je znáš ty. Výchozí nastavení vychází z dohledatelných zdrojů jako nejrozšířenější a nejférovější verze pravidel."
+RULES_RESET,Obnoviť predvolené nastavenia,Reset to defaults,Obnovit výchozí nastavení
+RULES_RESET_CONFIRM,Naozaj vrátiť všetky domáce pravidlá na predvolené hodnoty?,Really reset all house rules to their defaults?,Opravdu vrátit všechna domácí pravidla na výchozí hodnoty?
+RULES_RESET_YES,Obnoviť,Reset,Obnovit
+RULES_DEFAULT_IS,Predvolené: %s,Default: %s,Výchozí: %s
+OPT_ON,Zapnuté,On,Zapnuto
+OPT_OFF,Vypnuté,Off,Vypnuto
+OPT_ANYONE,Kohokoľvek,Anyone,Kohokoli
+OPT_ROUND,Len z aktuálneho kola,Current round only,Jen z aktuálního kola
+OPT_NONE,Bez obmedzenia,No restriction,Bez omezení
+OPT_NO_SEVEN,Nie sedmou,Not with a seven,Ne sedmou
+OPT_HORNIK_ONLY,Len horníkom,Ober only,Jen svrškem
+RULE_PURISTA,Purista režim,Purist mode,Puristický režim
+RULE_PURISTA_DESC,"Čistá mau-mau: vypne návrat červenou sedmou, spálenú, eso-reťaz aj špeciálne schopnosti zeleného dolníka. Súvisiace pravidlá nižšie sa zablokujú.","Pure mau-mau: disables the red-seven return, spálená, ace chaining and the green dolník's powers. Related rules below get locked.","Čisté mau-mau: vypne návrat červenou sedmou, spálenou, řetězení es i speciální schopnosti zeleného spodka. Související pravidla níže se zablokují."
+RULE_RED7_ON_ESO,Červená sedma aj na stopku,Red seven onto an active ace,Červená sedma i na stopku
+RULE_RED7_ON_ESO_DESC,"Pri návrate do hry sa červená sedma dá položiť aj na práve vyloženú stopku (eso) — reakcia spotrebuje tvoju stopku.","When returning a player, the red seven may land on a just-played ace — the reaction consumes your stop.","Při návratu do hry lze červenou sedmu položit i na právě vyloženou stopku (eso) — reakce spotřebuje tvoji stopku."
+RULE_ESO_REACTION,Pomalý faraón (reakcia na eso),Slow faraon (ace reaction),Pomalý faraon (reakce na eso)
+RULE_ESO_REACTION_DESC,"Pomalý režim (zapnuté): zastavený hráč môže prebiť eso vlastným esom. Rýchly režim (vypnuté): eso má okamžitý efekt a nedá sa naň reagovať.","Slow mode (on): a stopped player may counter with their own ace. Fast mode (off): the ace takes effect instantly and cannot be answered.","Pomalý režim (zapnuto): zastavený hráč může přebít eso vlastním esem. Rychlý režim (vypnuto): eso má okamžitý efekt a nelze na něj reagovat."
+RULE_ESO_NO_COUNTER,Eso sa nedá prebiť,Aces cannot be countered,Eso nelze přebít
+RULE_ESO_NO_COUNTER_DESC,"Žiadne reťazenie es: každé eso jednoducho preskočí nasledujúceho hráča a hra ide ďalej.","No ace chaining: each ace simply skips the next player and play moves on.","Žádné řetězení es: každé eso jednoduše přeskočí následujícího hráče a hra jde dál."
+RULE_SEVEN_INTERRUPT,Sedma počas ťahania trestu,Seven during penalty draw,Sedma během lízání trestu
+RULE_SEVEN_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš sedmu, môžeš ju hneď vyložiť — trest ide na ďalšieho hráča a vytiahnuté karty si nechávaš.","If you draw a seven while taking a penalty, you may play it at once — the penalty passes on and you keep the cards drawn so far.","Pokud si během lízání trestu lízneš sedmu, můžeš ji hned vyložit — trest jde na dalšího hráče a dosud líznuté karty si necháváš."
+RULE_FARAON_INTERRUPT,Faraón počas ťahania trestu,Faraon during penalty draw,Faraon během lízání trestu
+RULE_FARAON_INTERRUPT_DESC,"Ak si počas ťahania trestu vytiahneš zeleného dolníka, môžeš ho hneď vyložiť a zvyšok trestu sa ruší.","If you draw the green dolník while taking a penalty, you may play it at once and the rest of the penalty is cancelled.","Pokud si během lízání trestu lízneš zeleného spodka, můžeš ho hned vyložit a zbytek trestu se ruší."
+RULE_GREEN_KING,Špeciálny zelený kráľ,Special green king,Speciální zelený král
+RULE_GREEN_KING_DESC,"Po zahraní zeleného kráľa ťahá ďalší hráč 4 karty (nezávisle od trestu za sedmu).","After the green king the next player draws 4 cards (independent of the seven penalty).","Po zahrání zeleného krále líže další hráč 4 karty (nezávisle na trestu za sedmu)."
+RULE_GREEN_KING_COUNTER,Prebíjanie kráľa sedmou,King/seven counters,Přebíjení krále sedmou
+RULE_GREEN_KING_COUNTER_DESC,"Zelený kráľ sa dá prebiť zelenou sedmou a naopak.","The green king can be countered by the green seven and vice versa.","Zeleného krále lze přebít zelenou sedmou a naopak."
+RULE_RED_TEN,Špeciálna červená desiatka,Special red ten,Speciální červená desítka
+RULE_RED_TEN_DESC,"Červená desiatka = ďalší hráč ťahá 1 kartu. Dá sa položiť ako obrana na červenú sedmu — potom už bez ďalšej obrany. Na desiatku sa dá položiť červená sedma.","Red ten = next player draws 1. It can defend against the red seven — after it no further defense is possible. The red seven can be played onto the ten.","Červená desítka = další hráč líže 1 kartu. Lze ji položit jako obranu na červenou sedmu — pak už bez další obrany. Na desítku lze položit červenou sedmu."
+RULE_REVERSE_CARD,Tanečnica (Otočka),The Dancer (Reverse),Tanečnice (Otočka)
+RULE_REVERSE_CARD_DESC,"Do balíčka pribudne 33. špeciálna karta, ktorá otáča smer hry. Padne na čokoľvek a čokoľvek padne na ňu.","A 33rd special card joins the deck and reverses the play direction. It lands on anything and anything lands on it.","Do balíčku přibude 33. speciální karta, která otáčí směr hry. Padne na cokoli a cokoli padne na ni."
+RULE_UNTER_ANNOUNCER,Spodok je meničom,Unter announces a rank,Spodek hlásí hodnotu
+RULE_UNTER_ANNOUNCER_DESC,"Spodky (okrem zeleného — ten ostáva faraónom) sa odhadzujú voľne a hráč nimi ohlási znak, ktorý chce. Ostatní ťahajú, kým ho niekto nepoloží alebo neprebije ďalším spodkom.","Unters (except the green one — that stays the faraon) are played freely and announce a rank. Others draw until someone plays it or trumps with another unter.","Spodci (kromě zeleného — ten zůstává faraonem) se odhazují volně a hráč jimi ohlásí hodnotu, kterou chce. Ostatní lížou, dokud ji někdo nepoloží nebo nepřebije dalším spodkem."
+RULE_PUB_MODE,Hospodské prší,Pub Prší,Hospodské prší
+RULE_PUB_MODE_DESC,"Krčmový submód: spodok je meničom, zelený kráľ dáva +4 (bez prebíjania sedmou) a každá desiatka obracia smer hry. Vylučuje sa s červenou desiatkou.","Pub submode: unters announce ranks, the green king gives +4 (no seven counter) and every ten reverses the direction. Mutually exclusive with the red ten.","Hospodský submód: spodek hlásí hodnotu, zelený král dává +4 (bez přebíjení sedmou) a každá desítka otáčí směr hry. Vylučuje se s červenou desítkou."
+GAME_DECLARE_RANK,Ohlás znak,Announce a rank,Ohlas hodnotu
+GAME_ANNOUNCED,Hlásené: %s,Announced: %s,Hlášeno: %s
+ERR_MUST_PLAY_ANNOUNCED_RANK,Musíš položiť hlásený znak alebo ďalší spodok,Play the announced rank or another unter,Musíš položit hlášenou hodnotu nebo dalšího spodka
+ERR_DECLARED_RANK_REQUIRED,Ohlás znak spodkom,Announce a rank with the unter,Ohlas hodnotu spodkem
+TOAST_DIRECTION,Smer hry sa otočil!,Play direction reversed!,Směr hry se otočil!
+RULE_HAND_SIZE,Počet rozdaných kariet,Cards dealt at start,Počet rozdaných karet
+RULE_HAND_SIZE_DESC,Koľko kariet dostane každý hráč na začiatku hry.,How many cards each player is dealt at the start.,Kolik karet dostane každý hráč na začátku hry.
+RULE_SEVEN_STEP,Veľkosť trestu za sedmu,Seven penalty step,Velikost trestu za sedmu
+RULE_SEVEN_STEP_DESC,"Trest za jednu sedmu; reťazenie násobí tento krok (napr. krok 2 = 2/4/6/8...).","Penalty per seven; chaining multiplies this step (e.g. step 2 = 2/4/6/8...).","Trest za jednu sedmu; řetězení násobí tento krok (např. krok 2 = 2/4/6/8...)."
+RULE_RETURN_SCOPE,Koho vracia červená sedma,Who the red seven returns,Koho vrací červená sedma
+RULE_RETURN_SCOPE_DESC,"Kohokoľvek, kto vypadol od začiatku hry, alebo len hráča z práve prebiehajúceho kola.","Anyone who finished since the game began, or only a player from the current round.","Kohokoli, kdo vypadl od začátku hry, nebo jen hráče z právě probíhajícího kola."
+RULE_FINISH,Zakončenie hry,Finishing the game,Zakončení hry
+RULE_FINISH_DESC,"Obmedzenie poslednej karty: bez obmedzenia, nie sedmou, alebo výlučne horníkom.","Last-card restriction: none, not with a seven, or exclusively with the ober.","Omezení poslední karty: bez omezení, ne sedmou, nebo výhradně svrškem."
+RULE_FARAON_BLOCKS_ESO,Zelený dolník na všetko,Green dolník blocks everything,Zelený spodek na všechno
+RULE_FARAON_BLOCKS_ESO_DESC,Faraón zablokuje okrem sedmičiek aj esá — reťaz stopiek sa ním dá zrušiť.,The faraon also blocks aces — an ace chain can be cancelled with it.,Faraon zablokuje kromě sedem i esa — řetěz stopek se jím dá zrušit.
+RULE_HORNIK_STRICT,Horník len na farbu a typ,Hornik only on suit or rank,Svršek jen na barvu a hodnotu
+RULE_HORNIK_STRICT_DESC,Horník sa dá položiť len ak sedí farba alebo znak; až potom mení farbu.,The hornik can only be played on a matching suit or rank; only then it changes the suit.,Svršek lze položit jen když sedí barva nebo hodnota; teprve pak mění barvu.
+RULE_SPALENA_MULTIPLY,Násobenie spálenej,Burned multiplication,Násobení spálené
+RULE_SPALENA_MULTIPLY_DESC,Druhá spálená v rade dáva dva ťahy navyše — aj dve rôzne karty samostatne.,A second burned four-of-a-kind in a row grants two extra moves — even two different cards separately.,Druhá spálená v řadě dává dva tahy navíc — i dvě různé karty samostatně.
+GAME_MENU,Menu,Menu,Menu
+GAME_RESUME,Pokračovať,Resume,Pokračovat
+GAME_RESTART,Reštart hry,Restart game,Restart hry
+SETTINGS_AUDIO,Zvuk a hudba,Sound & music,Zvuk a hudba
+SETTINGS_SOUND,Zvuky,Sounds,Zvuky
+SETTINGS_MUSIC,Hudba,Music,Hudba
+SETTINGS_VIBRATIONS,Vibrácie,Vibrations,Vibrace
+GAME_YOUR_TURN,Si na ťahu,Your turn,Jsi na tahu
+GAME_TURN_OF,Na ťahu: %s,Turn: %s,Na tahu: %s
+GAME_DRAW_CARD,Ťahaj,Draw,Líznout
+GAME_PLAY,Zahrať,Play,Zahrát
+GAME_PASS,Stojím,Stand,Stojím
+GAME_FAST_FORWARD,Zrýchliť ⏩,Speed up ⏩,Zrychlit ⏩
+GAME_DECLARE_SUIT,Vyber farbu,Choose a suit,Vyber barvu
+GAME_ESO_STOP,STOP!,STOP!,STOP!
+GAME_INTERRUPT_PLAY,Položiť faraóna,Play the faraon,Položit faraona
+GAME_INTERRUPT_PLAY_SEVEN,Vyložiť sedmu,Play the seven,Vyložit sedmu
+GAME_INTERRUPT_DRAW,Ťahať ďalej,Keep drawing,Lízat dál
+GAME_SHOOTOUT,Rozstrel o ďalšie miesta,Shootout for the remaining places,Rozstřel o další místa
+ERR_INTERRUPT_CARD_OR_DRAW,Vylož vytiahnutú kartu alebo ťahaj ďalej,Play the drawn card or keep drawing,Vylož líznutou kartu nebo lízej dál
+ERR_FARAON_MUST_BE_FIRST,Faraón musí byť prvá karta ťahu,The faraon must be the first card of the move,Faraon musí být první karta tahu
+ERR_CANNOT_FINISH_WITH_SEVEN,Hru nemôžeš ukončiť sedmou,You cannot finish with a seven,Hru nemůžeš ukončit sedmou
+ERR_MUST_FINISH_WITH_HORNIK,Hru môžeš ukončiť len horníkom,You can only finish with an ober,Hru můžeš ukončit jen svrškem
+ERR_PENALTY_SEALED_MUST_DRAW,Trest je zapečatený desiatkou — musíš ťahať,The penalty is sealed by the ten — you must draw,Trest je zapečetěný desítkou — musíš líznout
+TOAST_INTERRUPT,%s vytiahol faraóna!,%s drew the faraon!,%s líznul faraona!
+ERR_INTERRUPT_FARAON_OR_DRAW,Polož faraóna alebo ťahaj ďalej,Play the faraon or keep drawing,Polož faraona nebo lízej dál
+GAME_STOPPED_BADGE,STOJÍ,STOPPED,STOJÍ
+GAME_WINNER,Dohral,Finished,Dohrál
+GAME_FINISHED_MARK,Dohral!,Done!,Dohrál!
+GAME_CARD_COUNT,%d kariet,%d cards,%d karet
+GAME_PENDING_DRAW,Sedma! Ťaháš +%d,Seven! Draw +%d,Sedma! Lížeš +%d
+GAME_OVER_WIN,Vyhral si!,You win!,Vyhrál jsi!
+GAME_OVER_LOSE,Prehral si,You lost,Prohrál jsi
+GAME_OVER_PLACE,Skončil si na %d. mieste,You finished in place %d,Skončil jsi na %d. místě
+GAME_NEW,Nová hra,New game,Nová hra
+PLAYER_YOU,Ty,You,Ty
+BOT_NAME,Robo %s,Bot %s,Robo %s
+TOAST_RETURNED,%s je späť v hre!,%s is back in the game!,%s je zpátky ve hře!
+TOAST_SPALENA,Spálená! Extra ťah,Burned! Extra turn,Spálená! Tah navíc
+GAME_SPALENA_BANNER,SPÁLENÁ!,BURNED!,SPÁLENÁ!
+TOAST_ESO_CONTINUE,%s pokračuje po esách,%s continues after aces,%s pokračuje po esech
+TOAST_DECK_EMPTY,Balíček je prázdny,The deck is empty,Balíček je prázdný
+ERR_GENERIC,Neplatný ťah,Illegal move,Neplatný tah
+ERR_CARD_DOES_NOT_MATCH,Karta nesedí farbou ani znakom,Card matches neither suit nor rank,Karta nesedí barvou ani hodnotou
+ERR_MUST_ANSWER_WITH_ESO,Musíš odpovedať esom alebo stáť,Answer with an ace or stand,Musíš odpovědět esem nebo stát
+ERR_MUST_ANSWER_ESO_OR_PASS,Musíš odpovedať esom alebo stáť,Answer with an ace or stand,Musíš odpovědět esem nebo stát
+ERR_MUST_ANSWER_WITH_SEDMA_OR_FARAON,Iba sedma alebo faraón,Only a seven or the faraon,Jen sedma nebo faraon
+ERR_CARDS_NOT_SAME_RANK,Karty musia mať rovnaký znak,Cards must share the same rank,Karty musí mít stejnou hodnotu
+ERR_FIRST_CARD_ORDER,Takto karty položiť nejdú — karta č. 1 musí sedieť na kôpku,These cards can't go down like this — card no. 1 must match the pile,Takhle karty položit nejdou — karta č. 1 musí sedět na balíček
+ERR_DECLARED_SUIT_REQUIRED,Vyber farbu,Choose a suit,Vyber barvu
+ERR_NOT_YOUR_TURN,Nie si na ťahu,Not your turn,Nejsi na tahu
+SKIN_MARIAS,Mariáš dvojhlavý,Mariáš double-headed,Mariáš dvouhlavý
+SKIN_DEV_PREVIEW,Dev náhľad,Dev preview,Dev náhled
+SUIT_ZALUD,Žaluď,Acorns,Žaludy
+SUIT_CERVEN,Červeň,Hearts,Červené
+SUIT_ZELEN,Zeleň,Leaves,Zelené
+SUIT_GULA,Guľa,Bells,Kule
