@@ -565,10 +565,11 @@ func test_d6_penalty_step_changes_the_scale() -> void:
 func test_d8_round_scope_expires_after_a_full_circuit() -> void:
 	var r := make_rules([["9C"], ["7C", "8G", "8C", "9G"], ["KZ", "KE", "XG"]],
 			"8C", ["XZ", "XC", "XE"])
-	r.state.variant.red7_return_scope = "round"
+	r.state.variant.red7_return_scope = "round" # aj tak default, explicitne
 	play(r, "P0", ["9C"]) # P0 dohral; vrch kôpky je 9C (červeň)
-	# Umelo posuň počítadlo ťahov za okno jedného obehu stola.
-	r.state.turn_counter += r.state.players.size() + 1
+	# Umelo posuň hru za okno jedného obehu stola (viac odovzdaní ťahu, než
+	# koľko je aktívnych hráčov).
+	r.state.handovers += r.state.active_count() + 1
 	var res := play(r, "P1", ["7C"])
 	assert_true(res.ok, "7C na červeň je legálna ako bežná sedma")
 	assert_eq(r.state.players[0].status, GameState.PlayerStatus.FINISHED,

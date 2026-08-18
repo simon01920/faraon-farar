@@ -70,7 +70,14 @@ func choose(state: GameState, id: String) -> Dictionary:
 	if state.penalty_interrupt:
 		if difficulty == Difficulty.EASY or state.interrupt_card == "":
 			return FaraonActions.draw()
-		return FaraonActions.play([state.interrupt_card])
+		# Ťah vedie karta, ktorá pauzu vyvolala; ak je to sedma, priložia sa
+		# aj ostatné sedmy z ruky — trest, ktorý ide ďalej, tým narastie.
+		var group: Array = [state.interrupt_card]
+		if FaraonCard.is_sedma(state.interrupt_card):
+			for c in _cards_of_rank(me.hand, FaraonCard.Rank.R7):
+				if c != state.interrupt_card:
+					group.append(c)
+		return FaraonActions.play(group)
 
 	# Forced answers first: an open eso chain allows only eso/pass (faraón
 	# with the house rule). Countering both clears our stop and passes it on
@@ -122,10 +129,24 @@ func _choose_sevens_defense(state: GameState, me: GameState.PlayerState,
 		candidates.append({"action": FaraonActions.play(sevens),
 				"score": 3.0 + w.size * sevens.size()
 						+ _block_bonus(state, me, FaraonCard.Rank.R7, w)})
-	if me.hand.has("DE"):
+	if me.hand.has("DE") and state.variant.faraon_is_wild():
 		# Killing the chain saves us the draw but burns the wild.
 		candidates.append({"action": FaraonActions.play(["DE"]),
 				"score": state.pending_sevens_draw * 0.4 - w.save * 1.0})
+		# Faraón smie viesť celú skupinu dolníkov — zruší trest a zhodí viac
+		# kariet naraz. EASY na to neprichádza, konzistentne s profilom.
+		var unters := _cards_of_rank(me.hand, FaraonCard.Rank.DOLNIK)
+		if unters.size() > 1 and difficulty != Difficulty.EASY:
+			var group: Array = ["DE"]
+			for c in unters:
+				if c != "DE":
+					group.append(c)
+			var rank_decl := -1
+			if state.variant.unter_announcer_active():
+				rank_decl = _best_rank(me.hand, group)
+			candidates.append({"action": FaraonActions.play(group, -1, rank_decl),
+					"score": state.pending_sevens_draw * 0.4 - w.save * 1.0
+							+ w.size * float(group.size() - 1)})
 	candidates.append({"action": FaraonActions.draw(),
 			"score": -0.2 * state.pending_sevens_draw})
 	return _pick(candidates, w)
@@ -276,13 +297,8 @@ func _has_returnable_target(state: GameState, me: GameState.PlayerState) -> bool
 	if not state.variant.allows_red7_return():
 		return false
 	for p in state.players:
-		if p == me or p.status != GameState.PlayerStatus.FINISHED:
-			continue
-		if p.finished_with_eso and state.players.size() == 2:
-			continue
-		# D8: rozsah vrátiteľnosti zrkadlí engine (_is_returnable).
-		if state.variant.red7_return_scope != "round" \
-				or state.turn_counter - p.finished_at <= state.players.size():
+		# D8: rovnaká implementácia ako engine (GameState.is_returnable).
+		if p != me and state.is_returnable(p):
 			return true
 	return false
 

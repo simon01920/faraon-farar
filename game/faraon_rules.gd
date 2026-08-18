@@ -20,7 +20,14 @@ extends RefCounted
 ##    (krok z D6, default 3) bez ohľadu na dĺžku reťaze; reťaz sa tým
 ##    spotrebuje; „ťah" vráteného hráča je vzatie kariet — na rade je
 ##    hráč nasledujúci za pokladajúcim (v 2-hráčovej hre teda znovu on).
-##    Rozsah vrátiteľnosti riadi D8 (default: hocikto od začiatku hry).
+##    Rozsah vrátiteľnosti riadi D8 (DEFAULT: len hráč vypadnutý v aktuálnom
+##    kole — meria sa cez GameState.handovers, jeden obeh stola).
+## 6. Obrana proti trestu je atomický ťah kariet rovnakého znaku: buď 1..N
+##    sediem (každá pridá krok trestu ďalšiemu hráčovi), alebo faraón —
+##    voliteľne s ďalšími dolníkmi — ktorý trest zruší na nulu. Zmiešaná
+##    kombinácia sedma+faraón je neplatná (rôzny znak) a faraón musí byť
+##    prvou kartou ťahu. Rovnako to platí pri pauze trestného ťahania: ťah
+##    musí viesť karta, ktorá pauzu vyvolala.
 
 const Status := GameState.PlayerStatus
 const Phase := GameState.Phase
@@ -144,23 +151,23 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 				and last_rank != FaraonCard.Rank.HORNIK:
 			return _fail("must_finish_with_hornik")
 
-	# Pauza počas trestného ťahania (D4/D5): hrateľná je len karta, ktorá
-	# pauzu vyvolala — faraón ruší zvyšok trestu, sedma ho posiela ďalej.
+	# Pauza počas trestného ťahania (D4/D5): ťah musí VIESŤ karta, ktorá pauzu
+	# vyvolala. K nej sa smú priložiť ďalšie karty rovnakého znaku z ruky —
+	# rovnaká obranná kombinácia ako mimo pauzy (sedmy trest ďalej zvyšujú).
 	if state.penalty_interrupt:
-		if cards.size() == 1 and cards[0] == state.interrupt_card:
-			state.penalty_interrupt = false
-			state.interrupt_card = ""
-			if FaraonCard.is_faraon(cards[0]):
-				state.pending_sevens_draw = 0
-			else:
-				# D4: zvyšok vlastného trestu padá, ďalší hráč čelí kroku
-				# novej sedmy (pripočíta ho _place_and_resolve).
-				state.pending_sevens_draw = 0
-			return _place_and_resolve(idx, cards, -1)
-		return _fail("interrupt_card_or_draw")
+		if cards[0] != state.interrupt_card:
+			return _fail("interrupt_card_or_draw")
+		state.penalty_interrupt = false
+		state.interrupt_card = ""
+		# Zvyšok VLASTNÉHO trestu padá v oboch prípadoch: faraón ho ruší,
+		# sedma ho posúva ďalej (nový trest pripočíta _place_and_resolve).
+		state.pending_sevens_draw = 0
+		return _place_and_resolve(idx, cards, declared, false,
+				action.get("declared_rank", -1))
 
 	if state.pending_aces > 0:
-		return _apply_eso_counter(idx, cards)
+		return _apply_eso_counter(idx, cards, declared,
+				action.get("declared_rank", -1))
 
 	# Červená sedma: keď existuje vrátiteľný hráč, návrat sa spustí
 	# automaticky a deterministicky (naposledy vypadnutý). Purista (D10)
@@ -173,7 +180,8 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 			return _apply_red_seven_return(idx, cards, victim_idx)
 
 	if state.pending_sevens_draw > 0:
-		return _apply_sevens_defense(idx, cards, declared)
+		return _apply_sevens_defense(idx, cards, declared,
+				action.get("declared_rank", -1))
 
 	# D11: kým je ohlásená hodnota, hrá sa len ona alebo ďalší spodok.
 	if state.announced_rank != -1:
@@ -192,6 +200,15 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 
 	return _place_and_resolve(idx, cards, declared, false,
 			action.get("declared_rank", -1))
+
+
+## Je medzi kartami faraón? (Skupina je vždy rovnakého znaku, takže faraón sa
+## môže objaviť len v skupine dolníkov.)
+func _contains_faraon(cards: Array) -> bool:
+	for c in cards:
+		if FaraonCard.is_faraon(c):
+			return true
+	return false
 
 
 ## D11: spodky-meniče sú dolníky OKREM zeleného (ten ostáva faraónom).
@@ -241,12 +258,15 @@ func _first_card_legal(card: String) -> bool:
 	return FaraonCard.suit_of(card) == required_suit
 
 
-func _apply_eso_counter(idx: int, cards: Array) -> Dictionary:
-	# Domáce pravidlo: faraón ruší celú eso-reťaz.
-	if state.variant.faraon_blocks_eso and cards.size() == 1 \
-			and FaraonCard.is_faraon(cards[0]):
+func _apply_eso_counter(idx: int, cards: Array, declared: int = -1,
+		declared_rank: int = -1) -> Dictionary:
+	# Domáce pravidlo: faraón ruší celú eso-reťaz. Ako pri sedmovej obrane
+	# smie viesť skupinu dolníkov — zrušenie je jednorazové.
+	if state.variant.faraon_blocks_eso and _contains_faraon(cards):
+		if not FaraonCard.is_faraon(cards[0]):
+			return _fail("faraon_must_be_first")
 		state.pending_aces = 0
-		return _place_and_resolve(idx, cards, -1)
+		return _place_and_resolve(idx, cards, declared, false, declared_rank)
 	# D1: návrat červenou sedmou položený priamo na aktívnu stopku — hráčov
 	# stop sa touto reakciou spotrebuje, zvyšok reťaze beží ďalej.
 	if state.variant.red7_on_active_eso \
@@ -267,14 +287,22 @@ func _apply_eso_counter(idx: int, cards: Array) -> Dictionary:
 	return _place_and_resolve(idx, cards, -1, true)
 
 
-func _apply_sevens_defense(idx: int, cards: Array, _declared: int) -> Dictionary:
+## Obrana proti nahromadenému trestu. Dva atomické typy ťahu (nikdy zmiešané —
+## rovnaký znak vynucuje už _validate_cards_owned):
+##   1. jedna alebo viac SEDIEM — každá pridá krok trestu ďalšiemu hráčovi,
+##   2. FARAÓN (voliteľne s ďalšími dolníkmi) — ruší celý trest na nulu.
+## Faraón musí byť prvá karta ťahu; zrušenie trestu je jednorazové, počet
+## priložených dolníkov ho nenásobí.
+func _apply_sevens_defense(idx: int, cards: Array, declared: int,
+		declared_rank: int = -1) -> Dictionary:
 	# D13: trest zapečatený červenou desiatkou sa už nedá odraziť.
 	if state.pending_hard_penalty:
 		return _fail("penalty_sealed_must_draw")
-	if state.variant.faraon_is_wild() and cards.size() == 1 \
-			and FaraonCard.is_faraon(cards[0]):
+	if state.variant.faraon_is_wild() and _contains_faraon(cards):
+		if not FaraonCard.is_faraon(cards[0]):
+			return _fail("faraon_must_be_first")
 		state.pending_sevens_draw = 0 # faraón ruší celú sedmičkovú reťaz
-		return _place_and_resolve(idx, cards, -1)
+		return _place_and_resolve(idx, cards, declared, false, declared_rank)
 	# D13: červená desiatka ako obrana na červenú sedmu — trest sa zapečatí.
 	if state.variant.red_ten_active() and cards.size() == 1 and cards[0] == "XC" \
 			and state.top_card() == "7C":
@@ -317,6 +345,7 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	state.pending_sevens_draw = 0
 	victim.status = Status.ACTIVE
 	victim.finished_at = -1
+	victim.finished_at_handover = -1
 	victim.finished_with_eso = false
 	victim.finish_position = -1
 	var events: Array = [{"type": "CARDS_PLAYED", "player": player.id, "cards": cards}]
@@ -336,15 +365,10 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	return {"ok": true, "error": "", "events": events}
 
 
+## D8 — jediná implementácia žije v GameState, aby ju engine aj boti čítali
+## rovnako (default: len hráč vypadnutý v aktuálnom kole).
 func _is_returnable(p: GameState.PlayerState) -> bool:
-	if p.status != Status.FINISHED:
-		return false
-	if p.finished_with_eso and state.players.size() == 2:
-		return false # ukončenie esom je v 2-hráčovej hre nedotknuteľná výhra
-	if state.variant.red7_return_scope == "round":
-		# D8 „Len z aktuálneho kola": vrátiteľnosť zaniká po obehu stola.
-		return state.turn_counter - p.finished_at <= state.players.size()
-	return true # D8 „Kohokoľvek" (default)
+	return state.is_returnable(p)
 
 
 ## The deterministic červená-sedma target: the player who was eliminated most
@@ -449,6 +473,7 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 func _advance_turn(from_idx: int) -> void:
 	state.extra_turns = 0
 	state.spalena_chain = 0
+	state.handovers += 1 # meria „kolo" pre rozsah návratu (D8)
 	state.current_index = state.next_active_index(from_idx)
 
 
@@ -459,6 +484,7 @@ func _handle_possible_finish(idx: int, cards: Array, events: Array) -> bool:
 		return false
 	player.status = Status.FINISHED
 	player.finished_at = state.turn_counter
+	player.finished_at_handover = state.handovers
 	player.finished_with_eso = FaraonCard.rank_of(cards[0]) == FaraonCard.Rank.ESO
 	player.finish_position = _next_finish_position()
 	events.append({"type": "PLAYER_FINISHED", "player": player.id,

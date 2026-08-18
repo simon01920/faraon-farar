@@ -45,9 +45,11 @@ var faraon_interrupt := true
 ## D6: veľkosť trestu za jednu sedmu (2/3/4, default 3 = doterajšia stupnica).
 var seven_penalty_step := 3
 
-## D8: rozsah vracania červenou sedmou — "anyone" (hocikto, kto vypadol od
-## začiatku hry; default podľa zadania) alebo "round" (len z aktuálneho kola).
-var red7_return_scope := "anyone"
+## D8: rozsah vracania červenou sedmou — "round" (DEFAULT: len hráč, ktorý
+## vypadol v aktuálnom kole, t. j. od jeho vypadnutia ešte neprebehol celý
+## obeh stola) alebo "anyone" (hocikto, kto vypadol od začiatku hry).
+## Default platí pre oba herné módy; presné meranie kola: GameState.handovers.
+var red7_return_scope := "round"
 
 ## D10: Purista režim — čistá mau-mau: bez návratu červenou sedmou, bez
 ## spálenej, bez eso-reťaze (eso = jednoduchý skip) a faraón je obyčajný
@@ -101,7 +103,7 @@ const DEFAULTS := {
 	"faraon_interrupt": true, "purista": false, "green_king": false,
 	"green_king_counter": false, "red_ten": false,
 	"initial_hand_size": 5, "seven_penalty_step": 3,
-	"red7_return_scope": "anyone", "finish_rule": "none",
+	"red7_return_scope": "round", "finish_rule": "none",
 	"reverse_card": false, "unter_announcer": false, "pub_mode": false,
 	"end_on_first_finish": false,
 }

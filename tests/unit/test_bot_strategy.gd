@@ -120,7 +120,9 @@ func test_sole_survivor_plays_red_seven_rescue() -> void:
 	var s := make_state([["7C", "9Z"], []], "8Z", ["KZ", "KG", "KE"])
 	s.players[1].status = GameState.PlayerStatus.FINISHED
 	s.players[1].finished_at = 0
+	s.players[1].finished_at_handover = 0 # vypadol v tomto kole (D8 default)
 	s.turn_counter = 1
+	s.handovers = 1
 	var action := BotStrategy.new(Diff.EASY, 3).choose(s, "P0")
 	assert_true(action.cards.has("7C"), "the rescue must be taken at any difficulty")
 

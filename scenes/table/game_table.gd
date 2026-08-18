@@ -209,9 +209,7 @@ func _build_hand_and_actions() -> void:
 	_btn_interrupt_play = UIKit.pill_button(tr("GAME_INTERRUPT_PLAY"),
 			Color("2e7d4f"), Vector2(210, 52))
 	_btn_interrupt_play.visible = false
-	_btn_interrupt_play.pressed.connect(func():
-		if not _busy and _state().interrupt_card != "":
-			server.propose(_me, FaraonActions.play([_state().interrupt_card])))
+	_btn_interrupt_play.pressed.connect(_do_interrupt_play)
 	_actions.add_child(_btn_interrupt_play)
 
 	_btn_interrupt_draw = UIKit.pill_button(tr("GAME_INTERRUPT_DRAW"),
@@ -676,8 +674,13 @@ func _refresh_actions() -> void:
 	_btn_interrupt_play.visible = interrupt
 	_btn_interrupt_draw.visible = interrupt
 	if interrupt:
-		_btn_interrupt_play.text = tr("GAME_INTERRUPT_PLAY") \
+		var label: String = tr("GAME_INTERRUPT_PLAY") \
 				if s.interrupt_card == "DE" else tr("GAME_INTERRUPT_PLAY_SEVEN")
+		var extras := 0
+		for c in _selected:
+			if c != s.interrupt_card:
+				extras += 1
+		_btn_interrupt_play.text = label + (" +%d" % extras if extras > 0 else "")
 	_btn_play.visible = not _busy and not interrupt
 	_btn_play.disabled = not my_turn or _selected.is_empty()
 	_btn_pass.visible = my_turn and s.pending_aces > 0
@@ -1411,6 +1414,12 @@ func _on_card_tapped(cv: CardVisual) -> void:
 	if _busy or not _is_my_turn(s):
 		return
 	var id := cv.card_id
+	# Počas pauzy trestného ťahania vedie ťah práve vytiahnutá karta; označiť
+	# sa k nej dajú len karty rovnakého znaku (vedúca karta ide automaticky).
+	if s.penalty_interrupt:
+		if id == s.interrupt_card \
+				or FaraonCard.rank_of(id) != FaraonCard.rank_of(s.interrupt_card):
+			return
 	if _selected.has(id):
 		_selected.erase(id)
 	elif _selected.is_empty() \
@@ -1430,7 +1439,25 @@ func _do_play() -> void:
 	# Cards go to the server exactly in the order the player numbered them
 	# (1 = first on the pile, last = new top). No silent reordering — an
 	# invalid order comes back as a rejection toast and the player fixes it.
-	var ordered: Array = _selected.duplicate()
+	_submit_play(_selected.duplicate())
+
+
+## Pauza trestného ťahania: ťah vedie práve vytiahnutá karta, k nej sa
+## priložia karty rovnakého znaku, ktoré si hráč medzitým označil v ruke.
+func _do_interrupt_play() -> void:
+	var s := _state()
+	if _busy or s == null or s.interrupt_card == "":
+		return
+	var ordered: Array = [s.interrupt_card]
+	for c in _selected:
+		if c != s.interrupt_card:
+			ordered.append(c)
+	_submit_play(ordered)
+
+
+func _submit_play(ordered: Array) -> void:
+	if ordered.is_empty():
+		return
 	if FaraonCard.is_hornik(ordered.back()):
 		_pending_play = ordered
 		_suit_popup.popup_centered()

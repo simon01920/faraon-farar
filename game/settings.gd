@@ -6,6 +6,8 @@ extends RefCounted
 ## their own preferences before the game starts.
 
 const PATH := "user://settings.cfg"
+## Verzia uloženého configu — migrácie bežia raz pri prvom načítaní.
+const SETTINGS_VERSION := 2
 
 ## Bool pravidlá v poradí zobrazenia: key -> label key (popis = kľúč + "_DESC").
 ## D9 „eso_reaction" nie je pole enginu — build_variant ho preloží na
@@ -37,7 +39,7 @@ const DISABLED_BY_PUB := [
 const RULE_VALUES := {
 	"initial_hand_size": ["RULE_HAND_SIZE", "slider", [4, 7]],
 	"seven_penalty_step": ["RULE_SEVEN_STEP", "segment", [2, 3, 4]],
-	"red7_return_scope": ["RULE_RETURN_SCOPE", "segment", ["anyone", "round"]],
+	"red7_return_scope": ["RULE_RETURN_SCOPE", "segment", ["round", "anyone"]],
 	"finish_rule": ["RULE_FINISH", "segment", ["none", "no_seven", "hornik_only"]],
 }
 
@@ -53,7 +55,20 @@ const DISABLED_BY_PURISTA := [
 static func _load() -> ConfigFile:
 	var cfg := ConfigFile.new()
 	cfg.load(PATH) # missing file is fine — defaults apply
+	if int(cfg.get_value("app", "settings_version", 1)) < SETTINGS_VERSION:
+		_migrate(cfg)
 	return cfg
+
+
+## v2: default D8 sa zmenil na „len z aktuálneho kola". Staré uložené
+## „anyone" bolo len prevzatým starým defaultom (zapisuje sa aj bez vedomej
+## voľby), takže sa zahodí — nová hra tak má správne pravidlo od začiatku.
+static func _migrate(cfg: ConfigFile) -> void:
+	if cfg.has_section_key("rules", "red7_return_scope") \
+			and cfg.get_value("rules", "red7_return_scope") == "anyone":
+		cfg.erase_section_key("rules", "red7_return_scope")
+	cfg.set_value("app", "settings_version", SETTINGS_VERSION)
+	cfg.save(PATH)
 
 
 ## Predvolená hodnota pravidla (C2 badge + reset) — jediný zdroj: engine
