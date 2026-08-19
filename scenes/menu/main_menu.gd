@@ -85,6 +85,13 @@ func _ready() -> void:
 	back_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	back_art.modulate = Color(1, 1, 1, 0.10)
 	back_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Presahuje mimo obrazovky: inak sa jeho hrana pri niektorých pomeroch
+	# strán zastaví presne pri stĺpci tlačidiel a číta sa ako rám panela,
+	# na ktorý je obsah nalepený. Takto ostáva len jemný vodoznak.
+	back_art.offset_left = -96
+	back_art.offset_top = -96
+	back_art.offset_right = 96
+	back_art.offset_bottom = 96
 	back_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(back_art)
 
@@ -106,11 +113,20 @@ func _build_menu() -> void:
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_menu_screen.add_child(center)
 
+	# Vnútorné okraje, aby obsah nelepil na hranu podkladu ani na okraj
+	# obrazovky na úzkych displejoch.
+	var pad := MarginContainer.new()
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 18)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	center.add_child(pad)
+
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 14)
 	box.custom_minimum_size = Vector2(380, 0)
-	center.add_child(box)
+	pad.add_child(box)
 
 	var title := UIKit.heading(tr("APP_NAME"), 60, UIKit.GOLD)
 	box.add_child(title)
@@ -1109,7 +1125,7 @@ func _segmented_row(options: Array, get_current: Callable, set_current: Callable
 		btn_size: Vector2, font_size: int, color: Color) -> Control:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 	var buttons := {}
 	var recolor := func():
 		for key in buttons:
@@ -1182,7 +1198,7 @@ func _language_row() -> Control:
 	# Rozbaľovací zoznam jazykov — jazyky sú pomenované vo vlastnom jazyku,
 	# takže sa v ňom nájde aj ten, kto práve rozumie inému.
 	var lang := OptionButton.new()
-	lang.custom_minimum_size = Vector2(200, 46)
+	lang.custom_minimum_size = Vector2(176, 44)
 	lang.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lang.add_theme_font_size_override("font_size", 17)
 	lang.add_theme_color_override("font_color", UIKit.CREAM)
@@ -1195,26 +1211,26 @@ func _language_row() -> Control:
 		elif style_name == "pressed":
 			col = col.darkened(0.15)
 		var sb_opt := UIKit.panel_style(col, 22)
-		sb_opt.content_margin_left = 22
-		sb_opt.content_margin_right = 34 # miesto pre rozbaľovaciu šípku
-		sb_opt.content_margin_top = 8
-		sb_opt.content_margin_bottom = 8
+		sb_opt.content_margin_left = 14
+		sb_opt.content_margin_right = 24 # miesto pre rozbaľovaciu šípku
+		sb_opt.content_margin_top = 6
+		sb_opt.content_margin_bottom = 6
 		lang.add_theme_stylebox_override(style_name, sb_opt)
 	lang.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var popup := lang.get_popup()
 	popup.add_theme_font_size_override("font_size", 17)
 	popup.add_theme_color_override("font_color", UIKit.CREAM)
 	var sb_panel := UIKit.panel_style(Color("1d3f33"), 12)
-	sb_panel.content_margin_left = 10
-	sb_panel.content_margin_right = 10
-	sb_panel.content_margin_top = 8
-	sb_panel.content_margin_bottom = 8
+	sb_panel.content_margin_left = 8
+	sb_panel.content_margin_right = 8
+	sb_panel.content_margin_top = 6
+	sb_panel.content_margin_bottom = 6
 	popup.add_theme_stylebox_override("panel", sb_panel)
 	var sb_hover := UIKit.panel_style(Color("6b5a3e"), 8)
-	sb_hover.content_margin_left = 8
-	sb_hover.content_margin_right = 8
+	sb_hover.content_margin_left = 6
+	sb_hover.content_margin_right = 6
 	popup.add_theme_stylebox_override("hover", sb_hover)
-	popup.add_theme_constant_override("v_separation", 6)
+	popup.add_theme_constant_override("v_separation", 4)
 	for i in GameSettings.LOCALES.size():
 		lang.add_item(GameSettings.LOCALE_NAMES[GameSettings.LOCALES[i]], i)
 	lang.select(_locale_index())
