@@ -6,6 +6,11 @@ extends Control
 ## the house-rule toggles that persist via GameSettings and will become the
 ## room creator's authoritative ruleset in multiplayer.
 
+## Šírka, ktorú si OptionButton vyhradí pre rozbaľovaciu šípku vpravo
+## (ikona 12 px + arrow_margin 4 px) — o toľko treba nadsadiť ľavý okraj,
+## aby vycentrovaný nápis sedel v skutočnom strede tlačidla.
+const ARROW_RESERVE := 16
+
 signal local_game_requested(bot_count: int)
 signal tutorial_requested
 ## Premium sa zmenil (nákup/obnovenie) — app root skryje/ukáže banner.
@@ -1211,12 +1216,17 @@ func _language_row() -> Control:
 		elif style_name == "pressed":
 			col = col.darkened(0.15)
 		var sb_opt := UIKit.panel_style(col, 22)
-		sb_opt.content_margin_left = 14
-		sb_opt.content_margin_right = 24 # miesto pre rozbaľovaciu šípku
+		# OptionButton vyhradí šípke (12 px) + jej odstupu (4 px) miesto na
+		# pravej strane a text centruje len do zvyšku — bez kompenzácie by
+		# nápis sedel o 8 px vľavo od skutočného stredu tlačidla.
+		sb_opt.content_margin_left = ARROW_RESERVE + 10
+		sb_opt.content_margin_right = 10
 		sb_opt.content_margin_top = 6
 		sb_opt.content_margin_bottom = 6
 		lang.add_theme_stylebox_override(style_name, sb_opt)
 	lang.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# Šípka preberie farbu textu (inak ostáva bledo sivá a splýva).
+	lang.add_theme_constant_override("modulate_arrow", 1)
 	var popup := lang.get_popup()
 	popup.add_theme_font_size_override("font_size", 17)
 	popup.add_theme_color_override("font_color", UIKit.CREAM)
