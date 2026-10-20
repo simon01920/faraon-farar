@@ -18,6 +18,7 @@ extends RefCounted
 
 enum Mode { NORMAL, OLYMPIC, REVERSE_OLYMPIC }
 
+## Predvolený prídel, keď volajúci nedá veľkosť ruky z pravidiel (D2).
 const START_SIZE := 5
 
 var mode: int = Mode.OLYMPIC
@@ -37,11 +38,15 @@ var sub_starter_id := ""
 var kolo_placements: Array = []
 
 
-func _init(p_mode: int, player_ids: Array, first_starter := "") -> void:
+## `start_size` = prídel prvého kola; volajúci odovzdáva
+## variant.initial_hand_size (D2), aby prvé sub-kolo, rozstrely aj ďalšie
+## kolá vychádzali z rovnakej veľkosti ruky.
+func _init(p_mode: int, player_ids: Array, first_starter := "",
+		start_size: int = START_SIZE) -> void:
 	mode = p_mode
 	seat_order = player_ids.duplicate()
 	for id in player_ids:
-		allotments[id] = START_SIZE
+		allotments[id] = start_size
 	starter_id = first_starter if player_ids.has(first_starter) else player_ids[0]
 	sub_starter_id = starter_id
 

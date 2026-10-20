@@ -6,6 +6,7 @@ extends GutTest
 
 func before_each() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(ProgressionStore.PATH))
+	ConfigCache.invalidate(ProgressionStore.PATH)
 
 
 func test_active_ids_are_deterministic_and_three() -> void:

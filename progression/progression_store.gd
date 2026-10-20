@@ -10,9 +10,7 @@ const SCHEMA_VERSION := 1
 
 
 static func _load() -> ConfigFile:
-	var cfg := ConfigFile.new()
-	cfg.load(PATH) # missing file is fine — zero progress
-	return cfg
+	return ConfigCache.get_file(PATH) # missing file is fine — zero progress
 
 
 static func total_points() -> int:
@@ -30,7 +28,8 @@ static func wins() -> int:
 ## Cosmetic ids unlocked outside the level track (future direct purchases —
 ## the monetization module appends here through Progression.grant()).
 static func extra_unlocks() -> Array:
-	return _load().get_value("progress", "extra_unlocks", [])
+	# Copy: the cached file must not change behind grant()'s back.
+	return _load().get_value("progress", "extra_unlocks", []).duplicate()
 
 
 static func record(points: int, won: bool, context := "medium",
@@ -55,6 +54,20 @@ static func record(points: int, won: bool, context := "medium",
 		_bump(cfg, "pos_%d" % position)
 	if player_count > 0:
 		cfg.set_value("progress", "last_player_count", player_count)
+	cfg.save(PATH)
+
+
+## Points earned outside a finished game (daily challenges): only the point
+## total grows. record() is for finished games — it also bumps games_played
+## and the per-context/mode statistics slices, which a challenge payout must
+## never touch.
+static func add_points(points: int) -> void:
+	if points == 0:
+		return
+	var cfg := _load()
+	cfg.set_value("progress", "schema_version", SCHEMA_VERSION)
+	cfg.set_value("progress", "total_points",
+			cfg.get_value("progress", "total_points", 0) + points)
 	cfg.save(PATH)
 
 
@@ -85,7 +98,7 @@ static func friends() -> Dictionary:
 
 static func grant(cosmetic_id: String) -> void:
 	var cfg := _load()
-	var extras: Array = cfg.get_value("progress", "extra_unlocks", [])
+	var extras: Array = cfg.get_value("progress", "extra_unlocks", []).duplicate()
 	if not extras.has(cosmetic_id):
 		extras.append(cosmetic_id)
 		cfg.set_value("progress", "extra_unlocks", extras)
