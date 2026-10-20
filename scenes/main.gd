@@ -10,6 +10,19 @@ var _last_bot_count := 1
 ## nainštalovaný reálny AdMob plugin — pozri monetization/STORE_SETUP.md).
 var _ads: AdsController
 var _banner: CanvasLayer
+var _banner_strip: PanelContainer
+var _banner_label: Label
+## Invite code that arrived while the first-launch flow (rule preset question,
+## tutorial) was in the way; joined as soon as the menu is up.
+var _deferred_join := ""
+
+## Design sizes the canvas_items stretch scales from. Landscape keeps the
+## tuned 1280x720 table; portrait gets its own narrower base — a 1280-wide
+## design squeezed into a phone's short side rendered the whole UI at less
+## than half size (HANDOFF "Portrait UI scale").
+const BASE_LANDSCAPE := Vector2i(1280, 720)
+const BASE_PORTRAIT := Vector2i(600, 1000)
+const BANNER_H := 58.0
 
 
 ## The NetHub autoload, looked up at runtime so scripts also compile under
@@ -22,12 +35,15 @@ func _ready() -> void:
 	# Dedicated server build (or --server): headless room host, no UI at all.
 	if OS.has_feature("dedicated_server") \
 			or OS.get_cmdline_user_args().has("--server"):
-		_hub().start_server(_parse_port())
+		if _hub().start_server(_parse_port()) != OK:
+			get_tree().quit(1) # obsadený port: nečakaj potichu donekonečna
 		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	get_window().size_changed.connect(_apply_content_scale)
+	_apply_content_scale()
 	TranslationServer.set_locale(GameSettings.get_locale())
 	GameSettings.apply_audio()
-	add_child(GameAudio.new())
+	_ensure_audio()
 	_room_client = RoomClient.new()
 	add_child(_room_client)
 	_hub().game_started.connect(_on_mp_game_started)
@@ -43,9 +59,37 @@ func _ready() -> void:
 	# command line pre-fills and auto-joins the room. (Registering the URL
 	# scheme on Android needs the gradle build + manifest intent-filter —
 	# documented in deployment/README.md as the follow-up step.)
-	var join_code := _parse_join_code()
-	if join_code != "" and _current_screen is MainMenu:
-		_current_screen.auto_join(join_code)
+	_deferred_join = _parse_join_code()
+	_try_deferred_join()
+
+
+## Portrait vs landscape design size, re-evaluated on every window resize
+## (phone rotation, desktop window drag).
+func _apply_content_scale() -> void:
+	var win := get_window()
+	var base := BASE_PORTRAIT if win.size.y > win.size.x else BASE_LANDSCAPE
+	if win.content_scale_size != base:
+		win.content_scale_size = base
+	_refresh_banner()
+
+
+## One music/SFX manager for the whole app session, parked on the root so a
+## scene reload never restarts the soundtrack mid-track.
+func _ensure_audio() -> void:
+	if GameAudio._instance != null and is_instance_valid(GameAudio._instance):
+		return
+	var audio := GameAudio.new()
+	audio.name = "GameAudio"
+	get_tree().root.add_child.call_deferred(audio)
+
+
+## Joins the invite room once the menu is actually on screen (a first launch
+## first walks through the preset question / tutorial).
+func _try_deferred_join() -> void:
+	if _deferred_join != "" and _current_screen is MainMenu:
+		var code := _deferred_join
+		_deferred_join = ""
+		_current_screen.auto_join(code)
 
 
 ## Port servera: `--port=N` za `--`, inak env FARAON_PORT, inak default 9000.
@@ -72,23 +116,31 @@ func _parse_join_code() -> String:
 	return ""
 
 
-func _show_menu() -> void:
+func _show_menu(screen := "") -> void:
 	_clear_screen()
 	var menu := MainMenu.new()
 	menu.room_client = _room_client
 	menu.local_game_requested.connect(_start_local_game)
 	menu.tutorial_requested.connect(_show_tutorial)
 	menu.remove_ads_changed.connect(_refresh_banner)
+	# Jazyk / meno: menu sa len prestaví (bez reloadu celej scény — hudba,
+	# reklamné okno aj spojenie s MP serverom bežia ďalej).
+	menu.rebuild_requested.connect(_show_menu)
 	_current_screen = menu
 	add_child(menu)
-	_refresh_banner() # banner len v menu a len pre free hráča
+	if screen != "":
+		menu.show_screen(screen)
 	# Prvý štart: keď herný mód vybral jazyk zariadenia (čeština → Prší),
 	# nechaj hráča potvrdiť. Pri Faraónovi sa nepýtame.
 	if GameSettings.preset_needs_confirmation():
+		_refresh_banner()
 		_ask_rule_preset()
 		return
 	if not GameSettings.tutorial_seen():
 		_show_tutorial() # first launch: walk the newcomer through the rules
+		return
+	_refresh_banner() # banner len v menu a len pre free hráča
+	_try_deferred_join()
 
 
 ## Uvítacia otázka pri prvom spustení — vlastný panel v štýle hry (systémový
@@ -124,7 +176,8 @@ func _ask_rule_preset() -> void:
 	var text := Label.new()
 	text.text = tr("PRESET_ASK_BODY")
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text.custom_minimum_size = Vector2(500, 0)
+	# Na výšku (600 jednotiek) musí panel aj s okrajmi ostať na obrazovke.
+	text.custom_minimum_size = Vector2(minf(500.0, size.x - 110.0), 0)
 	text.add_theme_font_size_override("font_size", 16)
 	text.add_theme_color_override("font_color", UIKit.CREAM)
 	box.add_child(text)
@@ -156,29 +209,49 @@ func _pick_rule_preset(preset: String, dialog: Node) -> void:
 func _show_tutorial() -> void:
 	_clear_screen()
 	var tut := TutorialScreen.new()
-	tut.finished.connect(_show_menu)
+	tut.finished.connect(_show_menu.bind(""))
 	_current_screen = tut
 	add_child(tut)
+	_refresh_banner() # menu banner nesmie prekrývať Preskočiť/Ďalej
 
 
 ## The server started an online round (also fires on mid-game reconnect).
+## Only the lobby or the online table may be replaced by it — never a local
+## bot game or the tutorial the player is in the middle of.
 func _on_mp_game_started(_view: Dictionary) -> void:
 	if _current_screen is GameTable and _current_screen.server == _room_client:
 		return
+	if not (_current_screen is MainMenu):
+		return
 	_clear_screen()
-	_refresh_banner() # v hre žiadny banner
 	var table := GameTable.new()
 	table.setup(_room_client)
 	table.game_finished.connect(func(): _ads.on_game_completed())
-	# rematch goes via the lobby; interstitial (ak dozrela) až po výsledkoch
-	table.exit_to_menu_requested.connect(func(): _ads.run_after_results(_show_menu))
-	table.new_game_requested.connect(func(): _ads.run_after_results(_show_menu))
+	# Späť do menu = odchod z roomky (inak by na hráča ostatní čakali); nová
+	# hra = späť do lobby tej istej roomky, odveta sa spúšťa odtiaľ.
+	table.exit_to_menu_requested.connect(func():
+		_leave_room()
+		_ads.run_after_results(_show_menu.bind("")))
+	table.new_game_requested.connect(func():
+		_ads.run_after_results(_show_menu.bind("multiplayer")))
 	_current_screen = table
 	add_child(table)
+	_refresh_banner() # v hre žiadny banner
+
+
+## Opustí online roomku (ak v nejakej sedíme), aby na nás ostatní nečakali.
+func _leave_room() -> void:
+	if _room_client == null or _room_client.room_code == "":
+		return
+	if _room_client.has_method("leave"):
+		_room_client.leave()
+	elif _hub().is_connected_client:
+		_hub().rpc_id(1, "sv_leave")
 
 
 func _start_local_game(bot_count: int) -> void:
 	_last_bot_count = bot_count
+	_leave_room() # lokálna hra a sedenie v online roomke sa vylučujú
 	if _server == null:
 		_server = LocalGameServer.new()
 		add_child(_server)
@@ -205,18 +278,19 @@ func _on_new_game() -> void:
 
 func _build_table() -> void:
 	_clear_screen()
-	_refresh_banner() # v hre žiadny banner
 	var table := GameTable.new()
 	table.setup(_server)
 	table.game_finished.connect(func(): _ads.on_game_completed())
 	# Odchod z výsledkov cez reklamnú bránu; medzikolo/Reštart neukáže nič,
 	# lebo interstitial sa nazbrojí len keď sa session naozaj skončí.
-	table.exit_to_menu_requested.connect(func(): _ads.run_after_results(_show_menu))
+	table.exit_to_menu_requested.connect(func():
+		_ads.run_after_results(_show_menu.bind("")))
 	table.new_game_requested.connect(func(): _ads.run_after_results(_on_new_game))
 	table.restart_requested.connect(func():
 		_ads.run_after_results(func(): _start_local_game(_last_bot_count)))
 	_current_screen = table
 	add_child(table)
+	_refresh_banner() # v hre žiadny banner
 
 
 # --- reklamný banner v menu ------------------------------------------------
@@ -230,8 +304,9 @@ func _build_banner() -> void:
 	var strip := PanelContainer.new()
 	strip.name = "Strip"
 	strip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	strip.offset_top = -58
+	strip.offset_top = -BANNER_H
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner_strip = strip
 	var sb := UIKit.panel_style(Color("0d241d"), 0)
 	sb.border_color = UIKit.GOLD.darkened(0.55)
 	sb.border_width_top = 1
@@ -243,14 +318,16 @@ func _build_banner() -> void:
 	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", UIKit.CREAM.darkened(0.4))
 	strip.add_child(label)
+	_banner_label = label
 	_banner.add_child(strip)
 	add_child(_banner)
 	_banner.visible = false
 
 
-## Banner sa ukáže len v menu a len free hráčovi. Menu sa zároveň o výšku
-## bannera skráti, takže obsah pod ním nikdy nie je prekrytý — banner má
-## vlastný vyhradený pruh, nie vrstvu cez tlačidlá.
+## Banner sa ukáže len v menu a len free hráčovi. Obsah menu si nad ním
+## vyhradí pás (bottom_reserve), takže pod bannerom nikdy nič neostane
+## prekryté — banner má vlastný pruh, nie vrstvu cez tlačidlá. Pruh sedí nad
+## bezpečnou zónou (gesto domov / zaoblené rohy).
 func _refresh_banner() -> void:
 	if _banner == null:
 		return
@@ -258,7 +335,11 @@ func _refresh_banner() -> void:
 	var free := _ads != null and not _ads.is_premium()
 	_banner.visible = in_menu and free
 	if in_menu:
-		_current_screen.offset_bottom = -58 if _banner.visible else 0
+		_current_screen.bottom_reserve = BANNER_H if _banner.visible else 0.0
+	var inset_b := size.y - UIKit.safe_rect(self).end.y
+	_banner_strip.offset_bottom = -inset_b
+	_banner_strip.offset_top = -BANNER_H - inset_b
+	_banner_label.text = tr("AD_BANNER_PLACEHOLDER")
 	if _ads != null:
 		if _banner.visible:
 			_ads.show_menu_banner() # reálny SDK banner (mock = no-op)
@@ -268,5 +349,9 @@ func _refresh_banner() -> void:
 
 func _clear_screen() -> void:
 	if _current_screen != null:
+		# The outgoing table stays alive until the end of the frame; cut it
+		# off the server first or it would also play the next game's deal.
+		if _current_screen is GameTable:
+			_current_screen.detach()
 		_current_screen.queue_free()
 		_current_screen = null

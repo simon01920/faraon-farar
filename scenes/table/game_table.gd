@@ -39,6 +39,8 @@ var _btn_pass: Button
 var _btn_ff: Button
 var _btn_interrupt_play: Button
 var _btn_interrupt_draw: Button
+var _btn_menu: Button
+var _btn_dev: Button
 var _suit_popup: PopupPanel
 var _rank_popup: PopupPanel
 var _fx: Control
@@ -48,8 +50,23 @@ var _ranking_box: VBoxContainer
 var _btn_again: Button
 var _pause_layer: Control
 var _pending_play: Array = []
+## Live hand card nodes by card id. The fan re-renders on every tap, resize
+## and drawn card; reusing the nodes keeps that a cheap re-pose instead of
+## rebuilding every card (and its styleboxes) each time.
+var _hand_cards := {}
 ## Alternates the shuffle style (riffle / overhand) between plays.
 var _shuffle_variant := 0
+## Layout anchors computed by _layout_table for overlays: toasts float just
+## above the piles, the start-card spotlight sits over them.
+var _toast_y := 0.0
+var _focus_y := 0.0
+
+## Portrait keeps a taller hand strip (room for the two-row fan); the action
+## buttons and status line sit right above it in both orientations.
+const HAND_H_PORTRAIT := 300.0
+const HAND_H_LANDSCAPE := 214.0
+const SEAT_H := 150.0
+const PILE_BLOCK_H := 244.0 # piles + declared-suit chip under them
 
 
 func setup(game_server) -> void:
@@ -59,6 +76,22 @@ func setup(game_server) -> void:
 	server.action_rejected.connect(_on_action_rejected)
 	if server.has_signal("selection_updated"):
 		server.selection_updated.connect(_on_selection_updated)
+
+
+## The app root is replacing this table: stop listening before the node is
+## freed at the end of the frame, or it would still render (and animate) the
+## next game's opening events behind the new table.
+func detach() -> void:
+	if server == null:
+		return
+	if server.state_updated.is_connected(_on_state_updated):
+		server.state_updated.disconnect(_on_state_updated)
+	if server.action_rejected.is_connected(_on_action_rejected):
+		server.action_rejected.disconnect(_on_action_rejected)
+	if server.has_signal("selection_updated") \
+			and server.selection_updated.is_connected(_on_selection_updated):
+		server.selection_updated.disconnect(_on_selection_updated)
+	_queue.clear()
 
 
 ## Súper (bot alebo hráč v multiplayeri) si označil `count` kariet — jeho
@@ -210,13 +243,13 @@ func _build_hand_and_actions() -> void:
 
 	# Paused penalty draw: play the just-drawn faraon or keep drawing.
 	_btn_interrupt_play = UIKit.pill_button(tr("GAME_INTERRUPT_PLAY"),
-			Color("2e7d4f"), Vector2(210, 52))
+			Color("2e7d4f"), Vector2(200, 52))
 	_btn_interrupt_play.visible = false
 	_btn_interrupt_play.pressed.connect(_do_interrupt_play)
 	_actions.add_child(_btn_interrupt_play)
 
 	_btn_interrupt_draw = UIKit.pill_button(tr("GAME_INTERRUPT_DRAW"),
-			UIKit.BLUE, Vector2(190, 52))
+			UIKit.BLUE, Vector2(180, 52))
 	_btn_interrupt_draw.visible = false
 	_btn_interrupt_draw.pressed.connect(func():
 		if not _busy:
@@ -234,11 +267,6 @@ func _build_hand_and_actions() -> void:
 	# don't have to sit through full-pace bot turns.
 	_btn_ff = UIKit.pill_button(tr("GAME_FAST_FORWARD"), Color("6b5a3e"),
 			Vector2(150, 46), 18)
-	_btn_ff.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_btn_ff.offset_left = -166
-	_btn_ff.offset_right = -16
-	_btn_ff.offset_top = 14
-	_btn_ff.offset_bottom = 60
 	_btn_ff.visible = false
 	_btn_ff.pressed.connect(_do_fast_forward)
 	add_child(_btn_ff)
@@ -377,49 +405,121 @@ func _setup_seats() -> void:
 
 
 ## Positions everything that depends on the window size. Runs again on every
-## resize (desktop window drag, mobile rotation via the orientation sensor),
-## with portrait-specific slots so the piles never collide on narrow screens.
+## resize (desktop window drag, mobile rotation via the orientation sensor).
+## Everything interactive stays inside the display's safe area (notch,
+## rounded corners, home indicator); portrait has its own arrangement —
+## opponents on top, piles centred in the free band, the local player's
+## avatar beside the action row — so nothing collides on a narrow phone.
 func _layout_table() -> void:
 	if _seats.is_empty() or _deck == null:
 		return
 	var portrait := size.y > size.x
+	var safe := UIKit.safe_rect(self)
+	var l := safe.position.x
+	var t := safe.position.y
+	var w := safe.size.x
+	var h := safe.size.y
+	var inset_r := size.x - safe.end.x
+	var inset_b := size.y - safe.end.y
 
+	# Corner buttons follow the safe area.
+	_btn_menu.position = Vector2(l + 16, t + 14)
+	if _btn_dev != null:
+		_btn_dev.position = Vector2(l + 84, t + 14)
+	_btn_ff.position = Vector2(safe.end.x - 166, t + 14)
+
+	# Bottom stack (distances from the screen's bottom edge).
+	var hand_h := HAND_H_PORTRAIT if portrait else HAND_H_LANDSCAPE
+	# A home-indicator inset already keeps the hand off the edge.
+	var hand_bottom := maxf(18.0, inset_b + 6.0)
+	var actions_bottom := hand_bottom + hand_h + (10.0 if portrait else 8.0)
+	var status_bottom := actions_bottom + 52.0 + (4.0 if portrait else 8.0)
+	_place_band(_hand_area, hand_bottom, hand_h, l, inset_r)
+	_place_band(_actions, actions_bottom, 52.0, l, inset_r)
+	_place_band(_status, status_bottom, 36.0, l, inset_r)
+	var status_top := size.y - status_bottom - 36.0
+
+	# Opponents: [x fraction of the safe width, top y] per seat.
 	var slots: Array = []
-	match _opponent_ids.size():
-		1: slots = [Vector2(0.5, 0.10)]
-		2: slots = [Vector2(0.26, 0.10), Vector2(0.74, 0.10)] if portrait \
-				else [Vector2(0.3, 0.11), Vector2(0.7, 0.11)]
-		_: slots = [Vector2(0.16, 0.17), Vector2(0.5, 0.07), Vector2(0.84, 0.17)] if portrait \
-				else [Vector2(0.16, 0.16), Vector2(0.5, 0.09), Vector2(0.84, 0.16)]
-	for i in _opponent_ids.size():
-		var seat: PlayerSeat = _seats.get(_opponent_ids[i])
-		if seat != null and i < slots.size():
-			var c: Vector2 = slots[i]
-			seat.position = Vector2(size.x * c.x - 90, size.y * c.y - 30)
+	var seats_bottom := 0.0
+	if portrait:
+		match _opponent_ids.size():
+			1: slots = [Vector2(0.5, 66)]
+			2: slots = [Vector2(0.27, 70), Vector2(0.73, 70)]
+			_: slots = [Vector2(0.17, 128), Vector2(0.5, 60), Vector2(0.83, 128)]
+		for i in _opponent_ids.size():
+			if i < slots.size():
+				var c: Vector2 = slots[i]
+				_place_seat(_opponent_ids[i], Vector2(l + w * c.x - 90, t + c.y))
+				seats_bottom = maxf(seats_bottom, t + c.y + SEAT_H)
+	else:
+		# Top y in px: the middle seat hugs the top edge so the piles below
+		# it clear the status line even on short (inset) landscape screens.
+		match _opponent_ids.size():
+			1: slots = [Vector2(0.5, 24)]
+			2: slots = [Vector2(0.3, 40), Vector2(0.7, 40)]
+			_: slots = [Vector2(0.16, 70), Vector2(0.5, 8), Vector2(0.84, 70)]
+		for i in _opponent_ids.size():
+			if i < slots.size():
+				var c: Vector2 = slots[i]
+				_place_seat(_opponent_ids[i], Vector2(l + w * c.x - 90, t + c.y))
+				# Only a seat above the piles' column limits how high they sit.
+				if absf(c.x - 0.5) < 0.1:
+					seats_bottom = maxf(seats_bottom, t + c.y + SEAT_H)
+
+	# The local avatar sits in the free strip left of the status/action rows,
+	# above the hand, so even a 14-card fan never runs under it. Portrait
+	# shrinks its name plate to the avatar's column (ellipsis for long names).
 	var me: PlayerSeat = _seats.get(_me)
+	var band_center := status_top + (status_bottom + 36.0 - actions_bottom) / 2.0
 	if me != null:
-		me.position = Vector2(maxf(size.x * 0.075 - 90, 4.0), size.y * 0.80 - 40)
+		me.set_compact(portrait)
+		var avatar_left := l + 20.0 if portrait else l + maxf(w * 0.075 - 27.0, 20.0)
+		me.position = Vector2(avatar_left - 63.0, band_center - 85.0)
+	if portrait:
 
-	# Center piles: side by side, spread wider apart in portrait so the
-	# 110-120px cards don't overlap on narrow screens.
-	var deck_x := 0.28 if portrait else 0.42
-	var disc_x := 0.72 if portrait else 0.56
-	var pile_y := 0.38 if portrait else 0.40
-	_deck.position = Vector2(size.x * deck_x - 62, size.y * pile_y - 93)
-	_discard.position = Vector2(size.x * disc_x - 70, size.y * pile_y - 100)
-	_declared_chip.position = Vector2(size.x * disc_x - 34, size.y * pile_y + 96)
-	_pending_badge.position = Vector2(size.x * (0.88 if portrait else 0.685),
-			size.y * pile_y - 22)
-
-	# Portrait gets a taller hand area (room for the two-row fan) and the
-	# action buttons + status line shift up out of its way.
-	_hand_area.offset_top = -330 if portrait else -232
-	_actions.offset_top = -394 if portrait else -292
-	_actions.offset_bottom = -342 if portrait else -240
-	_status.offset_top = -434 if portrait else -336
-	_status.offset_bottom = -398 if portrait else -300
+		# Piles side by side, centred in the band between seats and status.
+		var cx := l + w / 2.0
+		var band_top := seats_bottom + 8.0
+		var band_h := status_top - 8.0 - band_top
+		var pile_top := band_top + maxf((band_h - PILE_BLOCK_H) / 2.0, 0.0)
+		_deck.position = Vector2(cx - 95 - 64, pile_top + 7)
+		_discard.position = Vector2(cx + 95 - 70, pile_top)
+		_declared_chip.position = Vector2(cx + 95 - 34, pile_top + 196)
+		_pending_badge.position = Vector2(cx + 95 + 80, pile_top + 78)
+		_toast_y = maxf(pile_top - 44.0, band_top)
+		_focus_y = pile_top - 10.0
+	else:
+		# Piles near 40 % of the height, but never under the middle seat's
+		# name nor down into the status line (that one wins if both bind).
+		var pile_y := t + h * 0.40
+		if seats_bottom > 0.0:
+			pile_y = maxf(pile_y, seats_bottom + 97.0)
+		pile_y = minf(pile_y, status_top - 113.0)
+		_deck.position = Vector2(l + w * 0.42 - 62, pile_y - 93)
+		_discard.position = Vector2(l + w * 0.56 - 70, pile_y - 100)
+		_declared_chip.position = Vector2(l + w * 0.56 - 34, pile_y + 96)
+		_pending_badge.position = Vector2(l + w * 0.685, pile_y - 22)
+		_toast_y = t + h * 0.30
+		_focus_y = t + h * 0.34 - 110
 	if _state() != null:
 		_refresh_hand(_state())
+
+
+## Anchors a bottom-wide strip `height` tall whose lower edge sits `bottom`
+## above the screen's bottom, inset horizontally by the safe area.
+func _place_band(ctrl: Control, bottom: float, height: float, left: float,
+		right: float) -> void:
+	ctrl.offset_left = left
+	ctrl.offset_right = -right
+	ctrl.offset_bottom = -bottom
+	ctrl.offset_top = -bottom - height
+
+
+func _place_seat(id: String, at: Vector2) -> void:
+	var seat: PlayerSeat = _seats.get(id)
+	if seat != null:
+		seat.position = at
 
 
 # --- state -> UI ----------------------------------------------------------
@@ -608,70 +708,96 @@ func _sorted_hand(cards: Array) -> Array:
 	return hand
 
 
-## Minimum readable visible strip per fanned card in PHYSICAL pixels at a
-## 96-dpi baseline (scaled up on high-dpi phones); below it the hand splits
-## into two rows. Portrait only — landscape/tablet has the width for one
-## row even with 14+ cards.
-const MIN_CARD_SPACING_PX := 46.0
+## Narrowest visible strip per fanned card that still shows the corner
+## index (layout units); a tighter portrait hand splits into two rows.
+## Landscape/tablet has the width for one row even with 14+ cards.
+const MIN_CARD_SPACING := 56.0
+const HAND_CARD_W := 120.0
+const MAX_CARD_SPACING := 94.0
 
 
-## 1 or 2 rows for n cards at the current window size. The stretch mode
-## renders content units smaller than physical pixels on narrow windows,
-## so the threshold compares the on-screen spacing, not layout units.
+## Gap between neighbouring cards for `count` cards in a row of `width`.
+func _row_spacing(count: int, width: float) -> float:
+	if count < 2:
+		return MAX_CARD_SPACING
+	return minf(MAX_CARD_SPACING, (width - HAND_CARD_W) / float(count - 1))
+
+
+func _hand_width() -> float:
+	return _hand_area.size.x if _hand_area != null else size.x
+
+
+## 1 or 2 rows for n cards at the current window size.
 func _hand_rows(n: int) -> int:
 	if size.x > size.y or n < 2:
 		return 1
-	var spacing := (size.x - 150.0) / maxf(n, 1)
-	var px_scale := 1.0
-	var win := get_window()
-	if win != null and size.x > 0.0:
-		px_scale = float(win.size.x) / size.x
-	var dpi_factor := maxf(1.0, DisplayServer.screen_get_dpi() / 96.0)
-	return 2 if spacing * px_scale < MIN_CARD_SPACING_PX * dpi_factor else 1
+	return 2 if _row_spacing(n, _hand_width() - 24.0) < MIN_CARD_SPACING else 1
 
 
 ## Local position of hand slot i when n cards are fanned out. Two-row mode
 ## splits the hand balanced (9 -> 5+4): slots 0..ceil(n/2)-1 sit in the top
 ## row, the rest in the bottom row.
 func _hand_slot(i: int, n: int) -> Vector2:
-	# Big hands get more of the table width so single cards stay readable
-	# (a 19-card fan squeezed into the center strip was ~45 px per card).
-	var reserve := 420.0 if size.x > size.y else 150.0
-	if n > 10 and size.x > size.y:
-		reserve = 200.0
-	if _hand_rows(n) == 1:
-		var spacing := minf(94.0, (size.x - reserve) / maxf(n, 1))
-		var start_x := size.x / 2.0 - spacing * (n - 1) / 2.0 - 60.0
+	var hw := _hand_width()
+	if size.x > size.y:
+		# Big hands get more of the table width so single cards stay readable
+		# (a 19-card fan squeezed into the center strip was ~45 px per card).
+		var reserve := 200.0 if n > 10 else 420.0
+		var spacing := minf(MAX_CARD_SPACING, (hw - reserve) / maxf(n, 1))
+		var start_x := hw / 2.0 - spacing * (n - 1) / 2.0 - HAND_CARD_W / 2.0
 		var off := i - (n - 1) / 2.0
-		return Vector2(start_x + i * spacing, 26.0 + absf(off) * 5.0)
+		# Flatter arc for big hands: the outer cards of a 14-card fan used
+		# to drop below the screen edge.
+		var arc := 5.0 if n <= 8 else 40.0 / n
+		return Vector2(start_x + i * spacing, 26.0 + absf(off) * arc)
+	var avail := hw - 24.0
+	if _hand_rows(n) == 1:
+		var spacing := _row_spacing(n, avail)
+		var start_x := hw / 2.0 - spacing * (n - 1) / 2.0 - HAND_CARD_W / 2.0
+		var off := i - (n - 1) / 2.0
+		# Vertically centred in the tall portrait strip (room to lift).
+		return Vector2(start_x + i * spacing, 56.0 + absf(off) * 5.0)
 	var top_count := ceili(n / 2.0)
 	var row := 0 if i < top_count else 1
 	var row_n := top_count if row == 0 else n - top_count
 	var idx := i if row == 0 else i - top_count
-	var spacing := minf(94.0, (size.x - reserve) / maxf(row_n, 1))
-	var start_x := size.x / 2.0 - spacing * (row_n - 1) / 2.0 - 60.0
+	var spacing := _row_spacing(row_n, avail)
+	var start_x := hw / 2.0 - spacing * (row_n - 1) / 2.0 - HAND_CARD_W / 2.0
 	var off := idx - (row_n - 1) / 2.0
-	return Vector2(start_x + idx * spacing, 4.0 + row * 98.0 + absf(off) * 4.0)
+	return Vector2(start_x + idx * spacing, 8.0 + row * 100.0 + absf(off) * 4.0)
 
 
 ## Rebuilds the fan from an explicit card list (used mid-deal/mid-draw to
 ## reveal the hand progressively, and by _refresh_hand for the full state).
 func _render_hand(hand: Array) -> void:
-	for c in _hand_area.get_children():
-		c.queue_free()
+	var keep := {}
+	for id in hand:
+		keep[id] = true
+	for id in _hand_cards.keys():
+		if not keep.has(id):
+			if is_instance_valid(_hand_cards[id]):
+				_hand_cards[id].queue_free()
+			_hand_cards.erase(id)
 	var n := hand.size()
 	var two_rows := _hand_rows(n) == 2
 	for i in n:
-		var cv := CardVisual.new(hand[i])
+		var id: String = hand[i]
+		var cv: CardVisual = _hand_cards.get(id)
+		if cv == null or not is_instance_valid(cv):
+			cv = CardVisual.new(id)
+			cv.hover_preview = true
+			cv.tapped.connect(_on_card_tapped)
+			_hand_area.add_child(cv)
+			_hand_cards[id] = cv
+		# Draw order follows the fan (left card under its right neighbour).
+		_hand_area.move_child(cv, -1)
 		var off := i - (n - 1) / 2.0
 		cv.position = _hand_slot(i, n)
 		# The straight two-row grid reads better without the fan tilt.
 		cv.rotation = 0.0 if two_rows else off * 0.032
-		cv.hover_preview = true
-		cv.selected = _selected.has(hand[i])
-		cv.set_order(_selected.find(hand[i]) + 1)
-		cv.tapped.connect(_on_card_tapped)
-		_hand_area.add_child(cv)
+		cv.visible = true
+		cv.selected = _selected.has(id)
+		cv.set_order(_selected.find(id) + 1)
 
 
 func _refresh_actions() -> void:
@@ -731,8 +857,13 @@ func _refresh_status(s: GameState) -> void:
 
 # --- animations -----------------------------------------------------------
 
+## Pause inside an animation. Bound to the table (a node tween, not a
+## SceneTree timer), so a table freed mid-sequence simply drops the rest of
+## it instead of resuming a coroutine on a dead instance.
 func _sleep(t: float) -> void:
-	await get_tree().create_timer(t * _anim_scale()).timeout
+	var tw := create_tween()
+	tw.tween_interval(maxf(t * _anim_scale(), 0.001))
+	await tw.finished
 
 
 func _flight_step(t: float, node: Control, from: Vector2, mid: Vector2,
@@ -1037,7 +1168,7 @@ func _anim_start_deck_flip(bottom: String) -> void:
 			pile.global_position + Vector2(-20, 0))
 	focus.set_lift(22.0)
 	focus.modulate = Color(1.25, 1.2, 1.0) # teplá žiara
-	var center := Vector2(size.x / 2.0 - 75, size.y * 0.34 - 110)
+	var center := Vector2(size.x / 2.0 - 75, _focus_y)
 	var out_tw := create_tween()
 	out_tw.set_parallel(true)
 	out_tw.tween_property(focus, "global_position", center, 0.26 * k) \
@@ -1110,10 +1241,13 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 				hand_cv.visible = false
 			cv = _spawn_overlay(card, 120, origin)
 		else:
-			origin = seat.card_anchor() if seat != null else Vector2(size.x / 2.0, 60.0)
+			# The seat may have been rebuilt while earlier cards were flying
+			# (MP rematch dealt mid-animation) — never touch a freed seat.
+			var alive := seat != null and is_instance_valid(seat)
+			origin = seat.card_anchor() if alive else Vector2(size.x / 2.0, 60.0)
 			cv = _spawn_overlay("", 120, origin)
 			cv.flip_to(card, 0.28)
-			if seat != null:
+			if alive:
 				seat.set_count(seat._shown_count - 1)
 		await _fly(cv, origin, _discard.landing_anchor(), 0.34, 80.0,
 				DiscardStack.rot_for(card))
@@ -1127,25 +1261,17 @@ func _anim_play_cards(player_id: String, cards: Array) -> void:
 ## In-game menu (☰, top-left): resume, restart, audio/vibration toggles and
 ## the way back to the main menu — the table is no longer a dead end.
 func _build_pause_layer() -> void:
-	var btn := UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 56), 22)
-	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	btn.offset_left = 16
-	btn.offset_right = 72
-	btn.offset_top = 14
-	btn.offset_bottom = 70
-	btn.pressed.connect(func(): _pause_layer.visible = true)
-	add_child(btn)
+	_btn_menu = UIKit.pill_button("☰", Color(UIKit.INK, 0.85), Vector2(56, 56), 22)
+	_btn_menu.position = Vector2(16, 14)
+	_btn_menu.pressed.connect(func(): _pause_layer.visible = true)
+	add_child(_btn_menu)
 
 	# Dev režim: 🛠 tlačidlo (len lokálne hry) + klávesa F12 otvárajú panel.
 	if GameSettings.dev_mode() and server is LocalGameServer:
-		var dev_btn := UIKit.pill_button("🛠", Color("7a4a3a"), Vector2(56, 56), 20)
-		dev_btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		dev_btn.offset_left = 84
-		dev_btn.offset_right = 140
-		dev_btn.offset_top = 14
-		dev_btn.offset_bottom = 70
-		dev_btn.pressed.connect(_open_dev_panel)
-		add_child(dev_btn)
+		_btn_dev = UIKit.pill_button("🛠", Color("7a4a3a"), Vector2(56, 56), 20)
+		_btn_dev.position = Vector2(84, 14)
+		_btn_dev.pressed.connect(_open_dev_panel)
+		add_child(_btn_dev)
 
 	_pause_layer = Control.new()
 	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1357,10 +1483,10 @@ func _anim_draw(player_id: String, count: int, penalty: bool) -> void:
 	var per := 0.22 if count <= 3 else maxf(0.09, 0.8 / count)
 	if human:
 		var me := _state().player_by_id(_me)
-		var shown: Array = []
-		for c in _hand_area.get_children():
-			if c is CardVisual and c.card_id != "":
-				shown.append(c.card_id)
+		# Cards still in flight to the pile are hidden; they must not pop
+		# back into the fan while the drawn cards slot in.
+		var shown: Array = _hand_cards.keys().filter(func(id):
+			return is_instance_valid(_hand_cards[id]) and _hand_cards[id].visible)
 		var incoming: Array = me.hand.filter(func(c): return not shown.has(c)) \
 				if me != null else []
 		for card in incoming:
@@ -1381,7 +1507,7 @@ func _deck_shown() -> int:
 
 func _seat_flash(player_id: String, text: String, color: Color) -> void:
 	var seat: PlayerSeat = _seats.get(player_id)
-	if seat != null:
+	if seat != null and is_instance_valid(seat):
 		seat.flash(text, color)
 
 
@@ -1389,11 +1515,11 @@ func _toast(msg: String) -> void:
 	var chipn := UIKit.chip(msg, Color(UIKit.INK, 0.9), 19)
 	_fx.add_child(chipn)
 	chipn.reset_size()
-	chipn.position = Vector2(size.x / 2.0 - chipn.size.x / 2.0, size.y * 0.30)
+	chipn.position = Vector2(size.x / 2.0 - chipn.size.x / 2.0, _toast_y)
 	chipn.modulate.a = 0.0
 	var tw := create_tween()
 	tw.tween_property(chipn, "modulate:a", 1.0, 0.15)
-	tw.parallel().tween_property(chipn, "position:y", size.y * 0.27, 1.2) \
+	tw.parallel().tween_property(chipn, "position:y", _toast_y - 22.0, 1.2) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(0.5)
 	tw.tween_property(chipn, "modulate:a", 0.0, 0.3)
@@ -1412,9 +1538,9 @@ func _display_name(id: String) -> String:
 
 
 func _find_hand_card(card_id: String) -> CardVisual:
-	for c in _hand_area.get_children():
-		if c is CardVisual and c.card_id == card_id and c.visible:
-			return c
+	var cv: CardVisual = _hand_cards.get(card_id)
+	if cv != null and is_instance_valid(cv) and cv.visible:
+		return cv
 	return null
 
 
