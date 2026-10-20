@@ -4,8 +4,9 @@
 > nemá históriu konverzácie. Obsahuje stav kódu, herné pravidlá, rozhodnutia
 > zadávateľa, pracovné konvencie a technické pasce tohto konkrétneho stroja.
 >
-> **Stav k:** 2026-08-20, commit `980cf45`, vetva `master` → `origin/main`.
-> **Testy:** 164/164 GUT zelených (3450 assertov).
+> **Stav k:** 2026-10-20, vetva `claude/admiring-knuth-hfxupx` (PR do `main`)
+> — výkon, mobile-first UI, opravy chýb z review (sekcia 12).
+> **Testy:** 220/220 GUT zelených.
 
 ---
 
@@ -83,6 +84,11 @@ Repo: <https://github.com/simon01920/faraon-farar>
 7. **Proby píšu do `user://settings.cfg`** — ak probe nastaví jazyk/preset,
    musí ho na konci vrátiť (`GameSettings.clear_locale()` /
    `locale_is_explicit()`). Raz som mu takto prepol appku do angličtiny.
+   `tools/layout_probe.gd` si user:// súbory zálohuje a na konci obnoví.
+8. **`.cfg` súbory sú v pamäti (`ConfigCache`)** — GameSettings,
+   ProgressionStore, Challenges a MonetizationStore čítajú súbor raz za beh.
+   Kód/test, ktorý súbor zmaže alebo prepíše MIMO týchto API, musí zavolať
+   `ConfigCache.invalidate(path)` (pozri `before_each` v testoch).
 
 ---
 
@@ -97,6 +103,7 @@ game/         čistá herná logika (RefCounted, žiadny scene tree, testovateľ
   bot_strategy.gd    boti (Easy/Medium/Hard), skórovanie kandidátov
   card.gd, deck.gd, card_memory.gd, card_skin.gd, table_look.gd
   settings.gd        ConfigFile user://settings.cfg (jazyk, pravidlá, preset)
+  config_cache.gd    jediné parsovanie user://*.cfg za beh (výkon na mobile)
   game_audio.gd, haptics.gd, messages.gd
 net/          local_server.gd (LocalGameServer), room_client.gd (RoomClient)
 server/       faraon_room.gd (transport-free, outbox), net_hub.gd (autoload,
@@ -106,9 +113,10 @@ monetization/ ad_policy.gd (čistá logika), monetization_store.gd, ad_network.g
 progression/  progression.gd, progression_store.gd, challenges.gd, rewards.gd
 scenes/       main.gd (router), menu/main_menu.gd (1350 r.),
               table/game_table.gd (1635 r.), tutorial/tutorial.gd
-ui/ui_kit.gd  spoločné štýly (pill_button, panel_style, heading, farby)
-tests/        11 súborov, 164 testov
-tools/        24 screenshot probe skriptov (PNG sú gitignored)
+ui/ui_kit.gd  spoločné štýly (pill_button, panel_style, heading, farby) +
+              safe_rect() (výrez/zaoblené rohy), fit_width(), confirm()
+tests/        13 súborov, 220 testov
+tools/        25 screenshot probe skriptov (PNG sú gitignored)
 architecture/ návrhové dokumenty a schválenia
 ```
 
@@ -125,7 +133,13 @@ architecture/ návrhové dokumenty a schválenia
 - **Mockovateľná monetizácia**: `AdNetwork`/`StoreBackend` sú rozhrania,
   default sú mocky → hra beží a testuje sa **bez akéhokoľvek SDK**.
 - **Animácie cez frontu**: `GameTable._enqueue()` + `_drain()`; udalosti sa
-  prehrávajú sériovo, `_busy` blokuje vstup.
+  prehrávajú sériovo, `_busy` blokuje vstup. Pauzy (`_sleep`) sú tweeny
+  viazané na stôl; uzly kariet v ruke/vejároch/kôpke sa recyklujú, nestavajú
+  sa pri každom refreshi nanovo.
+- **Mierka plátna podľa orientácie** (`main.gd`): na šírku základ 1280×720,
+  na výšku 600×1000 (`_apply_content_scale` pri každej zmene okna). Rozloženie
+  stola/menu/tutoriálu počíta s `UIKit.safe_rect()`; menu sa na šírku
+  delí do dvoch stĺpcov.
 
 ---
 
@@ -202,6 +216,14 @@ Medium 55 %, Hard/MP rovnaká šanca).
   `sv_*` (klient→server) a `cl_*` (server→klient).
 - 5-znakový kód roomky (bez zameniteľných znakov), **reconnect do 120 s** cez
   session token, cenzurované snapshoty, validácia tvaru správ v `NetProtocol`.
+- **Obnova spojenia (klient)**: `RoomClient` sa po výpadku pripája sám
+  (backoff 1–15 s, vzdá sa pred koncom 120 s okna) a vráti sa s tokenom;
+  signály `reconnecting/reconnected/reconnect_failed` ukazuje stôl aj lobby.
+  `RoomClient.leave()` = odchod + zabudnutie kódu/tokenu.
+- **Neprítomné miesto** (odišiel/vypadol po grace) server odohráva sám
+  (ťahá / stojí pri esách), aby ostatní dohrali; host = prvý pripojený člen.
+- **Variant od hostiteľa** sa sanitizuje (`NetProtocol.sanitize_variant`),
+  ruky, ktoré sa z balíčka nedajú rozdať → chyba `too_many_cards`.
 - Kozmetický kanál „živý stôl": `sv_selection(count)` — súperi vidia **počet**
   nadvihnutých kariet (nie hodnoty), debounce 150 ms, čistí sa pri akcii a
   odpojení.
@@ -262,7 +284,12 @@ Google Play Console a App Store Connect.
 | **EULA/Privacy + auto-renew text** | Musí pribudnúť do nákupnej obrazovky pred submitom (Apple aj Google to vyžadujú). |
 | **UMP/GDPR consent** | Pri napojení AdMobu treba doriešiť. |
 | **Friends leaderboard** | Odložené, kým nebeží server. |
-| **Portrait UI scale** | Hrateľné, ale drobné — doladiť po teste na reálnom zariadení. |
+| **Portrait UI scale** | Vyriešené (základ 600×1000 na výšku, ~2× väčšie UI) — ešte overiť na reálnom telefóne vrátane výrezu (`UIKit.safe_rect`). |
+| **Pravidlo: vyschnutý balík počas trestu** | PREDPOKLAD: zvyšok trestu ťahajúceho prepadá (predtým nechtiac prechádzal na ďalšieho hráča). Označené v `faraon_rules.gd` — Simon môže prehodnotiť. |
+| **Pravidlo: spálená končiaca KE/XC** | Trest +4/zapečatený +1 dostane hráč, ktorý spálenú zahral (tah navyše). Nezmenené — rozhodnutie pre Simona. |
+| **Pravidlo: pauza pri trestnom ťahaní** | Udalosť `PENALTY_INTERRUPT` (a hláška „X môže prerušiť faraónom/sedmou") prezradí všetkým, akú kartu ťahajúci vytiahol. Snapshot `interrupt_card` už vidí len majiteľ. Je to zámer? |
+| **MP: 5 hráčov × 7 kariet** | Engine rozdá max. (balík−2)/hráčov (=6); room štart s takou rukou odmietne `too_many_cards`. |
+| **Veľkosť buildu** | Android PCK 74.8 MB (z 154.7). Zvyšok je hlavne hudba (53 MB MP3, ~200 kb/s) — prekódovanie na OGG ~112 kb/s by ušetrilo ~25 MB; nerobené, je to otázka kvality zvuku. Dev skin `assets/cards/<farba>/` sa do exportu nedáva (v editore funguje). |
 | **Simonove lokálne nastavenia** | V `settings.cfg` má `initial_hand_size=4` a `red7_return_scope="round"` ako vlastnú voľbu — vo Faraóne teda dostáva 4 karty. Bol upozornený. |
 
 ---
@@ -278,7 +305,10 @@ Google Play Console a App Store Connect.
    Presne na tomto som raz zlyhal dvakrát po sebe.
 3. **Screenshoty ukáž Simonovi** v odpovedi, keď menil vzhľad.
 
-Užitočné proby: `settings_probe` (3 rozlíšenia), `czech_probe`, `prsi_probe`,
+Užitočné proby: **`layout_probe`** (menu, nastavenia, tutoriál, stôl, veľká
+ruka, pauza, výber farby, výsledky × telefón na výšku/šírku, tablet, desktop;
+`-- --insets=90,0,90,40` simuluje výrez, `-- --only=phone_portrait`),
+`settings_probe` (3 rozlíšenia), `czech_probe`, `prsi_probe`,
 `monetization_probe`, `penalty_combo_probe`, `mp_probe`, `pause_probe`,
 `selection_glow_probe`, `startflip_probe`, `anim_probe`.
 
@@ -288,6 +318,10 @@ Užitočné proby: `settings_probe` (3 rozlíšenia), `czech_probe`, `prsi_probe
 
 | Commit | Obsah |
 |---|---|
+| 2026-10-20 (PR) | **Multiplayer + monetizácia**: obnova spojenia, unikátne seaty, neprítomné miesta, sanitizácia variantu, reklamné callbacky, lifetime vs. predplatné |
+| 2026-10-20 (PR) | **Ľahší build**: pozadia lossy 2048 px, export bez duplikátov/dev skinu (155 → 75 MB), low-processor mode |
+| 2026-10-20 (PR) | **Mobile-first UI**: portrét 600×1000, safe area, dvojstĺpcové menu, recyklácia uzlov kariet |
+| 2026-10-20 (PR) | **Engine + výkon**: rng_seed v snapshote, zamietnutý ťah bez vedľajších účinkov, pečať D13, olympijské prídely, boti, ConfigCache |
 | `980cf45` | Dropdown jazyka: skutočné vycentrovanie (OptionButton vyhradzuje 16 px šípke) |
 | `26de8ef` | Rozostupy v menu, vodoznak presahuje mimo obsah |
 | `900be79` | Zarovnanie produktových kariet, prvá oprava dropdownu |
@@ -320,3 +354,25 @@ Ak je 164/164 zelených, stav sedí s týmto dokumentom. Potom si prečítaj
 `game/faraon_rules.gd` (hlavičkový komentár zhŕňa všetky rozhodnutia o
 pravidlách) a `game/rules_variant.gd` (presety) — to sú dva najdôležitejšie
 súbory projektu.
+
+
+---
+
+## 12. Výkon, mobile-first a opravy (2026-10-20)
+
+Merané na desktope (headless, rovnaká scéna pred/po; na telefóne je rozdiel
+väčší):
+
+| Čo | Pred | Po |
+|---|---|---|
+| `GameTable._refresh_all` (po každom ťahu, ruka 14 kariet) | 11–19 ms | 0.3–0.5 ms |
+| prekreslenie ruky po ťuknutí na kartu | ~11.5 ms | ~0.19 ms |
+| `GameSettings.build_variant()` | 1.47 ms | 0.13 ms |
+| Android PCK | 154.7 MB | 74.8 MB |
+
+- Staré 11–19 ms sa nezmestili do 16 ms snímky → zásek pri každom ťahu.
+- Pravidlá: opravené len chyby, kde kód odporoval zdokumentovaným pravidlám
+  alebo padal; rozhodnutia, ktoré patria Simonovi, sú v sekcii 8.
+- Na overenie na zariadení: rotácia počas hry aj tutoriálu, telefón s
+  výrezom/gestom domov, výpadok Wi-Fi počas online hry (má sa ukázať
+  „Spojenie prerušené — pripájam znova…").

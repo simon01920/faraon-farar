@@ -89,8 +89,18 @@ func set_depth(total_cards: int) -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
-## Replaces the whole pile from the state's tail (oldest first).
+## Replaces the whole pile from the state's tail (oldest first). A tail
+## that already matches the shown cards is left alone (every state refresh
+## calls this, and most moves already pushed the new card in).
 func rebuild(tail: Array) -> void:
+	if tail.size() == _cards.size():
+		var same := true
+		for i in tail.size():
+			if _cards[i].card_id != tail[i]:
+				same = false
+				break
+		if same:
+			return
 	for c in _cards:
 		c.queue_free()
 	_cards.clear()

@@ -109,3 +109,98 @@ static func chip(text: String, color: Color, font_size := 17) -> PanelContainer:
 	l.add_theme_color_override("font_color", Color.WHITE)
 	p.add_child(l)
 	return p
+
+
+# --- responsive layout -------------------------------------------------------
+
+## Probe/debug override of the device safe-area insets in screen pixels
+## (left, top, right, bottom). Vector4.ZERO = ask the OS (mobile only).
+static var simulated_insets := Vector4.ZERO
+
+
+## The part of the viewport not covered by a notch, punch-hole camera, rounded
+## corners or the home indicator — in layout units, so screens can keep
+## buttons and text inside it while backgrounds still fill the whole display.
+## Desktop windows have no cutouts: the full viewport.
+static func safe_rect(ctrl: Control) -> Rect2:
+	var vp_size := ctrl.get_viewport_rect().size
+	var full := Rect2(Vector2.ZERO, vp_size)
+	var win := ctrl.get_window()
+	if win == null or win.size.x <= 0 or win.size.y <= 0:
+		return full
+	var px := simulated_insets
+	if px == Vector4.ZERO:
+		if not OS.has_feature("mobile"):
+			return full
+		var safe := DisplayServer.get_display_safe_area()
+		if safe.size.x <= 0 or safe.size.y <= 0:
+			return full
+		px = Vector4(safe.position.x, safe.position.y,
+				win.size.x - safe.end.x, win.size.y - safe.end.y)
+	var k := vp_size.x / float(win.size.x) # screen px -> layout units
+	var l := maxf(px.x, 0.0) * k
+	var t := maxf(px.y, 0.0) * k
+	var r := maxf(px.z, 0.0) * k
+	var b := maxf(px.w, 0.0) * k
+	return Rect2(l, t, maxf(vp_size.x - l - r, 1.0), maxf(vp_size.y - t - b, 1.0))
+
+
+## Width a centered panel's content may take: its preferred width, shrunk on
+## narrow (portrait phone) screens so panel + margins never leave the display.
+static func fit_width(preferred: float, available: float, chrome := 68.0,
+		gutter := 16.0) -> float:
+	return maxf(minf(preferred, available - chrome - 2.0 * gutter), 240.0)
+
+
+## In-style modal question (the stock ConfirmationDialog looks like a foreign
+## desktop window and is tiny on phones). Returns the overlay so callers can
+## free it early; it frees itself after either answer.
+static func confirm(parent: Control, title: String, body: String,
+		yes_text: String, no_text: String, on_yes: Callable,
+		yes_color := RED) -> Control:
+	var layer := Control.new()
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.z_index = 80
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.62)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(center)
+	var panel := PanelContainer.new()
+	var sb := panel_style(TABLE_MID, 18, GOLD.darkened(0.2), 2)
+	sb.content_margin_left = 26
+	sb.content_margin_right = 26
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 16)
+	panel.add_child(box)
+	if title != "":
+		box.add_child(heading(title, 24, GOLD))
+	var text := Label.new()
+	text.text = body
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text.custom_minimum_size = Vector2(
+			fit_width(420.0, parent.get_viewport_rect().size.x, 52.0), 0)
+	text.add_theme_font_size_override("font_size", 17)
+	text.add_theme_color_override("font_color", CREAM)
+	box.add_child(text)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	var no := pill_button(no_text, BLUE, Vector2(170, 52), 18)
+	no.pressed.connect(layer.queue_free)
+	row.add_child(no)
+	var yes := pill_button(yes_text, yes_color, Vector2(170, 52), 18)
+	yes.pressed.connect(func():
+		layer.queue_free()
+		on_yes.call())
+	row.add_child(yes)
+	box.add_child(row)
+	parent.add_child(layer)
+	return layer

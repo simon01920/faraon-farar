@@ -37,9 +37,7 @@ static func _today() -> int:
 
 
 static func _cfg() -> ConfigFile:
-	var cfg := ConfigFile.new()
-	cfg.load(ProgressionStore.PATH)
-	return cfg
+	return ConfigCache.get_file(ProgressionStore.PATH)
 
 
 ## Today's active challenge ids — deterministic shuffle seeded by the date.
@@ -100,31 +98,37 @@ static func on_game_finished(player_count: int, position: int,
 		earned += _step(cfg, "finish_top2", 1)
 	cfg.save(ProgressionStore.PATH)
 	if earned > 0:
-		ProgressionStore.record(earned, false)
+		ProgressionStore.add_points(earned) # len body: record() by zarátal ďalšiu hru
 	return earned
 
 
 ## Mid-game observations (called with each event the local player sees).
+## Only the three tracked moments touch the save, and only an actual
+## progress step writes it — not every card the player puts down.
 static func observe_event(e: Dictionary, me: String) -> void:
 	var kind: String = e.get("type", "")
-	var earned := 0
-	var cfg := _reset_if_new_day()
+	var id := ""
+	var amount := 1
 	if kind == "SPALENA_EXTRA_TURN" and e.get("player", "") == me:
-		earned += _step(cfg, "spalena", 1)
+		id = "spalena"
 	elif kind == "PLAYER_RETURNED" and e.get("by", "") == me:
-		earned += _step(cfg, "return_red7", 1)
+		id = "return_red7"
 	elif kind == "CARDS_PLAYED" and e.get("player", "") == me:
-		var esa := 0
+		amount = 0
 		for c in e.get("cards", []):
 			if c is String and FaraonCard.is_valid_id(c) and FaraonCard.is_eso(c):
-				esa += 1
-		if esa > 0:
-			earned += _step(cfg, "play_esa", esa)
-	else:
+				amount += 1
+		if amount > 0:
+			id = "play_esa"
+	if id == "":
 		return
+	var cfg := _reset_if_new_day()
+	if not active_ids().has(id) or cfg.get_value("daily", "done_" + id, false):
+		return
+	var earned := _step(cfg, id, amount)
 	cfg.save(ProgressionStore.PATH)
 	if earned > 0:
-		ProgressionStore.record(earned, false)
+		ProgressionStore.add_points(earned) # len body: record() by zarátal ďalšiu hru
 
 
 static func _step(cfg: ConfigFile, id: String, amount: int) -> int:

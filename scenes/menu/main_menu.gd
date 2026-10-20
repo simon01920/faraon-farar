@@ -15,6 +15,9 @@ signal local_game_requested(bot_count: int)
 signal tutorial_requested
 ## Premium sa zmenil (nákup/obnovenie) — app root skryje/ukáže banner.
 signal remove_ads_changed
+## Jazyk alebo meno hráča sa zmenili — app root postaví menu nanovo (texty
+## sa prekladajú pri stavbe) a otvorí na ňom obrazovku `screen`.
+signal rebuild_requested(screen: String)
 
 ## Injected by the app root; shared with the table when an online game runs.
 var room_client: RoomClient
@@ -44,13 +47,89 @@ var _challenges_screen: ScrollContainer
 var _stats_screen: ScrollContainer
 ## Room code waiting for the connection to open (invite deep link).
 var _pending_join := ""
+## Space the app root keeps free under the screens (the menu ad banner).
+var bottom_reserve := 0.0:
+	set(v):
+		bottom_reserve = v
+		if is_node_ready():
+			_apply_layout()
+## Panel content boxes and their preferred widths; narrowed on phones.
+var _fit_boxes: Array = []
+## Main menu groups: header (title + profile), play (mode, opponents, start,
+## multiplayer) and more (engagement, appearance, settings). Portrait stacks
+## them in one column; landscape/desktop puts header + more beside play so
+## everything fits without scrolling.
+var _menu_cols: HBoxContainer
+var _menu_col_left: VBoxContainer
+var _menu_col_right: VBoxContainer
+var _menu_header: VBoxContainer
+var _menu_play: VBoxContainer
+var _menu_more: VBoxContainer
+var _menu_two_col := false
+
+
+func _screens() -> Array:
+	return [_menu_screen, _settings_screen, _appearance_screen, _mp_screen,
+			_challenges_screen, _stats_screen]
 
 
 func _swap_screen(target: Control) -> void:
-	for s in [_menu_screen, _settings_screen, _appearance_screen, _mp_screen,
-			_challenges_screen, _stats_screen]:
+	for s in _screens():
 		if s != null:
 			s.visible = s == target
+
+
+## Opens a named screen right after (re)building the menu.
+func show_screen(screen: String) -> void:
+	match screen:
+		"settings": _swap_screen(_settings_screen)
+		"appearance": _swap_screen(_appearance_screen)
+		"challenges": _swap_screen(_challenges_screen)
+		"stats": _swap_screen(_stats_screen)
+		"multiplayer": _open_mp_screen()
+		_: _swap_screen(_menu_screen)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and is_node_ready():
+		_apply_layout()
+
+
+## Keeps every screen inside the display's safe area (backgrounds still fill
+## it), above the banner reserve, narrows panels on phones and switches the
+## main menu between one and two columns.
+func _apply_layout() -> void:
+	var safe := UIKit.safe_rect(self)
+	for scr in _screens():
+		if scr == null:
+			continue
+		scr.offset_left = safe.position.x
+		scr.offset_top = safe.position.y
+		scr.offset_right = -(size.x - safe.end.x)
+		scr.offset_bottom = -(size.y - safe.end.y) - bottom_reserve
+	for pair in _fit_boxes:
+		var box: Control = pair[0]
+		box.custom_minimum_size.x = UIKit.fit_width(pair[1], safe.size.x)
+	_arrange_menu(size.x > size.y and safe.size.x >= 860.0)
+
+
+func _arrange_menu(two_col: bool) -> void:
+	if _menu_header == null:
+		return
+	if two_col == _menu_two_col and _menu_header.get_parent() != null:
+		return
+	_menu_two_col = two_col
+	for g in [_menu_header, _menu_play, _menu_more]:
+		if g.get_parent() != null:
+			g.get_parent().remove_child(g)
+	_menu_col_left.add_child(_menu_header)
+	if two_col:
+		_menu_col_left.add_child(_menu_more)
+		_menu_col_right.add_child(_menu_play)
+	else:
+		_menu_col_left.add_child(_menu_play)
+		_menu_col_left.add_child(_menu_more)
+	_menu_col_right.visible = two_col
 
 
 ## Runtime autoload lookup (compiles under -s tool runs too).
@@ -106,6 +185,7 @@ func _ready() -> void:
 	_build_mp_screen()
 	_build_challenges_screen()
 	_build_stats_screen()
+	_apply_layout()
 
 
 func _build_menu() -> void:
@@ -127,12 +207,17 @@ func _build_menu() -> void:
 	pad.add_theme_constant_override("margin_bottom", 10)
 	center.add_child(pad)
 
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 14)
-	box.custom_minimum_size = Vector2(380, 0)
-	pad.add_child(box)
+	_menu_cols = HBoxContainer.new()
+	_menu_cols.alignment = BoxContainer.ALIGNMENT_CENTER
+	_menu_cols.add_theme_constant_override("separation", 64)
+	pad.add_child(_menu_cols)
+	_menu_col_left = _menu_group(14)
+	_menu_cols.add_child(_menu_col_left)
+	_menu_col_right = _menu_group(14)
+	_menu_cols.add_child(_menu_col_right)
 
+	_menu_header = _menu_group(14)
+	var box := _menu_header
 	var title := UIKit.heading(tr("APP_NAME"), 60, UIKit.GOLD)
 	box.add_child(title)
 	# C1: alternatívne ľudové názvy hry pod hlavným nadpisom.
@@ -144,6 +229,8 @@ func _build_menu() -> void:
 	box.add_child(_profile_row())
 	box.add_child(_spacer(10))
 
+	_menu_play = _menu_group(14)
+	box = _menu_play
 	box.add_child(_mode_row())
 
 	var play_label := UIKit.heading(tr("MENU_OPPONENTS"), 19)
@@ -163,6 +250,8 @@ func _build_menu() -> void:
 	mp.pressed.connect(_open_mp_screen)
 	box.add_child(mp)
 
+	_menu_more = _menu_group(14)
+	box = _menu_more
 	# Compact engagement row: daily challenges (with the streak flame),
 	# statistics and the tutorial.
 	var engage := HBoxContainer.new()
@@ -182,20 +271,26 @@ func _build_menu() -> void:
 
 	var appearance := UIKit.pill_button(tr("MENU_APPEARANCE"),
 			Color("55617a"), Vector2(340, 52))
-	appearance.pressed.connect(func():
-		_appearance_screen.visible = true
-		_menu_screen.visible = false)
+	appearance.pressed.connect(func(): _swap_screen(_appearance_screen))
 	box.add_child(appearance)
 
 	# Settings sits last in the menu by design.
 	var settings := UIKit.pill_button(tr("MENU_SETTINGS"),
 			UIKit.GOLD.darkened(0.25), Vector2(340, 52))
-	settings.pressed.connect(func():
-		_settings_screen.visible = true
-		_menu_screen.visible = false)
+	settings.pressed.connect(func(): _swap_screen(_settings_screen))
 	box.add_child(settings)
-	# Malá spodná rezerva (o banner sa stará offset_bottom v app roote).
+	# Malá spodná rezerva (o banner sa stará bottom_reserve z app rootu).
 	box.add_child(_spacer(12))
+	_arrange_menu(false)
+
+
+func _menu_group(separation: int) -> VBoxContainer:
+	var g := VBoxContainer.new()
+	g.alignment = BoxContainer.ALIGNMENT_CENTER
+	g.add_theme_constant_override("separation", separation)
+	g.custom_minimum_size = Vector2(380, 0)
+	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return g
 
 
 func _build_settings_screen() -> void:
@@ -223,6 +318,7 @@ func _build_settings_screen() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	box.custom_minimum_size = Vector2(620, 0)
+	_fit_boxes.append([box, 620.0])
 	panel.add_child(box)
 
 	var settings_title := UIKit.heading(tr("MENU_SETTINGS"), 30, UIKit.GOLD)
@@ -313,9 +409,7 @@ func _build_settings_screen() -> void:
 
 	box.add_child(_spacer(10))
 	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
-	back.pressed.connect(func():
-		_settings_screen.visible = false
-		_menu_screen.visible = true)
+	back.pressed.connect(func(): _swap_screen(_menu_screen))
 	var back_row := HBoxContainer.new()
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
@@ -323,15 +417,10 @@ func _build_settings_screen() -> void:
 
 
 func _confirm_rules_reset() -> void:
-	var dialog := ConfirmationDialog.new()
-	dialog.dialog_text = tr("RULES_RESET_CONFIRM")
-	dialog.ok_button_text = tr("RULES_RESET_YES")
-	dialog.cancel_button_text = tr("MENU_BACK_SHORT")
-	dialog.confirmed.connect(func():
-		GameSettings.reset_rules()
-		_rebuild_rule_rows())
-	add_child(dialog)
-	dialog.popup_centered()
+	UIKit.confirm(self, "", tr("RULES_RESET_CONFIRM"), tr("RULES_RESET_YES"),
+			tr("MENU_BACK_SHORT"), func():
+				GameSettings.reset_rules()
+				_rebuild_rule_rows())
 
 
 # --- odstránenie reklám (mikrotransakcie) ----------------------------------
@@ -417,7 +506,7 @@ func _product_card(product_id: String, title: String, price_suffix: String,
 
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
-	v.custom_minimum_size = Vector2(230, 158)
+	v.custom_minimum_size = Vector2(200, 158)
 	card.add_child(v)
 
 	var name_label := Label.new()
@@ -616,7 +705,7 @@ func _rule_segment_row(key: String, label_key: String, options: Array) -> Contro
 		# C2: predvolená možnosť je označená bodkou priamo v štítku.
 		if opt == def:
 			label += " •"
-		var b := UIKit.pill_button(label, Color("55617a"), Vector2(150, 40), 14)
+		var b := UIKit.pill_button(label, Color("55617a"), Vector2(144, 40), 14)
 		b.disabled = _rule_disabled(key)
 		b.pressed.connect(func():
 			GameSettings.set_rule_value(key, opt)
@@ -667,6 +756,7 @@ func _build_mp_screen() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	box.custom_minimum_size = Vector2(520, 0)
+	_fit_boxes.append([box, 520.0])
 	panel.add_child(box)
 
 	box.add_child(UIKit.heading(tr("MENU_MULTIPLAYER"), 30, UIKit.GOLD))
@@ -699,9 +789,9 @@ func _build_mp_screen() -> void:
 	var join := UIKit.pill_button(tr("MP_JOIN"), UIKit.BLUE, Vector2(170, 48), 18)
 	join.pressed.connect(func():
 		_mp_status.text = tr("MP_CONNECTING")
-		_hub().rpc_id(1, "sv_join_room",
-				_mp_code_input.text.strip_edges().to_upper(),
-				_player_display_name(), ""))
+		var code := _mp_code_input.text.strip_edges().to_upper()
+		_hub().rpc_id(1, "sv_join_room", code, _player_display_name(),
+				_rejoin_token(code)))
 	join_row.add_child(join)
 	_mp_join_box.add_child(join_row)
 
@@ -738,7 +828,10 @@ func _build_mp_screen() -> void:
 
 	var leave := UIKit.pill_button(tr("MP_LEAVE"), UIKit.RED, Vector2(240, 44), 16)
 	leave.pressed.connect(func():
-		_hub().rpc_id(1, "sv_leave")
+		if room_client != null:
+			room_client.leave() # zabudne aj kód/token, nielen server
+		else:
+			_hub().rpc_id(1, "sv_leave")
 		_mp_lobby_box.visible = false
 		_mp_join_box.visible = true
 		_mp_status.text = "")
@@ -750,8 +843,10 @@ func _build_mp_screen() -> void:
 	box.add_child(_spacer(6))
 	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
 	back.pressed.connect(func():
-		_mp_screen.visible = false
-		_menu_screen.visible = true)
+		# Mimo roomky netreba držať otvorený WebSocket (batéria, dáta).
+		if room_client == null or room_client.room_code == "":
+			_hub().disconnect_client()
+		_swap_screen(_menu_screen))
 	var back_row := HBoxContainer.new()
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
@@ -767,11 +862,26 @@ func _build_mp_screen() -> void:
 		_mp_lobby_box.visible = true
 		_mp_code_value.text = code
 		_mp_status.text = tr("MP_WAITING"))
-	_hub().join_failed.connect(func(reason):
-		_mp_status.text = tr("MP_ERR_" + reason.to_upper()) \
-				if tr("MP_ERR_" + reason.to_upper()) != "MP_ERR_" + reason.to_upper() \
-				else tr("MP_CONN_FAILED"))
+	_hub().join_failed.connect(func(reason): _mp_status.text = _mp_error_text(reason))
 	_hub().room_updated.connect(_on_mp_room_update)
+	# Napr. hostiteľ spustil hru s príliš veľkou rukou pre počet hráčov.
+	_hub().move_rejected.connect(func(reason):
+		if _mp_screen.visible:
+			_mp_status.text = _mp_error_text(str(reason)))
+	if room_client != null:
+		room_client.reconnecting.connect(func(_attempt):
+			_mp_status.text = tr("MP_RECONNECTING"))
+		room_client.reconnected.connect(func():
+			_mp_status.text = tr("MP_WAITING"))
+		room_client.reconnect_failed.connect(func(_reason):
+			_mp_status.text = tr("MP_RECONNECT_FAILED")
+			_mp_lobby_box.visible = false
+			_mp_join_box.visible = true)
+
+
+func _mp_error_text(reason: String) -> String:
+	var key := "MP_ERR_" + reason.to_upper()
+	return tr(key) if tr(key) != key else tr("MP_CONN_FAILED")
 
 
 ## Deep-link entry: open the lobby and join `code` as soon as we connect.
@@ -788,13 +898,21 @@ func _do_pending_join() -> void:
 	if _pending_join == "":
 		return
 	_mp_status.text = tr("MP_CONNECTING")
-	_hub().rpc_id(1, "sv_join_room", _pending_join, _player_display_name(), "")
+	_hub().rpc_id(1, "sv_join_room", _pending_join, _player_display_name(),
+			_rejoin_token(_pending_join))
 	_pending_join = ""
 
 
+## Návrat do roomky, v ktorej už sedíme (napr. po výpadku): server nás podľa
+## tokenu posadí späť na to isté miesto aj počas rozohranej hry.
+func _rejoin_token(code: String) -> String:
+	if room_client != null and room_client.room_code == code:
+		return room_client.my_token
+	return ""
+
+
 func _open_mp_screen() -> void:
-	_menu_screen.visible = false
-	_mp_screen.visible = true
+	_swap_screen(_mp_screen)
 	if not _hub().is_connected_client:
 		_mp_status.text = tr("MP_CONNECTING")
 		_hub().connect_to_server(GameSettings.get_server_url())
@@ -802,6 +920,10 @@ func _open_mp_screen() -> void:
 		_mp_join_box.visible = false
 		_mp_lobby_box.visible = true
 		_mp_code_value.text = room_client.room_code
+	else:
+		# Roomku sme medzičasom opustili — nezobrazuj staré lobby.
+		_mp_join_box.visible = true
+		_mp_lobby_box.visible = false
 
 
 func _on_mp_room_update(info: Dictionary) -> void:
@@ -812,10 +934,12 @@ func _on_mp_room_update(info: Dictionary) -> void:
 		var line := "%s%s" % [m.get("name", "?"),
 				"" if m.get("connected", true) else "  (offline)"]
 		_mp_members.add_child(UIKit.heading(line, 18, UIKit.CREAM))
-	# The first seat is the host — only they see the start button.
-	_mp_start.visible = room_client != null and not members.is_empty() \
-			and members[0].get("seat", "") == room_client.my_seat \
-			and not info.get("playing", false)
+	# Host = prvý PRIPOJENÝ člen (server ho posiela ako "host") — len on
+	# vidí štart; vypadnutý hostiteľ tak hru neblokuje.
+	var host: String = info.get("host",
+			members[0].get("seat", "") if not members.is_empty() else "")
+	_mp_start.visible = room_client != null and host != "" \
+			and host == room_client.my_seat and not info.get("playing", false)
 
 
 func _player_display_name() -> String:
@@ -844,6 +968,7 @@ func _list_screen(title_key: String) -> Array:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	box.custom_minimum_size = Vector2(540, 0)
+	_fit_boxes.append([box, 540.0])
 	panel.add_child(box)
 	box.add_child(UIKit.heading(tr(title_key), 30, UIKit.GOLD))
 	return [screen, box]
@@ -1030,7 +1155,7 @@ func _open_name_popup() -> void:
 	var commit := func():
 		GameSettings.set_player_name(input.text)
 		popup.hide()
-		get_tree().reload_current_scene()
+		rebuild_requested.emit("")
 	save.pressed.connect(commit)
 	input.text_submitted.connect(func(_t): commit.call())
 	var save_row := HBoxContainer.new()
@@ -1068,6 +1193,7 @@ func _build_appearance_screen() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	box.custom_minimum_size = Vector2(560, 0)
+	_fit_boxes.append([box, 560.0])
 	panel.add_child(box)
 
 	box.add_child(UIKit.heading(tr("MENU_APPEARANCE"), 30, UIKit.GOLD))
@@ -1115,9 +1241,7 @@ func _build_appearance_screen() -> void:
 
 	box.add_child(_spacer(8))
 	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
-	back.pressed.connect(func():
-		_appearance_screen.visible = false
-		_menu_screen.visible = true)
+	back.pressed.connect(func(): _swap_screen(_menu_screen))
 	var back_row := HBoxContainer.new()
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
@@ -1250,7 +1374,7 @@ func _language_row() -> Control:
 			return
 		GameSettings.set_locale(picked)
 		TranslationServer.set_locale(picked)
-		get_tree().reload_current_scene())
+		rebuild_requested.emit("settings"))
 	h.add_child(lang)
 	return row
 

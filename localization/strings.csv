@@ -258,3 +258,9 @@ REMOVE_ADS_PER_YEAR," / rok"," / year"," / rok"
 REMOVE_ADS_BEST_VALUE,Najvýhodnejšie,Best value,Nejvýhodnější
 REMOVE_ADS_BUY,Kúpiť,Buy,Koupit
 REMOVE_ADS_RESTORE,Obnoviť nákupy,Restore purchases,Obnovit nákupy
+MP_ERR_TOO_MANY_CARDS,Pre toľko hráčov je ruka príliš veľká — zníž počet rozdaných kariet v pravidlách,Too many cards per hand for this many players — lower the hand size in the rules,Pro tolik hráčů je ruka příliš velká — sniž počet rozdaných karet v pravidlech
+ERR_TOO_MANY_CARDS,Pre toľko hráčov je ruka príliš veľká — zníž počet rozdaných kariet v pravidlách,Too many cards per hand for this many players — lower the hand size in the rules,Pro tolik hráčů je ruka příliš velká — sniž počet rozdaných karet v pravidlech
+ERR_OFFLINE,Bez spojenia — ťah sa neodoslal,Offline — the move was not sent,Bez připojení — tah se neodeslal
+MP_RECONNECTING,Spojenie prerušené — pripájam znova…,Connection lost — reconnecting…,Spojení přerušeno — připojuji znovu…
+MP_RECONNECTED,Znova pripojený,Back online,Znovu připojeno
+MP_RECONNECT_FAILED,Spojenie sa nepodarilo obnoviť,Could not reconnect,Spojení se nepodařilo obnovit

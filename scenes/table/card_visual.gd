@@ -32,7 +32,8 @@ func _init(id: String = "", width: float = 120.0) -> void:
 	custom_minimum_size = Vector2(width, width * 1.5)
 	size = custom_minimum_size
 	pivot_offset = size / 2.0
-	mouse_entered.connect(_set_hover.bind(true))
+	# Hover starts from real mouse motion in _gui_input (a finger's emulated
+	# mouse must not leave the card raised after a tap); leaving ends it.
 	mouse_exited.connect(_set_hover.bind(false))
 	var k := width / 120.0 # scale shadow geometry with card size
 
@@ -93,6 +94,10 @@ func _init(id: String = "", width: float = 120.0) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		if not _hovered and event.device != InputEvent.DEVICE_ID_EMULATION:
+			_set_hover(true)
+		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT:
 		tapped.emit(self)
@@ -100,12 +105,25 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func set_card(id: String) -> void:
+	if id == card_id and _face.texture != null:
+		return
 	card_id = id
 	_refresh_texture()
 
 
+## Card faces stay resident for the session: a new game (or a flip) would
+## otherwise decode the same textures again the moment the previous table
+## released them — a visible hitch right at the deal on phones.
+static var _textures := {}
+
+
 func _refresh_texture() -> void:
-	_face.texture = load(CardSkin.active().texture_path(card_id))
+	var path := CardSkin.active().texture_path(card_id)
+	var tex: Texture2D = _textures.get(path)
+	if tex == null:
+		tex = load(path)
+		_textures[path] = tex
+	_face.texture = tex
 
 
 func _set_hover(on: bool) -> void:
