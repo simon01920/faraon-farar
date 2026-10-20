@@ -828,7 +828,10 @@ func _build_mp_screen() -> void:
 
 	var leave := UIKit.pill_button(tr("MP_LEAVE"), UIKit.RED, Vector2(240, 44), 16)
 	leave.pressed.connect(func():
-		_hub().rpc_id(1, "sv_leave")
+		if room_client != null:
+			room_client.leave() # zabudne aj kód/token, nielen server
+		else:
+			_hub().rpc_id(1, "sv_leave")
 		_mp_lobby_box.visible = false
 		_mp_join_box.visible = true
 		_mp_status.text = "")
@@ -859,11 +862,26 @@ func _build_mp_screen() -> void:
 		_mp_lobby_box.visible = true
 		_mp_code_value.text = code
 		_mp_status.text = tr("MP_WAITING"))
-	_hub().join_failed.connect(func(reason):
-		_mp_status.text = tr("MP_ERR_" + reason.to_upper()) \
-				if tr("MP_ERR_" + reason.to_upper()) != "MP_ERR_" + reason.to_upper() \
-				else tr("MP_CONN_FAILED"))
+	_hub().join_failed.connect(func(reason): _mp_status.text = _mp_error_text(reason))
 	_hub().room_updated.connect(_on_mp_room_update)
+	# Napr. hostiteľ spustil hru s príliš veľkou rukou pre počet hráčov.
+	_hub().move_rejected.connect(func(reason):
+		if _mp_screen.visible:
+			_mp_status.text = _mp_error_text(str(reason)))
+	if room_client != null:
+		room_client.reconnecting.connect(func(_attempt):
+			_mp_status.text = tr("MP_RECONNECTING"))
+		room_client.reconnected.connect(func():
+			_mp_status.text = tr("MP_WAITING"))
+		room_client.reconnect_failed.connect(func(_reason):
+			_mp_status.text = tr("MP_RECONNECT_FAILED")
+			_mp_lobby_box.visible = false
+			_mp_join_box.visible = true)
+
+
+func _mp_error_text(reason: String) -> String:
+	var key := "MP_ERR_" + reason.to_upper()
+	return tr(key) if tr(key) != key else tr("MP_CONN_FAILED")
 
 
 ## Deep-link entry: open the lobby and join `code` as soon as we connect.
@@ -902,6 +920,10 @@ func _open_mp_screen() -> void:
 		_mp_join_box.visible = false
 		_mp_lobby_box.visible = true
 		_mp_code_value.text = room_client.room_code
+	else:
+		# Roomku sme medzičasom opustili — nezobrazuj staré lobby.
+		_mp_join_box.visible = true
+		_mp_lobby_box.visible = false
 
 
 func _on_mp_room_update(info: Dictionary) -> void:
@@ -912,10 +934,12 @@ func _on_mp_room_update(info: Dictionary) -> void:
 		var line := "%s%s" % [m.get("name", "?"),
 				"" if m.get("connected", true) else "  (offline)"]
 		_mp_members.add_child(UIKit.heading(line, 18, UIKit.CREAM))
-	# The first seat is the host — only they see the start button.
-	_mp_start.visible = room_client != null and not members.is_empty() \
-			and members[0].get("seat", "") == room_client.my_seat \
-			and not info.get("playing", false)
+	# Host = prvý PRIPOJENÝ člen (server ho posiela ako "host") — len on
+	# vidí štart; vypadnutý hostiteľ tak hru neblokuje.
+	var host: String = info.get("host",
+			members[0].get("seat", "") if not members.is_empty() else "")
+	_mp_start.visible = room_client != null and host != "" \
+			and host == room_client.my_seat and not info.get("playing", false)
 
 
 func _player_display_name() -> String:

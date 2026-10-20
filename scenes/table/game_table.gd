@@ -41,6 +41,7 @@ var _btn_interrupt_play: Button
 var _btn_interrupt_draw: Button
 var _btn_menu: Button
 var _btn_dev: Button
+var _offline_chip: PanelContainer
 var _suit_popup: PopupPanel
 var _rank_popup: PopupPanel
 var _fx: Control
@@ -76,6 +77,33 @@ func setup(game_server) -> void:
 	server.action_rejected.connect(_on_action_rejected)
 	if server.has_signal("selection_updated"):
 		server.selection_updated.connect(_on_selection_updated)
+	# Online: výpadok spojenia — RoomClient sa sám pripája späť, stôl to len
+	# ukazuje (a pri neúspechu ponúkne menu s cestou späť).
+	if server.has_signal("reconnecting"):
+		server.reconnecting.connect(_on_reconnecting)
+		server.reconnected.connect(_on_reconnected)
+		server.reconnect_failed.connect(_on_reconnect_failed)
+
+
+func _on_reconnecting(_attempt: int) -> void:
+	if _offline_chip != null:
+		_offline_chip.visible = true
+		_offline_chip.reset_size()
+		_offline_chip.position = Vector2(size.x / 2.0 - _offline_chip.size.x / 2.0,
+				UIKit.safe_rect(self).position.y + 16.0)
+
+
+func _on_reconnected() -> void:
+	if _offline_chip != null:
+		_offline_chip.visible = false
+	_toast(tr("MP_RECONNECTED"))
+
+
+func _on_reconnect_failed(_reason: String) -> void:
+	if _offline_chip != null:
+		_offline_chip.visible = false
+	_toast(tr("MP_RECONNECT_FAILED"))
+	_pause_layer.visible = true # cesta späť do menu
 
 
 ## The app root is replacing this table: stop listening before the node is
@@ -91,6 +119,11 @@ func detach() -> void:
 	if server.has_signal("selection_updated") \
 			and server.selection_updated.is_connected(_on_selection_updated):
 		server.selection_updated.disconnect(_on_selection_updated)
+	if server.has_signal("reconnecting") \
+			and server.reconnecting.is_connected(_on_reconnecting):
+		server.reconnecting.disconnect(_on_reconnecting)
+		server.reconnected.disconnect(_on_reconnected)
+		server.reconnect_failed.disconnect(_on_reconnect_failed)
 	_queue.clear()
 
 
@@ -218,6 +251,11 @@ func _build_center() -> void:
 	_pending_badge.visible = false
 	add_child(_pending_badge)
 	_pending_label = _pending_badge.get_child(0)
+
+	_offline_chip = UIKit.chip(tr("MP_RECONNECTING"), Color(UIKit.RED, 0.92), 18)
+	_offline_chip.visible = false
+	_offline_chip.z_index = 40
+	add_child(_offline_chip)
 
 
 func _build_hand_and_actions() -> void:
