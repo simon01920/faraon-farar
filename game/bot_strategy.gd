@@ -78,18 +78,23 @@ func choose(state: GameState, id: String) -> Dictionary:
 			for c in _cards_of_rank(me.hand, FaraonCard.Rank.R7):
 				if c != state.interrupt_card:
 					group.append(c)
-		return FaraonActions.play(group)
+		group = _finish_safe(state, me, group)
+		if group.is_empty():
+			return FaraonActions.draw() # D14: tou kartou sa dohrať nesmie
+		return _play_action(state, me, group)
 
 	# Forced answers first: an open eso chain allows only eso/pass (faraón
 	# with the house rule). Countering both clears our stop and passes it on
 	# — strictly better than standing at every difficulty.
 	if state.pending_aces > 0:
 		if state.variant.counter_allowed():
-			var esos := _cards_of_rank(me.hand, FaraonCard.Rank.ESO)
+			var esos := _finish_safe(state, me, _limit_group(state,
+					_cards_of_rank(me.hand, FaraonCard.Rank.ESO)))
 			if not esos.is_empty():
-				return FaraonActions.play(_limit_group(state, esos))
+				return FaraonActions.play(esos)
 			if state.variant.faraon_blocks_eso and me.hand.has("DE") \
-					and state.variant.faraon_is_wild():
+					and state.variant.faraon_is_wild() \
+					and not _finish_safe(state, me, ["DE"]).is_empty():
 				return FaraonActions.play(["DE"])
 		return FaraonActions.pass_turn()
 
@@ -101,22 +106,26 @@ func choose(state: GameState, id: String) -> Dictionary:
 		var matching: Array = me.hand.filter(func(c):
 			return not FaraonCard.is_reverse(c) \
 					and int(FaraonCard.rank_of(c)) == state.announced_rank)
+		matching = _finish_safe(state, me, _limit_group(state, matching))
 		if not matching.is_empty():
-			return FaraonActions.play(_limit_group(state, matching))
-		var trumps: Array = me.hand.filter(func(c):
-			return not FaraonCard.is_reverse(c) \
-					and FaraonCard.rank_of(c) == FaraonCard.Rank.DOLNIK \
-					and not FaraonCard.is_faraon(c))
-		if not trumps.is_empty():
-			return FaraonActions.play([trumps[0]], -1, _best_rank(me.hand, [trumps[0]]))
+			# Ohlásený horník/spodok sám vyžaduje hlásenie farby/znaku.
+			return _play_action(state, me, matching)
+		var trumps: Array = me.hand.filter(func(c): return _is_announcer(state, c))
+		for t in trumps:
+			if not _finish_safe(state, me, [t]).is_empty():
+				return _play_action(state, me, [t])
 		return FaraonActions.draw()
 
 	# Sole survivor: the červená sedma rescue is the only way not to lose on
 	# the spot — every difficulty takes it (the engine picks the victim).
 	if state.active_count() == 1 and me.hand.has("7C") \
 			and _has_returnable_target(state, me):
-		return FaraonActions.play(_limit_group(state,
-				_cards_of_rank(me.hand, FaraonCard.Rank.R7)))
+		# 7C ide prvá — pri hre po jednej karte (P6) by inak _limit_group
+		# vybral inú sedmu a návrat by sa nespustil.
+		var rescue := _finish_safe(state, me, _limit_group(state,
+				_red7_first(_cards_of_rank(me.hand, FaraonCard.Rank.R7))))
+		if not rescue.is_empty():
+			return FaraonActions.play(rescue)
 
 	return _choose_normal_play(state, me, w)
 
@@ -126,17 +135,33 @@ func choose(state: GameState, id: String) -> Dictionary:
 func _choose_sevens_defense(state: GameState, me: GameState.PlayerState,
 		w: Dictionary) -> Dictionary:
 	var candidates: Array = []
+	# Návrat červenou sedmou má v engine prednosť pred obranou — funguje aj
+	# na zapečatený či kráľov trest.
+	var can_return := me.hand.has("7C") and _has_returnable_target(state, me)
+	# D13: trest zapečatený červenou desiatkou sa nedá odraziť vôbec (ani
+	# faraónom); D12: na zeleného kráľa ide sedmou len 7E s prebíjacou
+	# variantou.
+	var sealed := state.pending_hard_penalty
+	var king_top := state.variant.green_king_active() and state.top_card() == "KE"
 	var sevens := _cards_of_rank(me.hand, FaraonCard.Rank.R7)
+	if can_return:
+		sevens = _red7_first(sevens)
+	elif sealed:
+		sevens = []
+	elif king_top:
+		sevens = ["7E"] if sevens.has("7E") \
+				and state.variant.green_king_counter_active() else []
+	sevens = _finish_safe(state, me, _limit_group(state, sevens))
 	if not sevens.is_empty():
 		# Passing the grown penalty on is nearly always right.
-		sevens = _limit_group(state, sevens)
 		candidates.append({"action": FaraonActions.play(sevens),
 				"score": 3.0 + w.size * sevens.size()
 						+ _block_bonus(state, me, FaraonCard.Rank.R7, w)})
-	if me.hand.has("DE") and state.variant.faraon_is_wild():
+	if me.hand.has("DE") and state.variant.faraon_is_wild() and not sealed:
 		# Killing the chain saves us the draw but burns the wild.
-		candidates.append({"action": FaraonActions.play(["DE"]),
-				"score": state.pending_sevens_draw * 0.4 - w.save * 1.0})
+		if not _finish_safe(state, me, ["DE"]).is_empty():
+			candidates.append({"action": FaraonActions.play(["DE"]),
+					"score": state.pending_sevens_draw * 0.4 - w.save * 1.0})
 		# Faraón smie viesť celú skupinu dolníkov — zruší trest a zhodí viac
 		# kariet naraz. EASY na to neprichádza, konzistentne s profilom.
 		var unters := _cards_of_rank(me.hand, FaraonCard.Rank.DOLNIK)
@@ -146,12 +171,11 @@ func _choose_sevens_defense(state: GameState, me: GameState.PlayerState,
 			for c in unters:
 				if c != "DE":
 					group.append(c)
-			var rank_decl := -1
-			if state.variant.unter_announcer_active():
-				rank_decl = _best_rank(me.hand, group)
-			candidates.append({"action": FaraonActions.play(group, -1, rank_decl),
-					"score": state.pending_sevens_draw * 0.4 - w.save * 1.0
-							+ w.size * float(group.size() - 1)})
+			group = _finish_safe(state, me, group)
+			if group.size() > 1:
+				candidates.append({"action": _play_action(state, me, group),
+						"score": state.pending_sevens_draw * 0.4 - w.save * 1.0
+								+ w.size * float(group.size() - 1)})
 	candidates.append({"action": FaraonActions.draw(),
 			"score": -0.2 * state.pending_sevens_draw})
 	return _pick(candidates, w)
@@ -187,12 +211,14 @@ func _choose_normal_play(state: GameState, me: GameState.PlayerState,
 		for c in me.hand:
 			# P5: voľný horník nie je voľný, keď je na vrchu eso/sedma.
 			if FaraonCard.is_hornik(c) and _opener_legal(state, c) \
-					and not _has_group_of(candidates, c):
+					and not _has_group_of(candidates, c) \
+					and not _finish_safe(state, me, [c]).is_empty():
 				candidates.append({"action": FaraonActions.play([c], _best_suit(me.hand, [c])),
 						"score": w.size - w.save * 0.8 + _noise(w)})
 				break
 	if me.hand.has("DE") and state.variant.faraon_is_wild() \
-			and not _has_group_of(candidates, "DE"):
+			and not _has_group_of(candidates, "DE") \
+			and not _finish_safe(state, me, ["DE"]).is_empty():
 		candidates.append({"action": FaraonActions.play(["DE"]),
 				"score": w.size - w.save * 1.0 + _noise(w)})
 
@@ -201,6 +227,9 @@ func _choose_normal_play(state: GameState, me: GameState.PlayerState,
 
 func _add_play_candidate(candidates: Array, state: GameState,
 		me: GameState.PlayerState, ordered: Array, w: Dictionary) -> void:
+	ordered = _finish_safe(state, me, ordered)
+	if ordered.is_empty():
+		return # D14: celá skupina by dohrala zakázanou kartou
 	var r := FaraonCard.rank_of(ordered[0])
 	var score: float = w.size * float(ordered.size())
 	score += _special_save_penalty(ordered, w)
@@ -219,10 +248,7 @@ func _add_play_candidate(candidates: Array, state: GameState,
 	if FaraonCard.is_hornik(last):
 		declared = _best_suit(me.hand, ordered)
 	var declared_rank := -1
-	if state.variant.unter_announcer_active() \
-			and not FaraonCard.is_reverse(last) \
-			and FaraonCard.rank_of(last) == FaraonCard.Rank.DOLNIK \
-			and not FaraonCard.is_faraon(last):
+	if _is_announcer(state, last):
 		declared_rank = _best_rank(me.hand, ordered)
 	candidates.append({"action": FaraonActions.play(ordered, declared, declared_rank),
 			"score": score + _noise(w)})
@@ -300,6 +326,58 @@ func _limit_group(state: GameState, group: Array) -> Array:
 	return [group[0]]
 
 
+## D11: hlási spodok-menič ZNAK? Rovnaký test ako engine (_is_announcer):
+## zelený dolník je výnimkou len vtedy, keď je naozaj faraónom (žolíkom).
+func _is_announcer(state: GameState, card: String) -> bool:
+	return state.variant.unter_announcer_active() \
+			and not FaraonCard.is_reverse(card) \
+			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
+			and not (FaraonCard.is_faraon(card) and state.variant.faraon_is_wild())
+
+
+## Play action with the declarations the LAST card requires (horník → suit,
+## D11 spodok-menič → rank) — the engine rejects the move without them.
+func _play_action(state: GameState, me: GameState.PlayerState,
+		cards: Array) -> Dictionary:
+	var last: String = cards.back()
+	var declared := _best_suit(me.hand, cards) if FaraonCard.is_hornik(last) else -1
+	var declared_rank := _best_rank(me.hand, cards) if _is_announcer(state, last) else -1
+	return FaraonActions.play(cards, declared, declared_rank)
+
+
+## D14: smie `card` byť poslednou kartou, ktorou sa hráč dohrá?
+func _finish_allowed(state: GameState, card: String) -> bool:
+	match state.variant.finish_rule:
+		"no_seven":
+			return FaraonCard.rank_of(card) != FaraonCard.Rank.R7
+		"hornik_only":
+			return FaraonCard.rank_of(card) == FaraonCard.Rank.HORNIK
+	return true
+
+
+## D14: ťah, ktorý by vyprázdnil ruku zakázanou poslednou kartou, engine
+## odmietne. Skupina rovnakého znaku sa preusporiadaním nezachráni, preto
+## posledná karta ostane v ruke; jediná zakázaná karta = žiadny ťah ([]).
+func _finish_safe(state: GameState, me: GameState.PlayerState,
+		group: Array) -> Array:
+	if group.is_empty() or group.size() < me.hand.size() \
+			or _finish_allowed(state, group.back()):
+		return group
+	return group.slice(0, group.size() - 1)
+
+
+## 7C na začiatok skupiny sediem — pri P6 (po jednej karte) ju tak
+## _limit_group nevyhodí a návrat sa naozaj spustí.
+func _red7_first(cards: Array) -> Array:
+	if not cards.has("7C"):
+		return cards
+	var out: Array = ["7C"]
+	for c in cards:
+		if c != "7C":
+			out.append(c)
+	return out
+
+
 func _cards_of_rank(hand: Array, rank: int) -> Array:
 	var out: Array = []
 	for c in hand:
@@ -322,9 +400,7 @@ func _opener_legal(state: GameState, card: String) -> bool:
 	var top := state.top_card()
 	if FaraonCard.is_reverse(card) or FaraonCard.is_reverse(top):
 		return true # D7: Tanečnica padne na čokoľvek a čokoľvek na ňu
-	if state.variant.unter_announcer_active() and not FaraonCard.is_reverse(card) \
-			and FaraonCard.rank_of(card) == FaraonCard.Rank.DOLNIK \
-			and not FaraonCard.is_faraon(card):
+	if _is_announcer(state, card):
 		return true # D11: spodok-menič sa odhadzuje voľne
 	if state.variant.faraon_is_wild() \
 			and (FaraonCard.is_faraon(card) or FaraonCard.is_faraon(top)):
@@ -404,7 +480,8 @@ func _best_rank(hand: Array, played: Array) -> int:
 func _best_suit(hand: Array, played: Array) -> int:
 	var counts := [0, 0, 0, 0]
 	for c in hand:
-		if not played.has(c):
+		# Tanečnica nemá farbu (suit_of = -1 by sa zarátal ako guľa).
+		if not played.has(c) and not FaraonCard.is_reverse(c):
 			counts[FaraonCard.suit_of(c)] += 1
 	var best := 0
 	for s in 4:

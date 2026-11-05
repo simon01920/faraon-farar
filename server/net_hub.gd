@@ -16,13 +16,25 @@ signal game_events(events: Array, view: Dictionary)
 signal move_rejected(reason: String)
 ## Kozmetický „živý stôl": súper na seate si označil count kariet.
 signal selection_changed(seat: String, count: int)
+## This client closed its connection on purpose (disconnect_client) — not a
+## loss, so nothing should try to reconnect.
+signal client_disconnected
 
 const TICK_INTERVAL := 5.0
 
 var manager: RoomManager
 var is_server := false
 var is_connected_client := false
+## Last URL handed to connect_to_server — RoomClient reconnects to it.
+var server_url := ""
 var _tick_accum := 0.0
+
+
+func _ready() -> void:
+	# Autoload runs in every build, single-player included: no per-frame
+	# work until this process actually hosts rooms (the server tick is the
+	# only thing _process does). The client side is purely signal-driven.
+	set_process(false)
 
 
 func start_server(port: int = NetProtocol.DEFAULT_PORT) -> Error:
@@ -36,12 +48,20 @@ func start_server(port: int = NetProtocol.DEFAULT_PORT) -> Error:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	manager = RoomManager.new()
 	is_server = true
+	set_process(true)
 	print("Faraón server listening on port ", port)
 	return OK
 
 
+## Starts (or keeps) a client connection. A second call while the previous
+## attempt is still handshaking reuses it instead of opening another socket.
 func connect_to_server(url: String) -> Error:
+	if is_server:
+		return ERR_ALREADY_IN_USE
+	server_url = url
 	if is_connected_client:
+		return OK
+	if is_connecting():
 		return OK
 	var peer := WebSocketMultiplayerPeer.new()
 	var err := peer.create_client(url)
@@ -56,11 +76,25 @@ func connect_to_server(url: String) -> Error:
 	return OK
 
 
+## Closes the client connection on purpose (leaving the online screens, going
+## offline): the socket stops being polled and kept alive, and listeners get
+## `client_disconnected` instead of `connection_failed_or_lost`.
 func disconnect_client() -> void:
-	if multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer.close()
-	multiplayer.multiplayer_peer = null
+	if is_server:
+		return
+	var current := multiplayer.multiplayer_peer
+	if current != null and not (current is OfflineMultiplayerPeer):
+		current.close()
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	is_connected_client = false
+	client_disconnected.emit()
+
+
+## True while a connection attempt is handshaking (not yet connected).
+func is_connecting() -> bool:
+	var current := multiplayer.multiplayer_peer
+	return current is WebSocketMultiplayerPeer and not is_server \
+			and current.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTING
 
 
 func _on_connected() -> void:
@@ -89,7 +123,8 @@ func _process(delta: float) -> void:
 		_flush()
 
 
-## Sends every message the rooms queued up.
+## Sends every message the touched rooms queued up (RoomManager tracks which
+## rooms have output, so this does not walk every room on each RPC).
 func _flush() -> void:
 	for msg in manager.drain_outbox():
 		match msg.args.size():

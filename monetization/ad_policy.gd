@@ -37,12 +37,22 @@ static func sanitize(state: Variant) -> Dictionary:
 
 ## Has the current window elapsed relative to `now`? A never-started window
 ## (window_start == -1) is treated as elapsed so the first game opens one.
+## A clock that is now BEFORE the window start (NTP correction, manual time
+## change) does not count as elapsed — see _reanchor.
 static func window_elapsed(state: Dictionary, now: int) -> bool:
 	var start: int = int(state.get("window_start", -1))
 	if start < 0:
 		return true
-	# A clock that jumped backwards (device time change) also starts fresh.
-	return now < start or now - start >= WINDOW_SECONDS
+	return now >= start and now - start >= WINDOW_SECONDS
+
+
+## Hodiny idúce dozadu (NTP korekcia o sekundu, ručná zmena času) nesmú
+## vynulovať počítadlo — inak by sa reklamy dali obísť posunutím času. Okno
+## sa len ukotví na „teraz", odohrané hry v ňom ostávajú.
+static func _reanchor(s: Dictionary, now: int) -> Dictionary:
+	if int(s["window_start"]) > now:
+		s["window_start"] = now
+	return s
 
 
 ## Would the n-th completed game of a window be shown an interstitial?
@@ -56,7 +66,7 @@ static func game_shows_ad(game_index: int) -> bool:
 ## where `ad_due` means "this game earns an interstitial" per the frequency
 ## rule alone (premium / offline handling lives in the controller, not here).
 static func register_completed_game(state: Dictionary, now: int) -> Dictionary:
-	var s := sanitize(state)
+	var s := _reanchor(sanitize(state), now)
 	if window_elapsed(s, now):
 		s = {"window_start": now, "games_in_window": 0}
 	s["games_in_window"] = int(s["games_in_window"]) + 1
@@ -66,7 +76,7 @@ static func register_completed_game(state: Dictionary, now: int) -> Dictionary:
 ## Resets the window if it has elapsed — call on app open so a returning player
 ## who was away >= 6h gets three fresh clean games. Never counts a game itself.
 static func on_app_open(state: Dictionary, now: int) -> Dictionary:
-	var s := sanitize(state)
+	var s := _reanchor(sanitize(state), now)
 	if window_elapsed(s, now):
 		return fresh_state()
 	return s

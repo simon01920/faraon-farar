@@ -55,8 +55,14 @@ func start(player_ids: Array, variant: RulesVariant, seed_value: int,
 	var events: Array = []
 	var dealt := {}
 	var max_size := 0
+	# Deal cap: the deal must always leave the start card plus at least one
+	# card in the draw pile (the bottom card the start rules inspect). Without
+	# it 5 players x 7 cards (or a host-supplied size) overdraws the 32-card
+	# deck and start() aborts half-way with an empty discard pile.
+	var cap: int = (state.draw_pile.size() - 2) / state.players.size()
 	for p in state.players:
-		dealt[p.id] = hand_sizes.get(p.id, variant.initial_hand_size)
+		dealt[p.id] = clampi(int(hand_sizes.get(p.id, variant.initial_hand_size)),
+				0, cap)
 		max_size = maxi(max_size, dealt[p.id])
 	for _i in max_size:
 		for p in state.players:
@@ -92,7 +98,8 @@ func _apply_start_card_effects(card: String, events: Array) -> void:
 		var suit := -1
 		var source := bottom
 		for c in state.draw_pile: # index 0 = bottom, scan upwards
-			if not FaraonCard.is_hornik(c):
+			# Tanečnica (D7a) nemá farbu — preskakuje sa rovnako ako horník.
+			if not FaraonCard.is_hornik(c) and not FaraonCard.is_reverse(c):
 				suit = FaraonCard.suit_of(c)
 				source = c
 				break
@@ -158,11 +165,18 @@ func _apply_play(idx: int, action: Dictionary) -> Dictionary:
 	if state.penalty_interrupt:
 		if cards[0] != state.interrupt_card:
 			return _fail("interrupt_card_or_draw")
+		# Zamietnutý ťah nesmie nič zmeniť — hlásenia sa overia PRED zrušením
+		# pauzy a trestu.
+		var decl_err := _declaration_error(cards, declared,
+				action.get("declared_rank", -1))
+		if decl_err != "":
+			return _fail(decl_err)
 		state.penalty_interrupt = false
 		state.interrupt_card = ""
 		# Zvyšok VLASTNÉHO trestu padá v oboch prípadoch: faraón ho ruší,
 		# sedma ho posúva ďalej (nový trest pripočíta _place_and_resolve).
 		state.pending_sevens_draw = 0
+		state.pending_hard_penalty = false
 		return _place_and_resolve(idx, cards, declared, false,
 				action.get("declared_rank", -1))
 
@@ -210,6 +224,20 @@ func _contains_faraon(cards: Array) -> bool:
 		if FaraonCard.is_faraon(c):
 			return true
 	return false
+
+
+## Hlásenia, ktoré vyžaduje POSLEDNÁ karta ťahu: horník → farba, D11
+## spodok-menič → znak. Vetvy, ktoré pred položením menia stav (rušia trest,
+## eso-reťaz či pauzu), to musia overiť VOPRED — zamietnutý ťah nesmie nič
+## zmeniť (inak by chýbajúce hlásenie zrušilo trest bez položenia kariet).
+func _declaration_error(cards: Array, declared: int, declared_rank: int) -> String:
+	var last: String = cards.back()
+	if FaraonCard.is_hornik(last) and (declared < 0 or declared > 3):
+		return "declared_suit_required"
+	if state.variant.unter_announcer_active() and _is_announcer(last) \
+			and (declared_rank < 0 or declared_rank > 7):
+		return "declared_rank_required"
+	return ""
 
 
 ## D11: spodky-meniče sú dolníky OKREM zeleného (ten ostáva faraónom).
@@ -272,6 +300,9 @@ func _apply_eso_counter(idx: int, cards: Array, declared: int = -1,
 			and _contains_faraon(cards):
 		if not FaraonCard.is_faraon(cards[0]):
 			return _fail("faraon_must_be_first")
+		var decl_err := _declaration_error(cards, declared, declared_rank)
+		if decl_err != "":
+			return _fail(decl_err) # pred zrušením reťaze — nič sa nezmení
 		state.pending_aces = 0
 		return _place_and_resolve(idx, cards, declared, false, declared_rank)
 	# D1: návrat červenou sedmou položený priamo na aktívnu stopku — hráčov
@@ -308,7 +339,11 @@ func _apply_sevens_defense(idx: int, cards: Array, declared: int,
 	if state.variant.faraon_is_wild() and _contains_faraon(cards):
 		if not FaraonCard.is_faraon(cards[0]):
 			return _fail("faraon_must_be_first")
+		var decl_err := _declaration_error(cards, declared, declared_rank)
+		if decl_err != "":
+			return _fail(decl_err) # pred zrušením trestu — nič sa nezmení
 		state.pending_sevens_draw = 0 # faraón ruší celú sedmičkovú reťaz
+		state.pending_hard_penalty = false
 		return _place_and_resolve(idx, cards, declared, false, declared_rank)
 	# D13: červená desiatka ako obrana na červenú sedmu — trest sa zapečatí.
 	if state.variant.red_ten_active() and cards.size() == 1 and cards[0] == "XC" \
@@ -350,6 +385,9 @@ func _apply_red_seven_return(idx: int, cards: Array, victim_idx: int) -> Diction
 	# SPOLU s červenou v tomto ťahu áno — 7C + ďalšia sedma = 2 × krok (6).
 	var total: int = state.variant.seven_penalty_step * cards.size()
 	state.pending_sevens_draw = 0
+	# Spotrebovaný trest nesmie nechať visieť pečať D13 — inak by sa ďalšia,
+	# úplne nová sedmičková reťaz nedala odraziť.
+	state.pending_hard_penalty = false
 	victim.status = Status.ACTIVE
 	victim.finished_at = -1
 	victim.finished_at_handover = -1
@@ -399,13 +437,12 @@ func _place_and_resolve(idx: int, cards: Array, declared: int,
 		is_eso_counter: bool = false, declared_rank: int = -1) -> Dictionary:
 	var player := state.players[idx]
 	var last: String = cards.back()
+	var decl_err := _declaration_error(cards, declared, declared_rank)
+	if decl_err != "":
+		return _fail(decl_err)
 	var needs_declaration := FaraonCard.is_hornik(last)
-	if needs_declaration and (declared < 0 or declared > 3):
-		return _fail("declared_suit_required")
 	# D11: spodok-menič vyžaduje ohlásenie hodnoty (znaku).
 	var needs_rank := state.variant.unter_announcer_active() and _is_announcer(last)
-	if needs_rank and (declared_rank < 0 or declared_rank > 7):
-		return _fail("declared_rank_required")
 
 	for c in cards:
 		player.hand.erase(c)
@@ -548,7 +585,9 @@ func _apply_draw(idx: int) -> Dictionary:
 			state.pending_sevens_draw -= 1
 			var got: String = player.hand.back()
 			var offer := false
-			if state.pending_sevens_draw > 0:
+			# Zapečatený trest (D13) sa už nedá odraziť — ani vytiahnutou
+			# kartou, preto sa pauza pri pečati neponúka.
+			if state.pending_sevens_draw > 0 and not state.pending_hard_penalty:
 				if state.variant.faraon_interrupt and FaraonCard.is_faraon(got) \
 						and state.variant.faraon_is_wild():
 					offer = true
@@ -563,6 +602,10 @@ func _apply_draw(idx: int) -> Dictionary:
 						"card": got, "remaining": state.pending_sevens_draw})
 				# Ťah ostáva hráčovi, kým sa nerozhodne.
 				return {"ok": true, "error": "", "events": events}
+		# PREDPOKLAD (Simon to môže prehodnotiť): keď balík aj odhadzovacia
+		# kôpka vyschnú uprostred trestu (break vyššie), zvyšok trestu
+		# ťahajúceho PREPADÁ — nikdy neprechádza na ďalšieho hráča.
+		state.pending_sevens_draw = 0
 		state.pending_hard_penalty = false # D13: zapečatený trest je vybavený
 		events.append({"type": "DREW", "player": player.id, "count": drawn,
 				"penalty": true})

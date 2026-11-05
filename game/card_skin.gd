@@ -75,18 +75,35 @@ static func all() -> Array[CardSkin]:
 static func selectable() -> Array[CardSkin]:
 	var out: Array[CardSkin] = []
 	for s in all():
-		if not s.hidden or GameSettings.dev_skins_enabled():
+		if (not s.hidden or GameSettings.dev_skins_enabled()) and s.is_available():
 			out.append(s)
 	return out
 
 
+## Are the deck's faces actually packed in this build? Release exports leave
+## the dev-only preview deck out (export_presets exclude_filter) to keep the
+## download small; a stale pick of it must fall back, not show blank cards.
+func is_available() -> bool:
+	return ResourceLoader.exists(texture_path("AZ"))
+
+
 static func by_id(skin_id: String) -> CardSkin:
 	for s in all():
-		if s.id == skin_id:
+		if s.id == skin_id and s.is_available():
 			return s
 	return all()[0]
 
 
+## Last resolved active skin — every CardVisual asks for it, so the registry
+## isn't rebuilt per card; a new pick in the UI is noticed by its id.
+static var _active: CardSkin
+static var _active_pick := ""
+
+
 ## The skin every card texture is resolved through (player's persisted pick).
 static func active() -> CardSkin:
-	return by_id(GameSettings.get_card_skin())
+	var skin_id := GameSettings.get_card_skin()
+	if _active == null or _active_pick != skin_id:
+		_active = by_id(skin_id)
+		_active_pick = skin_id
+	return _active

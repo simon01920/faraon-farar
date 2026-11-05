@@ -208,6 +208,16 @@ func view_for(viewer_id: String) -> Dictionary:
 	var d := to_dict()
 	d["draw_pile_count"] = draw_pile.size()
 	d.erase("draw_pile")
+	# The seed would let a client replay FaraonDeck.shuffled() (and every
+	# reflip, whose other inputs are public) and see every hand and the whole
+	# draw pile. Only the server-side engine needs it.
+	d.erase("rng_seed")
+	# The paused penalty card was drawn face-down into the current player's
+	# hand — only that player may see which card it is.
+	var owner_id := players[current_index].id \
+			if current_index >= 0 and current_index < players.size() else ""
+	if viewer_id != owner_id:
+		d["interrupt_card"] = ""
 	for pd in d["players"]:
 		pd["hand_count"] = pd["hand"].size()
 		if pd["id"] != viewer_id:

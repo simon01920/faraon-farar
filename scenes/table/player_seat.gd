@@ -21,7 +21,12 @@ var _badge: PanelContainer
 var _badge_label: Label
 var _finished := false
 var _pulse: Tween
+var _active := false
 var _shown_count := 0
+## The fan's card backs, built once and re-posed by set_count — the table
+## refreshes every seat after each move and per dealt card, and rebuilding
+## eight card nodes per seat each time was pure churn.
+var _fan_cards: Array[CardVisual] = []
 ## Koľko rubov z vejára je „nadvihnutých" — súper si práve pripravuje toľko
 ## kariet na položenie (hodnoty ostávajú skryté, ide len o počet).
 var _selected_shown := 0
@@ -41,6 +46,14 @@ func _ready() -> void:
 	_fan.position = Vector2(90, 40)
 	_fan.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fan)
+	if not is_human:
+		for i in MAX_FAN:
+			var cv := CardVisual.new("", FAN_W)
+			cv.pivot_offset = Vector2(FAN_W / 2.0, FAN_W * 1.5)
+			cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cv.visible = false
+			_fan.add_child(cv)
+			_fan_cards.append(cv)
 
 	_avatar = PanelContainer.new()
 	_avatar_style = UIKit.panel_style(seat_color, 27, Color.TRANSPARENT, 0)
@@ -71,35 +84,32 @@ func _ready() -> void:
 	set_count(_shown_count)
 
 
-## Rebuilds the mini fan of card backs and the count badge.
+## Re-poses the mini fan of card backs and updates the count badge.
 func set_count(n: int) -> void:
 	_shown_count = max(n, 0)
 	if not is_node_ready():
 		return
-	for c in _fan.get_children():
-		c.queue_free()
 	_badge_label.text = str(_shown_count)
 	_badge.visible = not _finished
-	if is_human or _finished:
-		return
-	var shown := mini(_shown_count, MAX_FAN)
+	var shown := 0 if is_human or _finished else mini(_shown_count, MAX_FAN)
 	var raised := mini(_selected_shown, shown)
-	for i in shown:
-		var cv := CardVisual.new("", FAN_W)
+	for i in _fan_cards.size():
+		var cv := _fan_cards[i]
+		cv.visible = i < shown
+		if i >= shown:
+			continue
 		var off := i - (shown - 1) / 2.0
 		cv.rotation = off * 0.16
 		cv.position = Vector2(off * 14.0 - FAN_W / 2.0,
 				-40.0 + absf(off) * 2.5)
-		cv.pivot_offset = Vector2(FAN_W / 2.0, FAN_W * 1.5)
-		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if i >= shown - raised:
-			# Vybraný rub sa vysunie z vejára von (po vlastnej osi karty,
-			# t. j. smerom k stredu stola z pohľadu diváka) + zlatá žiara.
-			# Hodnota karty ostáva skrytá — hýbe sa len rub.
+		# Vybraný rub sa vysunie z vejára von (po vlastnej osi karty,
+		# t. j. smerom k stredu stola z pohľadu diváka) + zlatá žiara.
+		# Hodnota karty ostáva skrytá — hýbe sa len rub.
+		var lifted := i >= shown - raised
+		if lifted:
 			cv.position += Vector2(0, -12).rotated(cv.rotation)
-			cv.set_glow(true)
-			cv.z_index = 1
-		_fan.add_child(cv)
+		cv.set_glow(lifted)
+		cv.z_index = 1 if lifted else 0
 
 
 ## Živý stôl: súper si práve označil `n` kariet na položenie — príslušný
@@ -109,6 +119,18 @@ func set_selected_count(n: int) -> void:
 		return
 	_selected_shown = maxi(n, 0)
 	set_count(_shown_count)
+
+
+## Narrow name plate for tight spots (the local player's seat beside the
+## action row in portrait): it shrinks to the avatar's column and long names
+## end in an ellipsis instead of running off the screen edge.
+func set_compact(on: bool) -> void:
+	if not is_node_ready():
+		await ready
+	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if on \
+			else TextServer.OVERRUN_NO_TRIMMING
+	_name_label.offset_left = 45.0 if on else 0.0
+	_name_label.offset_right = -45.0 if on else 0.0
 
 
 func set_finished(finished: bool, place: int = 0) -> void:
@@ -123,6 +145,11 @@ func set_finished(finished: bool, place: int = 0) -> void:
 
 
 func set_active(active: bool) -> void:
+	# The table re-applies this to every seat after each move; restarting an
+	# unchanged pulse made the active avatar visibly snap back to scale 1.
+	if active == _active:
+		return
+	_active = active
 	if _pulse != null:
 		_pulse.kill()
 		_pulse = null

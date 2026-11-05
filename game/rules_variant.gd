@@ -251,6 +251,9 @@ static func from_dict(d: Dictionary) -> RulesVariant:
 	v.kind = d.get("kind", Kind.CLASSIC) as Kind
 	for k in RULE_KEYS + VALUE_KEYS:
 		v.set(k, d.get(k, DEFAULTS.get(k)))
+	# D2 slider range (4–7). The dict may come from a multiplayer host, so an
+	# out-of-range size must never reach the deal.
+	v.initial_hand_size = clampi(int(v.initial_hand_size), 4, 7)
 	return v
 
 

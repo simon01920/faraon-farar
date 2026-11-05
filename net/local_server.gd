@@ -26,6 +26,11 @@ var _bot := BotStrategy.new()
 var _bot_ids: Array[String] = []
 var _variant: RulesVariant
 var _round_settled := false
+## Round generation: every _start_round bumps it and bot timers carry the
+## value they were scheduled under. A timer (or a bot coroutine paused on its
+## selection preview) left over from a previous game/round therefore never
+## acts in the new one — otherwise a restart could make a bot move twice.
+var _round_gen := 0
 
 
 func start_game(bot_count: int, variant: RulesVariant = null,
@@ -45,9 +50,13 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 	# (Ľahká 100 % hráč, Stredná 55 %, Ťažká rovnaké šance pre všetkých).
 	var start_index := _first_starter_index(ids.size(), bot_difficulty)
 	_variant.end_on_first_finish = mode != FaraonMatch.Mode.NORMAL
+	# Olympijské prídely vychádzajú z D2 veľkosti ruky — prvé sub-kolo
+	# rozdáva presne tie isté prídely ako rozstrely a ďalšie kolá.
 	match_state = null if mode == FaraonMatch.Mode.NORMAL \
-			else FaraonMatch.new(mode, ids, ids[start_index])
-	_start_round(ids, {}, seed_value, start_index)
+			else FaraonMatch.new(mode, ids, ids[start_index],
+					_variant.initial_hand_size)
+	var sizes: Dictionary = {} if match_state == null else match_state.hand_sizes()
+	_start_round(ids, sizes, seed_value, start_index)
 
 
 func _first_starter_index(player_count: int, difficulty: int) -> int:
@@ -77,6 +86,7 @@ func _start_round(ids: Array, hand_sizes: Dictionary, seed_value: int = 0,
 		seed_value = randi()
 	fast_forward = false
 	_round_settled = false
+	_round_gen += 1
 	var events := rules.start(ids, _variant, seed_value, hand_sizes, start_index)
 	state_updated.emit(events)
 	_schedule_bot()
@@ -145,10 +155,12 @@ func _schedule_bot() -> void:
 	if cur.id in _bot_ids:
 		var delay := 0.1 if fast_forward else bot_delay
 		get_tree().create_timer(delay).timeout.connect(
-				_bot_move.bind(cur.id), CONNECT_ONE_SHOT)
+				_bot_move.bind(cur.id, _round_gen), CONNECT_ONE_SHOT)
 
 
-func _bot_move(bot_id: String) -> void:
+func _bot_move(bot_id: String, gen: int) -> void:
+	if gen != _round_gen:
+		return # timer from a previous game/round
 	if rules.state == null or rules.state.phase != GameState.Phase.PLAYING:
 		return
 	# The turn may have shifted while the timer ran (e.g. new game started).
@@ -164,7 +176,8 @@ func _bot_move(bot_id: String) -> void:
 		await get_tree().create_timer(0.12 if fast_forward else 0.55).timeout
 		selection_updated.emit(bot_id, 0)
 		# Svet sa mohol počas pauzy zmeniť (reštart, nové kolo, výmena ťahu).
-		if rules.state == null or rules.state.phase != GameState.Phase.PLAYING \
+		if gen != _round_gen or rules.state == null \
+				or rules.state.phase != GameState.Phase.PLAYING \
 				or rules.state.players[rules.state.current_index].id != bot_id:
 			return
 	var res := propose(bot_id, action)

@@ -15,6 +15,10 @@ func update(state: GameState) -> void:
 	for i in seen_by_rank.size():
 		seen_by_rank[i] = 0
 	for c in state.discard_pile:
+		# Tanečnica has no rank: rank_of() is -1, which would silently wrap
+		# to the last slot and count her as an eso.
+		if FaraonCard.is_reverse(c):
+			continue
 		seen_by_rank[FaraonCard.rank_of(c)] += 1
 
 

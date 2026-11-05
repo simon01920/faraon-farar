@@ -16,9 +16,7 @@ const SCHEMA_VERSION := 1
 
 
 static func _load() -> ConfigFile:
-	var cfg := ConfigFile.new()
-	cfg.load(PATH) # missing file is fine — free, fresh counter
-	return cfg
+	return ConfigCache.get_file(PATH) # missing file is fine — free, fresh counter
 
 
 static func _save(cfg: ConfigFile) -> void:
