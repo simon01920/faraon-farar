@@ -84,6 +84,8 @@ def main():
     ap.add_argument("--fg")
     ap.add_argument("--bg", help="optional background layer without the motif (Android adaptive)")
     ap.add_argument("--out", default="assets/icon")
+    ap.add_argument("--fg-frac", type=float, default=SAFE * 0.98,
+                    help="foreground size as a fraction of the 108 dp layer (0.667 = whole visible viewport)")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -105,7 +107,7 @@ def main():
         s = max(fg_src.size)
         padded = Image.new("RGBA", (s, s), (0, 0, 0, 0))
         padded.paste(fg_src, ((s - fg_src.size[0]) // 2, (s - fg_src.size[1]) // 2))
-        fg = fit_center(padded, ADAPTIVE, SAFE * 0.98)
+        fg = fit_center(padded, ADAPTIVE, a.fg_frac)
         if a.bg:
             bg = opaque(square(Image.open(a.bg))).resize((ADAPTIVE, ADAPTIVE), Image.LANCZOS)
         else:
