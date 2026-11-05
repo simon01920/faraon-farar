@@ -6,6 +6,7 @@ Usage:
 
 MASTER      square, full-bleed artwork (no transparency); important content
             must sit inside the central ~66 % (Android adaptive safe zone).
+--bg        optional background layer (no motif) for the Android adaptive icon.
 --fg        optional transparent cut-out of the main motif (same framing as
             MASTER). Used as the Android adaptive foreground + monochrome icon.
 
@@ -81,6 +82,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("master")
     ap.add_argument("--fg")
+    ap.add_argument("--bg", help="optional background layer without the motif (Android adaptive)")
     ap.add_argument("--out", default="assets/icon")
     a = ap.parse_args()
     out = Path(a.out)
@@ -104,8 +106,11 @@ def main():
         padded = Image.new("RGBA", (s, s), (0, 0, 0, 0))
         padded.paste(fg_src, ((s - fg_src.size[0]) // 2, (s - fg_src.size[1]) // 2))
         fg = fit_center(padded, ADAPTIVE, SAFE * 0.98)
-        # Background = the master artwork blurred, so the colours match.
-        bg = master.resize((ADAPTIVE, ADAPTIVE), Image.LANCZOS).filter(ImageFilter.GaussianBlur(18))
+        if a.bg:
+            bg = opaque(square(Image.open(a.bg))).resize((ADAPTIVE, ADAPTIVE), Image.LANCZOS)
+        else:
+            # Fallback: the master artwork blurred, so the colours match.
+            bg = master.resize((ADAPTIVE, ADAPTIVE), Image.LANCZOS).filter(ImageFilter.GaussianBlur(18))
         # Monochrome: white silhouette, system tints it.
         alpha = fg.getchannel("A")
         mono = Image.new("RGBA", fg.size, (255, 255, 255, 0))
