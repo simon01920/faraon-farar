@@ -63,7 +63,25 @@ Repo: <https://github.com/simon01920/faraon-farar>
 
 # Android APK
 <godot> --headless --path . --export-debug "Android" build/faraon.apk
+
+# Windows: PC verzia a telefónny formát (pevné okno na výšku, feature tag "phone")
+<godot> --headless --path . --export-release "Windows Desktop" build/Faraon-0.1-beta-PC.exe
+<godot> --headless --path . --export-release "Windows Phone (portrait)" build/Faraon-0.1-beta-Phone.exe
+# Telefónny režim bez exportu (editor / probe): <godot> --path . -- --phone
+
+# Celé hry cez skutočný stôl (všetky módy + tutoriál), exit 0/1
+<godot> --path . -s res://tools/autoplay_probe.gd [-- --phone]
 ```
+
+### Release na GitHube (`.github/workflows/release.yml`)
+- Spustí ho commit s riadkom **`Release-Tag: vX.Y.Z`** v správe (alebo push
+  tagu `v*`, alebo ručne v Actions). Tag s pomlčkou (`-beta`) = pre-release.
+- Kroky: GUT testy → export oboch Windows .exe → spustenie na reálnom
+  Windows (headless boot, log bez SCRIPT ERROR, screenshoty ako artefakt)
+  → release s .exe + `SHA256SUMS.txt`; poznámky z
+  `.github/release-notes/<tag>.md`.
+- Číslo verzie je v `project.godot` (`config/version`) a v názvoch
+  výstupov v `export_presets.cfg` — pri ďalšej verzii zmeň oboje.
 
 ### Kritické pasce (naozaj sa stali)
 1. **NIKDY neprepisuj `.gd` cez PowerShell `Get-Content`/`Set-Content`** — zmrší
@@ -305,7 +323,8 @@ Google Play Console a App Store Connect.
    Presne na tomto som raz zlyhal dvakrát po sebe.
 3. **Screenshoty ukáž Simonovi** v odpovedi, keď menil vzhľad.
 
-Užitočné proby: **`layout_probe`** (menu, nastavenia, tutoriál, stôl, veľká
+Užitočné proby: **`autoplay_probe`** (odohrá 5 celých relácií vrátane
+olympijských a Prší, kontroluje zaseknutie stola), **`layout_probe`** (menu, nastavenia, tutoriál, stôl, veľká
 ruka, pauza, výber farby, výsledky × telefón na výšku/šírku, tablet, desktop;
 `-- --insets=90,0,90,40` simuluje výrez, `-- --only=phone_portrait`),
 `settings_probe` (3 rozlíšenia), `czech_probe`, `prsi_probe`,
@@ -318,6 +337,7 @@ ruka, pauza, výber farby, výsledky × telefón na výšku/šírku, tablet, des
 
 | Commit | Obsah |
 |---|---|
+| 2026-11-05 | **Beta 0.1.0** (release `v0.1.0-beta`): PC .exe + telefónny .exe na výšku, release workflow, autoplay probe |
 | 2026-10-20 (PR) | **Multiplayer + monetizácia**: obnova spojenia, unikátne seaty, neprítomné miesta, sanitizácia variantu, reklamné callbacky, lifetime vs. predplatné |
 | 2026-10-20 (PR) | **Ľahší build**: pozadia lossy 2048 px, export bez duplikátov/dev skinu (155 → 75 MB), low-processor mode |
 | 2026-10-20 (PR) | **Mobile-first UI**: portrét 600×1000, safe area, dvojstĺpcové menu, recyklácia uzlov kariet |
