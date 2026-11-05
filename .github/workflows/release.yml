@@ -1,8 +1,14 @@
 # Builds the Windows executables and publishes them as a GitHub release.
 #
-# Trigger: push a tag like `v0.1.0-beta` (tags with a "-" suffix become
-# pre-releases). Release notes come from .github/release-notes/<tag>.md.
+# Trigger (any of):
+#   - push a tag like `v0.1.0-beta`
+#   - push a commit whose message has a trailer line `Release-Tag: v0.1.0-beta`
+#     (the tag is then created on that commit when the release is published)
+#   - run the workflow manually with an existing tag
+# Tags with a "-" suffix become pre-releases. Release notes come from
+# .github/release-notes/<tag>.md.
 #
+#   0. meta    (Linux)   — which tag to publish (skips ordinary pushes)
 #   1. build   (Linux)   — GUT test suite, export both Windows presets
 #   2. smoke   (Windows) — boot each .exe on a real Windows machine, fail on
 #                          script errors; screenshots of both window modes
@@ -12,6 +18,7 @@ name: Release (Windows)
 on:
   push:
     tags: ["v*"]
+    branches: ["**"]
   workflow_dispatch:
     inputs:
       tag:
@@ -26,13 +33,44 @@ env:
   GODOT_TEMPLATES_DIR: "4.7.stable"
 
 jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.pick.outputs.tag }}
+    steps:
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag=$(printf '%s\n' "$MSG" | sed -n 's/^Release-Tag: *\(v[^[:space:]]*\).*/\1/p' | head -n1)
+            # A branch push only publishes a release that doesn't exist yet
+            # (e.g. the same trailer arriving again through a merge).
+            if [ -n "$tag" ] && gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "release $tag already exists - nothing to do"
+              tag=""
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release tag: '${tag}'"
+
   build:
+    needs: meta
+    if: needs.meta.outputs.tag != ''
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.event.inputs.tag || github.sha }}
 
       - name: Cache Godot + export templates
         id: godot-cache
@@ -139,12 +177,12 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    needs: [build, smoke]
+    needs: [meta, build, smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.event.inputs.tag || github.sha }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -154,7 +192,7 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG: ${{ needs.meta.outputs.tag }}
         run: |
           set -euo pipefail
           (cd build && sha256sum *.exe > SHA256SUMS.txt && cat SHA256SUMS.txt)
@@ -165,6 +203,8 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/*.exe build/SHA256SUMS.txt --clobber
           else
+            # --target creates the tag on this commit when it doesn't exist.
             gh release create "$TAG" build/*.exe build/SHA256SUMS.txt \
+                --target "$(git rev-parse HEAD)" \
                 --title "Faraón ${TAG#v}" --notes-file "$notes" "${flags[@]}"
           fi
