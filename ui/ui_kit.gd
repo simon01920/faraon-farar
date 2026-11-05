@@ -113,6 +113,10 @@ static func chip(text: String, color: Color, font_size := 17) -> PanelContainer:
 
 # --- responsive layout -------------------------------------------------------
 
+## Phone stand-in build on a PC (main.gd): the mouse acts as a finger, so
+## hover-only feedback is off just like on a real touch screen.
+static var phone_mode := false
+
 ## Probe/debug override of the device safe-area insets in screen pixels
 ## (left, top, right, bottom). Vector4.ZERO = ask the OS (mobile only).
 static var simulated_insets := Vector4.ZERO

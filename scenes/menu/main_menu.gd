@@ -279,6 +279,10 @@ func _build_menu() -> void:
 			UIKit.GOLD.darkened(0.25), Vector2(340, 52))
 	settings.pressed.connect(func(): _swap_screen(_settings_screen))
 	box.add_child(settings)
+	# Verzia buildu — testeri ju uvedú pri hlásení chyby.
+	var version := UIKit.heading("v" + str(ProjectSettings.get_setting(
+			"application/config/version", "")), 12, UIKit.CREAM.darkened(0.45))
+	box.add_child(version)
 	# Malá spodná rezerva (o banner sa stará bottom_reserve z app rootu).
 	box.add_child(_spacer(12))
 	_arrange_menu(false)

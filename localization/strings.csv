@@ -264,3 +264,4 @@ ERR_OFFLINE,Bez spojenia — ťah sa neodoslal,Offline — the move was not sent
 MP_RECONNECTING,Spojenie prerušené — pripájam znova…,Connection lost — reconnecting…,Spojení přerušeno — připojuji znovu…
 MP_RECONNECTED,Znova pripojený,Back online,Znovu připojeno
 MP_RECONNECT_FAILED,Spojenie sa nepodarilo obnoviť,Could not reconnect,Spojení se nepodařilo obnovit
+WINDOW_PHONE,telefón (na výšku),phone (portrait),telefon (na výšku)

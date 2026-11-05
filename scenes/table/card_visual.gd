@@ -127,7 +127,7 @@ func _refresh_texture() -> void:
 
 
 func _set_hover(on: bool) -> void:
-	if not hover_preview:
+	if not hover_preview or (on and UIKit.phone_mode):
 		return
 	_hovered = on
 	_update_selection()

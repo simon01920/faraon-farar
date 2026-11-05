@@ -1,0 +1,170 @@
+# Builds the Windows executables and publishes them as a GitHub release.
+#
+# Trigger: push a tag like `v0.1.0-beta` (tags with a "-" suffix become
+# pre-releases). Release notes come from .github/release-notes/<tag>.md.
+#
+#   1. build   (Linux)   — GUT test suite, export both Windows presets
+#   2. smoke   (Windows) — boot each .exe on a real Windows machine, fail on
+#                          script errors; screenshots of both window modes
+#   3. release (Linux)   — create the release with the .exe files + SHA256SUMS
+name: Release (Windows)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build and publish, e.g. v0.1.0-beta"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GODOT_RELEASE: "4.7-stable"
+  GODOT_TEMPLATES_DIR: "4.7.stable"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Cache Godot + export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_RELEASE }}-windows
+
+      - name: Download Godot + Windows export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}"
+          mkdir -p ~/godot
+          curl -fsSL --retry 5 -o /tmp/godot.zip "$base/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_RELEASE}_linux.x86_64 ~/godot/godot
+          curl -fsSL --retry 5 -o /tmp/templates.tpz "$base/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}
+          mkdir -p "$dest"
+          unzip -q -j /tmp/templates.tpz templates/version.txt \
+              templates/windows_release_x86_64.exe -d "$dest"
+
+      - name: Import project
+        run: |
+          chmod +x ~/godot/godot
+          ~/godot/godot --headless --path . --import
+
+      - name: Unit tests (GUT)
+        run: |
+          set -o pipefail
+          ~/godot/godot --headless --path . -s addons/gut/gut_cmdln.gd \
+              -gdir=res://tests -ginclude_subdirs -gexit 2>&1 | tee gut.log
+          grep -q "All tests passed" gut.log
+
+      - name: Export Windows builds
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          ~/godot/godot --headless --path . --export-release "Windows Desktop" \
+              build/Faraon-0.1-beta-PC.exe
+          ~/godot/godot --headless --path . --export-release "Windows Phone (portrait)" \
+              build/Faraon-0.1-beta-Phone.exe
+          ls -la build
+          file build/*.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: build/*.exe
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: build
+
+      - name: Boot both builds (headless)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($exe in Get-ChildItem build\*.exe) {
+            Write-Host "== $($exe.Name)"
+            $p = Start-Process -FilePath $exe.FullName `
+                -ArgumentList '--headless', '--quit-after', '1500' -PassThru
+            $null = $p.Handle # cache the handle, or ExitCode reads as empty
+            if (-not $p.WaitForExit(240000)) { $p.Kill(); throw "$($exe.Name) hung" }
+            if ($p.ExitCode -ne 0) { throw "$($exe.Name) exited with code $($p.ExitCode)" }
+          }
+          $logs = Get-ChildItem "$env:APPDATA\Godot\app_userdata" -Recurse -Filter *.log
+          foreach ($l in $logs) { Write-Host "--- $($l.FullName)"; Get-Content $l.FullName }
+          if ($logs | Select-String -Pattern 'SCRIPT ERROR') { throw 'script errors in the log' }
+          if (-not $logs) { throw 'no Godot log written - did the game start?' }
+
+      - name: Screenshots of both window modes (best effort)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          New-Item -ItemType Directory -Force shots | Out-Null
+          foreach ($exe in Get-ChildItem build\*.exe) {
+            $p = Start-Process -FilePath $exe.FullName -PassThru
+            Start-Sleep -Seconds 20
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("shots\$($exe.BaseName).png")
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-screenshots
+          path: shots/*.png
+          if-no-files-found: ignore
+
+  release:
+    needs: [build, smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: build
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          (cd build && sha256sum *.exe > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          notes=".github/release-notes/${TAG}.md"
+          [ -f "$notes" ] || notes=/dev/null
+          flags=()
+          [[ "$TAG" == *-* ]] && flags+=(--prerelease)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/*.exe build/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" build/*.exe build/SHA256SUMS.txt \
+                --title "Faraón ${TAG#v}" --notes-file "$notes" "${flags[@]}"
+          fi

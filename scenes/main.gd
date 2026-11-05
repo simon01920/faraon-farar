@@ -23,6 +23,8 @@ var _deferred_join := ""
 const BASE_LANDSCAPE := Vector2i(1280, 720)
 const BASE_PORTRAIT := Vector2i(600, 1000)
 const BANNER_H := 58.0
+## Phone build window: a modern phone held upright (19.5:9).
+const PHONE_ASPECT := 9.0 / 19.5
 
 
 ## The NetHub autoload, looked up at runtime so scripts also compile under
@@ -39,6 +41,7 @@ func _ready() -> void:
 			get_tree().quit(1) # obsadený port: nečakaj potichu donekonečna
 		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_setup_desktop_window()
 	get_window().size_changed.connect(_apply_content_scale)
 	_apply_content_scale()
 	TranslationServer.set_locale(GameSettings.get_locale())
@@ -61,6 +64,47 @@ func _ready() -> void:
 	# documented in deployment/README.md as the follow-up step.)
 	_deferred_join = _parse_join_code()
 	_try_deferred_join()
+
+
+## Desktop builds. The phone build (export feature tag `phone`, or `--phone`
+## on the command line) is a phone stand-in for testing on a PC: a fixed
+## portrait window the player cannot resize or turn to landscape, played with
+## the mouse as a finger (no hover). The regular PC build opens a 16:9 window
+## sized to the screen; it stays resizable and F11 / Alt+Enter = fullscreen.
+func _setup_desktop_window() -> void:
+	UIKit.phone_mode = OS.has_feature("phone") \
+			or OS.get_cmdline_user_args().has("--phone")
+	if OS.has_feature("mobile") or DisplayServer.get_name() == "headless":
+		return
+	var win := get_window()
+	var usable := DisplayServer.screen_get_usable_rect(win.current_screen)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return
+	var version := str(ProjectSettings.get_setting("application/config/version", ""))
+	if UIKit.phone_mode:
+		# 90 % of the usable height keeps the title bar and taskbar visible.
+		var h := int(minf(usable.size.y * 0.9, 1170.0))
+		win.unresizable = true
+		win.size = Vector2i(int(roundf(h * PHONE_ASPECT)), h)
+		win.title = "%s %s — %s" % [tr("APP_NAME"), version, tr("WINDOW_PHONE")]
+	else:
+		var w := int(minf(usable.size.x * 0.8, usable.size.y * 0.8 * 16.0 / 9.0))
+		w = maxi(w, mini(BASE_LANDSCAPE.x, usable.size.x))
+		win.size = Vector2i(w, int(w * 9.0 / 16.0))
+		win.title = "%s %s" % [tr("APP_NAME"), version]
+	win.position = usable.position + (usable.size - win.size) / 2
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if UIKit.phone_mode or OS.has_feature("mobile"):
+		return
+	if event is InputEventKey and event.pressed and not event.echo \
+			and (event.keycode == KEY_F11
+				or (event.keycode == KEY_ENTER and event.alt_pressed)):
+		var win := get_window()
+		win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_FULLSCREEN \
+				else Window.MODE_FULLSCREEN
+		get_viewport().set_input_as_handled()
 
 
 ## Portrait vs landscape design size, re-evaluated on every window resize
