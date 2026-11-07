@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "app-icon": {
+      "source": "code-with-beto/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/cwb-app-icon/skills/app-icon/SKILL.md",
+      "computedHash": "ac75d061ea3aff614eda234c14e71dadc4e29cdb4bde15c1f56c2f36e4584644"
+    },
+    "web-asset-generator": {
+      "source": "alonw0/web-asset-generator",
+      "sourceType": "github",
+      "skillPath": "skills/web-asset-generator/SKILL.md",
+      "computedHash": "73cd073db98ba7f397ef380cd9290ca66a1c30dd6c465c40309d56fc26133024"
+    }
+  }
+}
