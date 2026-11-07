@@ -65,9 +65,10 @@ const DISABLED_BY_SINGLE_CARD := ["spalena_enabled", "spalena_multiply"]
 const DISABLED_BY_NO_FARAON := ["faraon_blocks_eso", "faraon_interrupt"]
 
 
+## Parsed settings (cached in memory, see ConfigCache); setters mutate this
+## instance and save it, so reads never touch the disk again.
 static func _load() -> ConfigFile:
-	var cfg := ConfigFile.new()
-	cfg.load(PATH) # missing file is fine — defaults apply
+	var cfg := ConfigCache.get_file(PATH) # missing file is fine — defaults apply
 	if int(cfg.get_value("app", "settings_version", 1)) < SETTINGS_VERSION:
 		_migrate(cfg)
 	return cfg

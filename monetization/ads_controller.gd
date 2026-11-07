@@ -27,6 +27,8 @@ var network: AdNetwork
 ## An interstitial has been decided for the just-finished game and will show
 ## when the player leaves the result screen.
 var _armed := false
+## Continuation waiting for the interstitial currently on screen.
+var _pending_then := Callable()
 
 
 func _init(ad_network: AdNetwork = null) -> void:
@@ -83,12 +85,26 @@ func run_after_results(then: Callable) -> void:
 		then.call()
 		return
 	_armed = false
-	var go := func():
-		if then.is_valid():
-			then.call()
-	network.interstitial_closed.connect(go, CONNECT_ONE_SHOT)
-	network.interstitial_failed.connect(go, CONNECT_ONE_SHOT)
+	# Exactly one continuation per shown ad: whichever of closed/failed fires
+	# first runs it and disconnects BOTH listeners (a one-shot per signal
+	# left the other connected, and a later ad re-ran every old `then`).
+	_pending_then = then
+	if not network.interstitial_closed.is_connected(_on_interstitial_done):
+		network.interstitial_closed.connect(_on_interstitial_done)
+	if not network.interstitial_failed.is_connected(_on_interstitial_done):
+		network.interstitial_failed.connect(_on_interstitial_done)
 	network.show_interstitial()
+
+
+func _on_interstitial_done() -> void:
+	if network.interstitial_closed.is_connected(_on_interstitial_done):
+		network.interstitial_closed.disconnect(_on_interstitial_done)
+	if network.interstitial_failed.is_connected(_on_interstitial_done):
+		network.interstitial_failed.disconnect(_on_interstitial_done)
+	var then := _pending_then
+	_pending_then = Callable()
+	if then.is_valid():
+		then.call()
 
 
 ## Reset the ad window if the player has been away >= 6h (call on app open).

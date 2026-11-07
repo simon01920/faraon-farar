@@ -12,11 +12,13 @@ func before_each() -> void:
 	# Každý test začína s čistým lokálnym úložiskom monetizácie.
 	DirAccess.remove_absolute(
 			ProjectSettings.globalize_path(MonetizationStore.PATH))
+	ConfigCache.invalidate(MonetizationStore.PATH)
 
 
 func after_all() -> void:
 	DirAccess.remove_absolute(
 			ProjectSettings.globalize_path(MonetizationStore.PATH))
+	ConfigCache.invalidate(MonetizationStore.PATH)
 
 
 # --- scenár 1: čerstvý reset, 1-2-3 čisté, 4 a 6 reklama -------------------

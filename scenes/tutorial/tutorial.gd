@@ -21,6 +21,13 @@ var _demo_tween: Tween
 ## Interactive state: which card id must be tapped ("" = passive step).
 var _expected := ""
 var _steps: Array = []
+var _bottom: HBoxContainer
+## Bumped on every step change; a demo scheduled for an older step (double
+## tap on Ďalej within one frame) bails out instead of piling its cards on.
+var _step_token := 0
+var _relayout_queued := false
+## Stage size the current demo was laid out for.
+var _staged_size := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -58,6 +65,7 @@ func _ready() -> void:
 	bottom.offset_top = -96
 	bottom.offset_bottom = -30
 	add_child(bottom)
+	_bottom = bottom
 
 	var skip := UIKit.pill_button(tr("TUT_SKIP"), Color("3a3f45"), Vector2(180, 52))
 	skip.pressed.connect(_finish)
@@ -83,7 +91,63 @@ func _ready() -> void:
 		_steps.append(["TUT_7_TITLE", "TUT_7_BODY", _demo_spalena, ""])
 	if v.multi_card_play:
 		_steps.append(["TUT_8_TITLE", "TUT_8_BODY", _demo_order, "AZ"])
+	_apply_layout()
 	_show_step()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and _bottom != null:
+		_apply_layout()
+		# Demos are laid out against the stage size: after a rotation the
+		# current step restarts on the new geometry (once per resize burst).
+		if not _relayout_queued and not _steps.is_empty():
+			_relayout_queued = true
+			_restage.call_deferred()
+
+
+func _restage() -> void:
+	_relayout_queued = false
+	if _stage.size == _staged_size:
+		return
+	var done := _expected == "" and str(_steps[_step][3]) != ""
+	_show_step()
+	if done: # an interactive lesson already solved stays solved
+		_expected = ""
+		_next_btn.disabled = false
+
+
+## Texts and buttons stay inside the display's safe area. Portrait keeps the
+## demo stage compact and centred instead of stretching a pile at the top
+## and the hand at the very bottom of a tall phone.
+func _apply_layout() -> void:
+	var safe := UIKit.safe_rect(self)
+	var l := safe.position.x
+	var t := safe.position.y
+	var r := size.x - safe.end.x
+	var b := size.y - safe.end.y
+	var portrait := size.y > size.x
+	var side := 24.0 if portrait else 80.0
+	_title.offset_left = l + 16
+	_title.offset_right = -r - 16
+	_title.offset_top = t + 26
+	_title.offset_bottom = t + 70
+	_body.offset_left = l + side
+	_body.offset_right = -r - side
+	_body.offset_top = t + 84
+	_body.offset_bottom = t + 200
+	_bottom.offset_top = -96 - b
+	_bottom.offset_bottom = -30 - b
+	var stage_top := t + (236.0 if portrait else 200.0)
+	var stage_bottom := 110.0 + b
+	if portrait:
+		var avail := size.y - stage_top - stage_bottom
+		var extra := maxf(avail - 560.0, 0.0)
+		stage_top += extra / 2.0
+		stage_bottom += extra / 2.0
+	_stage.offset_left = l
+	_stage.offset_right = -r
+	_stage.offset_top = stage_top
+	_stage.offset_bottom = -stage_bottom
 
 
 func _advance() -> void:
@@ -110,7 +174,18 @@ func _show_step() -> void:
 		c.queue_free()
 	if _demo_tween != null and _demo_tween.is_valid():
 		_demo_tween.kill()
-	s[2].call()
+	_step_token += 1
+	_run_demo(s[2], _step_token)
+
+
+## Demos lay out against the stage size, so they start a frame later (the
+## first step runs from _ready, before the layout settled).
+func _run_demo(demo: Callable, token: int) -> void:
+	await get_tree().process_frame
+	if token != _step_token or not is_inside_tree():
+		return
+	_staged_size = _stage.size
+	demo.call()
 
 
 # --- stage helpers ----------------------------------------------------------
@@ -131,9 +206,11 @@ func _pile_pos() -> Vector2:
 
 
 func _hand_pos(i: int, n: int) -> Vector2:
-	var spacing := 140.0
+	var spacing := minf(140.0, (_stage.size.x - CARD_W - 40.0) / maxf(n - 1, 1))
+	# Under the pile even on a short (landscape, inset) stage.
+	var y := maxf(_stage.size.y - CARD_W * 1.5 - 10.0, 30.0 + CARD_W * 1.5 + 14.0)
 	return Vector2(_stage.size.x / 2.0 - spacing * (n - 1) / 2.0 + i * spacing
-			- CARD_W / 2.0, _stage.size.y - CARD_W * 1.5 - 10.0)
+			- CARD_W / 2.0, y)
 
 
 func _chip(text: String, at: Vector2, color := UIKit.RED) -> Control:
@@ -148,10 +225,18 @@ func _on_card_tapped(cv: CardVisual) -> void:
 	if _expected == "":
 		return
 	if cv.card_id != _expected:
-		# Wrong pick: shake + explain, never auto-correct.
+		# Wrong pick: shake + explain, never auto-correct. The shake always
+		# returns to the card's resting spot, even on rapid repeated taps.
 		GameAudio.sfx("slap")
-		var origin := cv.position
+		if not cv.has_meta("home"):
+			cv.set_meta("home", cv.position)
+		var origin: Vector2 = cv.get_meta("home")
+		var prev: Tween = cv.get_meta("shake", null)
+		if prev != null and prev.is_valid():
+			prev.kill()
+		cv.position = origin
 		var tw := create_tween()
+		cv.set_meta("shake", tw)
 		tw.tween_property(cv, "position:x", origin.x - 12.0, 0.05)
 		tw.tween_property(cv, "position:x", origin.x + 12.0, 0.08)
 		tw.tween_property(cv, "position:x", origin.x, 0.05)
@@ -170,7 +255,6 @@ func _on_card_tapped(cv: CardVisual) -> void:
 
 ## 1: basic matching — top 8Z; tap the card that matches (9Z, not KC).
 func _demo_matching() -> void:
-	await get_tree().process_frame
 	_card("8Z", _pile_pos())
 	_card("9Z", _hand_pos(0, 2), true)
 	_card("KC", _hand_pos(1, 2), true)
@@ -178,7 +262,6 @@ func _demo_matching() -> void:
 
 ## 2: eso stops the opponent, the player continues.
 func _demo_eso() -> void:
-	await get_tree().process_frame
 	_card("8Z", _pile_pos())
 	var eso := _card("AZ", _hand_pos(0, 1))
 	var badge := _chip(tr("GAME_STOPPED_BADGE"), Vector2(_stage.size.x / 2.0 + 90, 40))
@@ -195,7 +278,6 @@ func _demo_eso() -> void:
 
 ## 3: sevens accumulate 3 -> 6 -> 9.
 func _demo_sedma() -> void:
-	await get_tree().process_frame
 	_card("8Z", _pile_pos())
 	var s1 := _card("7Z", _hand_pos(0, 2))
 	var s2 := _card("7G", _hand_pos(1, 2))
@@ -220,7 +302,6 @@ func _demo_sedma() -> void:
 
 ## 4: the red seven brings a finished player back (3 penalty cards).
 func _demo_red_seven() -> void:
-	await get_tree().process_frame
 	_card("8Z", _pile_pos())
 	var red := _card("7C", _hand_pos(0, 1))
 	var seat := _chip("✓ " + tr("GAME_FINISHED_MARK"),
@@ -238,7 +319,6 @@ func _demo_red_seven() -> void:
 
 ## 5: faraón lands on anything and kills the seven chain.
 func _demo_faraon() -> void:
-	await get_tree().process_frame
 	_card("XG", _pile_pos())
 	var de := _card("DE", _hand_pos(0, 1))
 	var badge := _chip("+6 → 0", Vector2(_stage.size.x / 2.0 + 90, 40))
@@ -254,7 +334,6 @@ func _demo_faraon() -> void:
 
 ## 6: horník changes the declared suit.
 func _demo_hornik() -> void:
-	await get_tree().process_frame
 	_card("8G", _pile_pos())
 	var h := _card("HZ", _hand_pos(0, 1))
 	var chipn := _chip(tr("SUIT_CERVEN"), Vector2(_stage.size.x / 2.0 + 90, 40),
@@ -271,7 +350,6 @@ func _demo_hornik() -> void:
 
 ## 7: spálená — four of a kind, extra move.
 func _demo_spalena() -> void:
-	await get_tree().process_frame
 	_card("XC", _pile_pos())
 	var kings := ["KC", "KG", "KE", "KZ"]
 	var cards: Array = []
@@ -291,7 +369,6 @@ func _demo_spalena() -> void:
 
 ## 8: interactive — play the ACE first (order badges): tap AZ, not 9C.
 func _demo_order() -> void:
-	await get_tree().process_frame
 	_card("AG", _pile_pos())
 	var a := _card("AZ", _hand_pos(0, 2), true)
 	a.set_order(1)

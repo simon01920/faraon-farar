@@ -105,8 +105,9 @@ var changer_blocked_on_specials := false
 ## Prší nie (a tým pádom tam neexistuje ani spálená).
 var multi_card_play := true
 
-## B2 (runtime, nie používateľské pravidlo): sub-kolo olympijského zápasu
-## končí hneď prvým dohratým hráčom — zvyšok rieši rozstrel v meta-vrstve.
+## Runtime príznak (nie používateľské pravidlo): kolo končí hneď prvým
+## dohratým hráčom (pôvodné B2 rozstrely). Olympijské zápasy ho od 2026-11
+## nezapínajú — kolá sa dohrávajú do konca; engine ho ďalej podporuje.
 var end_on_first_finish := false
 
 const RULE_KEYS := [
@@ -251,6 +252,9 @@ static func from_dict(d: Dictionary) -> RulesVariant:
 	v.kind = d.get("kind", Kind.CLASSIC) as Kind
 	for k in RULE_KEYS + VALUE_KEYS:
 		v.set(k, d.get(k, DEFAULTS.get(k)))
+	# D2 slider range (4–7). The dict may come from a multiplayer host, so an
+	# out-of-range size must never reach the deal.
+	v.initial_hand_size = clampi(int(v.initial_hand_size), 4, 7)
 	return v
 
 
