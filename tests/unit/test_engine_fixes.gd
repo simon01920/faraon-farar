@@ -357,3 +357,58 @@ func test_bot_timer_from_a_previous_round_does_nothing() -> void:
 	srv.fast_forward = true
 	await srv._bot_move("BOT1", srv._round_gen)
 	assert_eq(srv.rules.state.turn_counter, 1, "the current timer still works")
+
+
+# --- Olympijské kolá sa dohrávajú (Simon, 2026-11) ----------------------------
+
+## Rozohrá kolo LocalGameServera tak, že YOU dohrá prvý (9Z na 8Z), BOT1 dohrá
+## druhý (KZ) a BOT2 ostane s kartami.
+func _olympic_round_server(mode: int) -> LocalGameServer:
+	var srv := LocalGameServer.new()
+	srv.bot_delay = 100.0 # žiadny časovač bota počas testu
+	add_child_autofree(srv)
+	srv.start_game(2, RulesVariant.classic(), 77, BotStrategy.Difficulty.EASY, mode)
+	var s := srv.rules.state
+	var hands := {"YOU": ["9Z"], "BOT1": ["KZ"], "BOT2": ["8C", "9G", "XE"]}
+	for p in s.players:
+		var h: Array[String] = []
+		h.assign(hands[p.id])
+		p.hand = h
+	var pile: Array[String] = ["8Z"]
+	s.discard_pile = pile
+	s.declared_suit = -1
+	s.announced_rank = -1
+	s.pending_sevens_draw = 0
+	s.pending_aces = 0
+	s.penalty_interrupt = false
+	s.direction = 1
+	s.current_index = s.index_of("YOU")
+	return srv
+
+
+func test_olympic_round_continues_after_the_first_finisher() -> void:
+	var srv := _olympic_round_server(FaraonMatch.Mode.OLYMPIC)
+	var res := srv.propose("YOU", FaraonActions.play(["9Z"]))
+	assert_true(res.ok, "YOU dohrá 9Z")
+	assert_eq(srv.rules.state.phase, GameState.Phase.PLAYING,
+			"kolo pokračuje so zvyšnými hráčmi — nekončí prvým dohratým")
+	assert_eq(srv.match_state.round_number, 1, "kolo sa ešte neboduje")
+	assert_eq(srv.rules.state.players[srv.rules.state.current_index].id, "BOT1")
+	assert_true(srv.propose("BOT1", FaraonActions.play(["KZ"])).ok)
+	assert_eq(srv.rules.state.phase, GameState.Phase.GAME_OVER,
+			"koniec, keď ostane posledný s kartami")
+	assert_eq(srv.match_state.round_number, 2, "dohrané kolo sa obodovalo")
+	assert_eq(srv.match_state.allotments["BOT2"], 4, "posledný dostane o kartu menej")
+	assert_eq(srv.match_state.allotments["YOU"], 5)
+	assert_eq(srv.match_state.sub_round_players().size(), 3,
+			"ďalšie kolo hrajú opäť všetci — žiadny rozstrel")
+
+
+func test_reverse_olympic_round_is_played_out_and_the_winner_sheds() -> void:
+	var srv := _olympic_round_server(FaraonMatch.Mode.REVERSE_OLYMPIC)
+	assert_true(srv.propose("YOU", FaraonActions.play(["9Z"])).ok)
+	assert_eq(srv.rules.state.phase, GameState.Phase.PLAYING)
+	assert_true(srv.propose("BOT1", FaraonActions.play(["KZ"])).ok)
+	assert_eq(srv.rules.state.phase, GameState.Phase.GAME_OVER)
+	assert_eq(srv.match_state.allotments["YOU"], 4, "víťaz kola zhadzuje kartu")
+	assert_eq(srv.match_state.allotments["BOT2"], 5)

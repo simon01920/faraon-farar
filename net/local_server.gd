@@ -49,7 +49,10 @@ func start_game(bot_count: int, variant: RulesVariant = null,
 	# B1: prvého štartéra určuje RNG so zvýhodnením hráča podľa obtiažnosti
 	# (Ľahká 100 % hráč, Stredná 55 %, Ťažká rovnaké šance pre všetkých).
 	var start_index := _first_starter_index(ids.size(), bot_difficulty)
-	_variant.end_on_first_finish = mode != FaraonMatch.Mode.NORMAL
+	# Olympijské kolá sa DOHRÁVAJÚ do konca rovnako ako bežná hra (Simonovo
+	# rozhodnutie 2026-11): poradie dohratia = umiestnenia kola, posledný s
+	# kartami prehráva. Kolo sa už nekončí prvým dohratým (staré B2 rozstrely).
+	_variant.end_on_first_finish = false
 	# Olympijské prídely vychádzajú z D2 veľkosti ruky — prvé sub-kolo
 	# rozdáva presne tie isté prídely ako rozstrely a ďalšie kolá.
 	match_state = null if mode == FaraonMatch.Mode.NORMAL \

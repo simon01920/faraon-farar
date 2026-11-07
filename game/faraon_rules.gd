@@ -544,8 +544,8 @@ func _handle_possible_finish(idx: int, cards: Array, events: Array) -> bool:
 		state.players[state.loser_index].finish_position = state.players.size()
 		events.append({"type": "GAME_OVER", "loser": state.players[state.loser_index].id})
 	elif state.variant.end_on_first_finish:
-		# B2: olympijské sub-kolo končí prvým dohratým — zvyšok pokračuje
-		# v rozstrele, ktorý pripraví meta-vrstva (FaraonMatch).
+		# Voliteľný režim „kolo končí prvým dohratým" (pôvodné B2 rozstrely);
+		# olympijské zápasy ho od 2026-11 nepoužívajú — kolá sa dohrávajú.
 		state.phase = Phase.GAME_OVER
 		state.loser_index = -1
 		events.append({"type": "GAME_OVER", "loser": ""})

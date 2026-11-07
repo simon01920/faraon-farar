@@ -65,8 +65,8 @@ Repo: <https://github.com/simon01920/faraon-farar>
 <godot> --headless --path . --export-debug "Android" build/faraon.apk
 
 # Windows: PC verzia a telefónny formát (pevné okno na výšku, feature tag "phone")
-<godot> --headless --path . --export-release "Windows Desktop" build/Faraon-0.1-beta-PC.exe
-<godot> --headless --path . --export-release "Windows Phone (portrait)" build/Faraon-0.1-beta-Phone.exe
+<godot> --headless --path . --export-release "Windows Desktop" build/Faraon-PC.exe
+<godot> --headless --path . --export-release "Windows Phone (portrait)" build/Faraon-Phone.exe
 # Telefónny režim bez exportu (editor / probe): <godot> --path . -- --phone
 
 # Celé hry cez skutočný stôl (všetky módy + tutoriál), exit 0/1
@@ -80,8 +80,9 @@ Repo: <https://github.com/simon01920/faraon-farar>
   Windows (headless boot, log bez SCRIPT ERROR, screenshoty ako artefakt)
   → release s .exe + `SHA256SUMS.txt`; poznámky z
   `.github/release-notes/<tag>.md`.
-- Číslo verzie je v `project.godot` (`config/version`) a v názvoch
-  výstupov v `export_presets.cfg` — pri ďalšej verzii zmeň oboje.
+- Číslo verzie: `project.godot` (`config/version`, ukazuje sa v menu) a
+  `application/file_version` v `export_presets.cfg`; názvy .exe v release
+  odvodí workflow z tagu (`Faraon-<verzia>-PC.exe`).
 
 ### Kritické pasce (naozaj sa stali)
 1. **NIKDY neprepisuj `.gd` cez PowerShell `Get-Content`/`Set-Content`** — zmrší
@@ -221,7 +222,9 @@ Tutoriál preskočí kroky, ktoré v danom móde neplatia.
 ### Režimy zápasu (`FaraonMatch`)
 `NORMAL`, `OLYMPIC` (prehrávajúci dostáva menej kariet, kým nevypadne),
 `REVERSE_OLYMPIC` (Simonov vynález: víťaz odovzdáva kartu, prvý na nule vyhráva).
-Rozstrely (B2) o ďalšie miesta, rotácia začínajúceho (B1: Easy 100 % človek,
+**Kolo sa dohráva do konca v jednom rozdaní** (Simon 2026-11-07, nahradilo
+B2 rozstrely): poradie dohratia = umiestnenia, posledný s kartami prehráva;
+`end_on_first_finish` sa už nezapína. Rotácia začínajúceho (B1: Easy 100 % človek,
 Medium 55 %, Hard/MP rovnaká šanca).
 
 ---
@@ -337,6 +340,7 @@ ruka, pauza, výber farby, výsledky × telefón na výšku/šírku, tablet, des
 
 | Commit | Obsah |
 |---|---|
+| 2026-11-07 | **Beta 0.1.1**: olympijské kolá sa dohrávajú do konca; merge PR #2 (ikony aplikácie) |
 | 2026-11-05 | **Beta 0.1.0** (release `v0.1.0-beta`): PC .exe + telefónny .exe na výšku, release workflow, autoplay probe |
 | 2026-10-20 (PR) | **Multiplayer + monetizácia**: obnova spojenia, unikátne seaty, neprítomné miesta, sanitizácia variantu, reklamné callbacky, lifetime vs. predplatné |
 | 2026-10-20 (PR) | **Ľahší build**: pozadia lossy 2048 px, export bez duplikátov/dev skinu (155 → 75 MB), low-processor mode |

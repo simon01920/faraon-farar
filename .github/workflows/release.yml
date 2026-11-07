@@ -109,13 +109,16 @@ jobs:
           grep -q "All tests passed" gut.log
 
       - name: Export Windows builds
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p build
+          v="${TAG#v}" # v0.1.1-beta -> Faraon-0.1.1-beta-PC.exe
           ~/godot/godot --headless --path . --export-release "Windows Desktop" \
-              build/Faraon-0.1-beta-PC.exe
+              "build/Faraon-$v-PC.exe"
           ~/godot/godot --headless --path . --export-release "Windows Phone (portrait)" \
-              build/Faraon-0.1-beta-Phone.exe
+              "build/Faraon-$v-Phone.exe"
           ls -la build
           file build/*.exe
 

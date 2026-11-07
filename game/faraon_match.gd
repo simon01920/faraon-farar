@@ -4,14 +4,16 @@ extends RefCounted
 ## ostáva striktne per-kolo — táto trieda rozhoduje, kto hrá, s koľkými
 ## kartami a kto začína.
 ##
-## B2 — rozstrely: jedno bodovacie KOLO sa skladá zo série sub-kôl. Prvé
-## sub-kolo hrajú všetci účastníci a končí prvým dohratým hráčom (1. miesto
-## kola); zvyšní hrajú rozstrelové sub-kolá o ďalšie miesta, až kým neostane
-## posledný (posledné miesto). Až potom sa kolo boduje:
+## Kolo sa DOHRÁVA do konca v jednom rozdaní (Simon, 2026-11): hráči
+## dohrávajú postupne, poradie dohratia = umiestnenia kola, posledný s
+## kartami je posledný. Potom sa kolo boduje (on_sub_round_over dostane úplné
+## poradie a kolo uzavrie naraz):
 ##   OLYMPIC: posledný v kole začína ďalšie kolo s kartou menej; na nule
 ##   vypadáva zo zápasu; vyhráva posledný s prídelom.
 ##   REVERSE_OLYMPIC: víťaz kola zhadzuje kartu; kto prvý dosiahne nulu,
 ##   vyhráva zápas.
+## Pôvodné B2 rozstrely (kolo končiace prvým dohratým + nové rozdanie pre
+## zvyšok) ostávajú podporené pre neúplné poradie, server ich už nespúšťa.
 ## B1 — štartér: prvé kolo určí RNG (meta podľa obtiažnosti/multiplayer
 ## ekviprobabilne — rieši volajúci), ďalšie kolá rotujú v smere hodinových
 ## ručičiek podľa poradia sedenia. Rozstrelové sub-kolá rotujú tiež.
