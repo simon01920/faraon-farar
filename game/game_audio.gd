@@ -62,6 +62,19 @@ func _ready() -> void:
 	_play_next_track()
 
 
+## Android/iOS: app sent to the background (home, incoming call, screen off)
+## -> the soundtrack holds its position and continues on return. Explicit so
+## it never depends on the platform audio driver pausing itself; the desktop
+## never sends these notifications.
+func _notification(what: int) -> void:
+	if _music_player == null:
+		return
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		_music_player.stream_paused = true
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_music_player.stream_paused = false
+
+
 func _play_next_track() -> void:
 	if _playlist.is_empty():
 		_playlist = MUSIC.duplicate()

@@ -19,6 +19,9 @@ const SUIT_COLORS := [
 	Color("d9a934"), # guľa
 ]
 
+## Overlays that the Android back button / Escape closes (dismiss_modal).
+const MODAL_GROUP := &"uikit_modal"
+
 const AVATAR_COLORS := [
 	Color("3d6b8f"), Color("a8543f"), Color("6f5a93"), Color("b58a2f"),
 	Color("4f7f6a"),
@@ -206,5 +209,25 @@ static func confirm(parent: Control, title: String, body: String,
 		on_yes.call())
 	row.add_child(yes)
 	box.add_child(row)
+	layer.add_to_group(MODAL_GROUP)
 	parent.add_child(layer)
 	return layer
+
+
+## Android back / Escape: closes the topmost dialog among `parent`'s direct
+## children — an open Popup (suit choice, name entry) or an in-style overlay
+## in MODAL_GROUP (confirm(), dev panel). True when something was closed, so
+## the caller stops there instead of also leaving the screen.
+static func dismiss_modal(parent: Node) -> bool:
+	for i in range(parent.get_child_count() - 1, -1, -1):
+		var c := parent.get_child(i)
+		if c.is_queued_for_deletion():
+			continue
+		var popup := c as Popup
+		if popup != null and popup.visible:
+			popup.hide()
+			return true
+		if c.is_in_group(MODAL_GROUP):
+			c.queue_free()
+			return true
+	return false
