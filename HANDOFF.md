@@ -61,7 +61,7 @@ Repo: <https://github.com/simon01920/faraon-farar>
 # Vizuálny probe (NIE headless — kreslí a ukladá PNG do tools/)
 <godot> --path . -s res://tools/<nieco>_probe.gd
 
-# Android APK
+# Android APK (lokálne treba SDK + kľúč v Editor Settings; release APK stavia CI)
 <godot> --headless --path . --export-debug "Android" build/faraon.apk
 
 # Windows: PC verzia a telefónny formát (pevné okno na výšku, feature tag "phone")
@@ -76,13 +76,23 @@ Repo: <https://github.com/simon01920/faraon-farar>
 ### Release na GitHube (`.github/workflows/release.yml`)
 - Spustí ho commit s riadkom **`Release-Tag: vX.Y.Z`** v správe (alebo push
   tagu `v*`, alebo ručne v Actions). Tag s pomlčkou (`-beta`) = pre-release.
-- Kroky: GUT testy → export oboch Windows .exe → spustenie na reálnom
-  Windows (headless boot, log bez SCRIPT ERROR, screenshoty ako artefakt)
-  → release s .exe + `SHA256SUMS.txt`; poznámky z
-  `.github/release-notes/<tag>.md`.
-- Číslo verzie: `project.godot` (`config/version`, ukazuje sa v menu) a
-  `application/file_version` v `export_presets.cfg`; názvy .exe v release
-  odvodí workflow z tagu (`Faraon-<verzia>-PC.exe`).
+- Kroky: GUT testy → export oboch Windows .exe → **Android APK**
+  (`--export-debug`, arm64, minSdk 24 / targetSdk 36; overí `apksigner`
+  podpis a `aapt2` balík + verziu) → spustenie .exe na reálnom Windows
+  (headless boot, log bez SCRIPT ERROR, screenshoty ako artefakt) → release
+  s .exe + .apk + `SHA256SUMS.txt`; poznámky z
+  `.github/release-notes/<tag>.md`. Job `android-smoke` (emulátor, x86_64
+  testovací build) je len informačný a release neblokuje.
+- **Podpis APK:** stále ten istý kľúč, inak tester nenainštaluje novú betu
+  cez starú (musel by odinštalovať a stratil by postup). Secret
+  `ANDROID_DEBUG_KEYSTORE_B64`, ak existuje, inak verejný beta kľúč
+  `android/beta-debug.keystore` (`androiddebugkey`/`android`) — **nie pre
+  Google Play**. Detaily a prechod na ostrý kľúč: `android/README.md`.
+- Číslo verzie: `project.godot` (`config/version`, ukazuje sa v menu),
+  `application/file_version` + `product_version` oboch Windows presetov a
+  v Android presete `version/name` (= tag bez `v`, workflow to kontroluje)
+  + **`version/code` vždy +1**. Názvy súborov v release odvodí workflow
+  z tagu (`Faraon-<verzia>-PC.exe`, `Faraon-<verzia>-Android.apk`).
 
 ### Kritické pasce (naozaj sa stali)
 1. **NIKDY neprepisuj `.gd` cez PowerShell `Get-Content`/`Set-Content`** — zmrší
@@ -340,6 +350,7 @@ ruka, pauza, výber farby, výsledky × telefón na výšku/šírku, tablet, des
 
 | Commit | Obsah |
 |---|---|
+| 2026-11-14 | **Beta 0.1.2**: Android APK v release (CI, stály beta kľúč), tlačidlo späť / Esc, pauza hudby na pozadí |
 | 2026-11-07 | **Beta 0.1.1**: olympijské kolá sa dohrávajú do konca; merge PR #2 (ikony aplikácie) |
 | 2026-11-05 | **Beta 0.1.0** (release `v0.1.0-beta`): PC .exe + telefónny .exe na výšku, release workflow, autoplay probe |
 | 2026-10-20 (PR) | **Multiplayer + monetizácia**: obnova spojenia, unikátne seaty, neprítomné miesta, sanitizácia variantu, reklamné callbacky, lifetime vs. predplatné |
@@ -374,7 +385,7 @@ cd "C:/Users/simon/Downloads/faraon-farar-main/faraon-farar-main"
 git log --oneline -10
 <godot> --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 ```
-Ak je 164/164 zelených, stav sedí s týmto dokumentom. Potom si prečítaj
+Ak je 230/230 zelených, stav sedí s týmto dokumentom. Potom si prečítaj
 `game/faraon_rules.gd` (hlavičkový komentár zhŕňa všetky rozhodnutia o
 pravidlách) a `game/rules_variant.gd` (presety) — to sú dva najdôležitejšie
 súbory projektu.
@@ -400,3 +411,28 @@ väčší):
 - Na overenie na zariadení: rotácia počas hry aj tutoriálu, telefón s
   výrezom/gestom domov, výpadok Wi-Fi počas online hry (má sa ukázať
   „Spojenie prerušené — pripájam znova…").
+
+---
+
+## 13. Android (2026-11-14, beta 0.1.2)
+
+- **Späť / gesto späť** (`NOTIFICATION_WM_GO_BACK_REQUEST`):
+  `application/config/quit_on_go_back=false`, `main.gd` sa spýta aktuálnej
+  obrazovky (`handle_back() -> bool`) a appku zavrie len pri `false`.
+  Esc (`ui_cancel`) na PC robí to isté, ale appku nezavrie nikdy.
+
+  | Obrazovka | Späť |
+  |---|---|
+  | otvorený dialóg (`UIKit.confirm`, popup výberu farby/mena, dev panel) | zavrie dialóg (`UIKit.dismiss_modal`) |
+  | stôl počas hry | otvorí / zavrie pauzové menu |
+  | stôl – výsledky | „Späť do menu" (ako tlačidlo, cez reklamnú bránu) |
+  | nastavenia, vzhľad, výzvy, štatistiky, multiplayer | hlavné menu (MP odpojí, ak nie sme v roomke) |
+  | tutoriál | = Preskočiť (označí videný, inak by sa pri 1. štarte hneď otvoril znova) |
+  | hlavné menu (aj s úvodnou otázkou Prší/Faraón) | zavrie appku |
+- Hudba: `GameAudio` pozastaví prehrávač pri `NOTIFICATION_APPLICATION_PAUSED`
+  a pustí pri `..._RESUMED`.
+- Preset: `permissions/vibrate=true` (bez neho `Input.vibrate_handheld` na
+  Androide nič nerobí), internet ostáva kvôli MP.
+- Na overenie na reálnom telefóne: inštalácia cez staršiu betu, späť počas
+  hry/tutoriálu, výrez a gesto domov (`UIKit.safe_rect`), hudba po návrate
+  z pozadia, vibrácie.

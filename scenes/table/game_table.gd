@@ -1367,6 +1367,21 @@ func _build_pause_layer() -> void:
 	box.add_child(quit)
 
 
+## Android späť / Esc (app root deleguje sem). Hru nikdy neukončí naraz:
+## zavrie výber farby/hodnoty či dev panel, na výsledkoch = „Späť do menu",
+## inak otvorí/zavrie pauzové menu (z neho sa dá odísť vedome).
+func handle_back() -> bool:
+	if UIKit.dismiss_modal(self):
+		return true
+	if _pause_layer.visible:
+		_pause_layer.visible = false
+	elif _game_over_layer.visible:
+		exit_to_menu_requested.emit()
+	else:
+		_pause_layer.visible = true
+	return true
+
+
 func _open_dev_panel() -> void:
 	add_child(DevPanel.new(self))
 

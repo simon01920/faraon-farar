@@ -25,6 +25,7 @@ func _state() -> GameState:
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	z_index = 80
+	add_to_group(UIKit.MODAL_GROUP) # Android späť / Esc panel zavrie
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

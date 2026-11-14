@@ -158,6 +158,15 @@ func _advance() -> void:
 	_show_step()
 
 
+## Android späť / Esc (app root deleguje sem) = Preskočiť. Návrat bez
+## označenia „videné" by pri prvom štarte tutoriál hneď otvoril znova
+## (main.gd ho spúšťa, kým nie je videný) a späť by sa zacyklilo; tutoriál
+## sa dá kedykoľvek otvoriť z menu.
+func handle_back() -> bool:
+	_finish()
+	return true
+
+
 func _finish() -> void:
 	GameSettings.set_tutorial_seen()
 	finished.emit()

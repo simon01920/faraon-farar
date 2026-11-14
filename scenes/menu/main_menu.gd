@@ -90,6 +90,22 @@ func show_screen(screen: String) -> void:
 		_: _swap_screen(_menu_screen)
 
 
+## Android späť / Esc (app root deleguje sem): najprv zavrie otvorený dialóg,
+## inak sa z podobrazovky (nastavenia, vzhľad, výzvy, štatistiky, multiplayer)
+## vráti do hlavného menu. Na hlavnom menu vráti false — root potom appku
+## zavrie (Android) alebo to ignoruje (Esc na PC).
+func handle_back() -> bool:
+	if UIKit.dismiss_modal(self):
+		return true
+	if _mp_screen != null and _mp_screen.visible:
+		_close_mp_screen()
+		return true
+	if _menu_screen == null or _menu_screen.visible:
+		return false
+	_swap_screen(_menu_screen)
+	return true
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_node_ready():
 		_apply_layout()
@@ -846,11 +862,7 @@ func _build_mp_screen() -> void:
 
 	box.add_child(_spacer(6))
 	var back := UIKit.pill_button(tr("MENU_BACK_SHORT"), UIKit.BLUE, Vector2(220, 50))
-	back.pressed.connect(func():
-		# Mimo roomky netreba držať otvorený WebSocket (batéria, dáta).
-		if room_client == null or room_client.room_code == "":
-			_hub().disconnect_client()
-		_swap_screen(_menu_screen))
+	back.pressed.connect(_close_mp_screen)
 	var back_row := HBoxContainer.new()
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back)
@@ -928,6 +940,13 @@ func _open_mp_screen() -> void:
 		# Roomku sme medzičasom opustili — nezobrazuj staré lobby.
 		_mp_join_box.visible = true
 		_mp_lobby_box.visible = false
+
+
+func _close_mp_screen() -> void:
+	# Mimo roomky netreba držať otvorený WebSocket (batéria, dáta).
+	if room_client == null or room_client.room_code == "":
+		_hub().disconnect_client()
+	_swap_screen(_menu_screen)
 
 
 func _on_mp_room_update(info: Dictionary) -> void:
