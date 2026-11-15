@@ -34,13 +34,15 @@ func test_challenge_completion_awards_points_once() -> void:
 		pass_test("play_3 not active today - deterministic pool rotation")
 		return
 	var before := ProgressionStore.total_points()
-	Challenges.on_game_finished(2, 2, "medium", "normal")
-	Challenges.on_game_finished(2, 2, "medium", "normal")
-	Challenges.on_game_finished(2, 2, "medium", "normal")
+	# 3rd of 3: steps only play_3. (2nd place also counts for finish_top2,
+	# which made this fail on days when both challenges are active.)
+	Challenges.on_game_finished(3, 3, "medium", "normal")
+	Challenges.on_game_finished(3, 3, "medium", "normal")
+	Challenges.on_game_finished(3, 3, "medium", "normal")
 	var after_three := ProgressionStore.total_points()
 	assert_eq(after_three - before, Challenges.CHALLENGE_POINTS,
 			"completing play_3 pays out exactly once")
-	Challenges.on_game_finished(2, 2, "medium", "normal")
+	Challenges.on_game_finished(3, 3, "medium", "normal")
 	assert_eq(ProgressionStore.total_points(), after_three,
 			"a done challenge never pays again")
 

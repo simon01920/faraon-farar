@@ -95,7 +95,33 @@ func _setup_desktop_window() -> void:
 	win.position = usable.position + (usable.size - win.size) / 2
 
 
+## Android back button / back gesture. `application/config/quit_on_go_back`
+## is off, so the app no longer dies mid-game: the current screen decides
+## (pause menu on the table, sub-screen -> main menu, tutorial = Skip) and
+## only the main menu itself lets the back press close the app.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_go_back(true)
+
+
+## Shared by the Android back request and Escape (ui_cancel) on desktop.
+## Escape on the main menu does nothing — quitting a PC game on a stray Esc
+## would be a surprise; the window's close button is the way out there.
+func _go_back(may_quit: bool) -> void:
+	if _current_screen == null or not is_instance_valid(_current_screen) \
+			or _current_screen.is_queued_for_deletion():
+		return
+	if _current_screen.has_method("handle_back") and _current_screen.handle_back():
+		return
+	if may_quit:
+		get_tree().quit()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not event.is_echo():
+		_go_back(false)
+		get_viewport().set_input_as_handled()
+		return
 	if UIKit.phone_mode or OS.has_feature("mobile"):
 		return
 	if event is InputEventKey and event.pressed and not event.echo \

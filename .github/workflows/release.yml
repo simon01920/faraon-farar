@@ -1,4 +1,5 @@
-# Builds the Windows executables and publishes them as a GitHub release.
+# Builds the Windows executables and the Android APK and publishes them as a
+# GitHub release.
 #
 # Trigger (any of):
 #   - push a tag like `v0.1.0-beta`
@@ -9,11 +10,23 @@
 # .github/release-notes/<tag>.md.
 #
 #   0. meta    (Linux)   — which tag to publish (skips ordinary pushes)
-#   1. build   (Linux)   — GUT test suite, export both Windows presets
+#   1. build   (Linux)   — GUT test suite, export both Windows presets and the
+#                          Android APK (arm64, signed with the stable beta
+#                          key, verified with apksigner + aapt2)
 #   2. smoke   (Windows) — boot each .exe on a real Windows machine, fail on
 #                          script errors; screenshots of both window modes
-#   3. release (Linux)   — create the release with the .exe files + SHA256SUMS
-name: Release (Windows)
+#   2b. android-smoke (Linux, emulator) — informational only, never blocks the
+#                          release: boots an x86_64 test build of the APK
+#   3. release (Linux)   — create the release with the .exe + .apk files +
+#                          SHA256SUMS
+#
+# Android signing (see android/README.md): the repo secret
+# ANDROID_DEBUG_KEYSTORE_B64 (+ optional ANDROID_DEBUG_KEYSTORE_USER /
+# ANDROID_DEBUG_KEYSTORE_PASSWORD, defaults androiddebugkey / android) when
+# set, otherwise the committed beta key android/beta-debug.keystore. The key
+# must stay the same between releases or testers can't update over the old
+# version.
+name: Release (Windows + Android)
 
 on:
   push:
@@ -79,9 +92,9 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_RELEASE }}-windows
+          key: godot-${{ env.GODOT_RELEASE }}-windows-android
 
-      - name: Download Godot + Windows export templates
+      - name: Download Godot + Windows/Android export templates
         if: steps.godot-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
@@ -94,7 +107,9 @@ jobs:
           dest=~/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}
           mkdir -p "$dest"
           unzip -q -j /tmp/templates.tpz templates/version.txt \
-              templates/windows_release_x86_64.exe -d "$dest"
+              templates/windows_release_x86_64.exe \
+              templates/android_debug.apk templates/android_release.apk -d "$dest"
+          ls -la "$dest"
 
       - name: Import project
         run: |
@@ -127,6 +142,140 @@ jobs:
           name: windows-exe
           path: build/*.exe
           if-no-files-found: error
+
+      # Non-gradle export: needs the SDK's build-tools (apksigner) and
+      # platform-tools, a JDK, and a debug keystore. ubuntu-latest ships the
+      # SDK at $ANDROID_HOME and JDK 17.
+      - name: Configure Android export (SDK, JDK, signing key)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}
+          KEYSTORE_USER: ${{ secrets.ANDROID_DEBUG_KEYSTORE_USER }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_DEBUG_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          jdk="${JAVA_HOME_17_X64:-${JAVA_HOME:-}}"
+          [ -d "$sdk/build-tools" ] && [ -d "$sdk/platform-tools" ] \
+              || { echo "::error::Android SDK not found (ANDROID_HOME='$sdk')"; exit 1; }
+          [ -x "$jdk/bin/java" ] || { echo "::error::JDK not found ('$jdk')"; exit 1; }
+          if [ -n "${KEYSTORE_B64:-}" ]; then
+            ks="$RUNNER_TEMP/android-debug.keystore"
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$ks"
+            user="${KEYSTORE_USER:-androiddebugkey}"
+            pass="${KEYSTORE_PASS:-android}"
+            echo "signing key: repo secret ANDROID_DEBUG_KEYSTORE_B64"
+          else
+            ks="$GITHUB_WORKSPACE/android/beta-debug.keystore"
+            user=androiddebugkey
+            pass=android
+            echo "signing key: committed android/beta-debug.keystore (beta only)"
+          fi
+          # Fail here, with a clear message, if the key can't be opened.
+          "$jdk/bin/keytool" -list -v -keystore "$ks" -storepass "$pass" -alias "$user" \
+              | grep -E "Alias name|Owner|Valid from|SHA256:" \
+              || { echo "::error::cannot open alias '$user' in the keystore"; exit 1; }
+          fp=$("$jdk/bin/keytool" -list -v -keystore "$ks" -storepass "$pass" -alias "$user" \
+              | sed -n 's/^[[:space:]]*SHA256: *//p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f')
+          [ ${#fp} -eq 64 ] || { echo "::error::no SHA-256 fingerprint for the key ('$fp')"; exit 1; }
+          echo "ANDROID_CERT_SHA256=$fp" >> "$GITHUB_ENV"
+          # Godot reads the keystore from these (they override the preset)...
+          {
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$ks"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=$user"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=$pass"
+          } >> "$GITHUB_ENV"
+          # ...and the SDK/JDK paths (plus the same key, as a fallback) from
+          # the editor settings that the headless export loads.
+          cfg="$HOME/.config/godot/editor_settings-${GODOT_RELEASE%%-*}.tres"
+          python3 - "$cfg" "$sdk" "$jdk" "$ks" "$user" "$pass" <<'PY'
+          import os, sys
+          path, sdk, jdk, ks, user, pw = sys.argv[1:]
+          keys = {
+              "export/android/android_sdk_path": sdk,
+              "export/android/java_sdk_path": jdk,
+              "export/android/debug_keystore": ks,
+              "export/android/debug_keystore_user": user,
+              "export/android/debug_keystore_pass": pw,
+          }
+          if os.path.exists(path):
+              lines = open(path, encoding="utf-8").read().splitlines()
+          else:
+              lines = ['[gd_resource type="EditorSettings" format=3]', "", "[resource]"]
+          lines = [l for l in lines if l.split("=")[0].strip() not in keys]
+          esc = lambda v: v.replace("\\", "\\\\").replace('"', '\\"')
+          lines += ['%s = "%s"' % (k, esc(v)) for k, v in keys.items()]
+          os.makedirs(os.path.dirname(path), exist_ok=True)
+          open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+          PY
+          grep -E "export/android/(android_sdk_path|java_sdk_path|debug_keystore) " "$cfg"
+          echo "build-tools: $(ls "$sdk/build-tools" | tr '\n' ' ')"
+
+      - name: Export Android APK
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          v="${TAG#v}" # v0.1.2-beta -> Faraon-0.1.2-beta-Android.apk
+          apk="build/Faraon-$v-Android.apk"
+          mkdir -p build
+          ~/godot/godot --headless --path . --export-debug "Android" "$apk" 2>&1 \
+              | tee android-export.log
+          [ -s "$apk" ] || { echo "::error::Godot did not write $apk (log above)"; exit 1; }
+          ls -la "$apk"
+
+      - name: Verify Android APK (signature, package, version)
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          v="${TAG#v}"
+          apk="build/Faraon-$v-Android.apk"
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          echo "using $bt"
+          # Godot leaves the APK unsigned (with only a warning) when apksigner
+          # fails, so the signature is checked here, against the chosen key.
+          "$bt/apksigner" verify --verbose --print-certs "$apk" | tee apksigner.log
+          grep -qi "certificate SHA-256 digest: $ANDROID_CERT_SHA256" apksigner.log \
+              || { echo "::error::APK is not signed with the expected key ($ANDROID_CERT_SHA256)"; exit 1; }
+          "$bt/aapt2" dump badging "$apk" > badging.txt
+          grep -E "^(package|sdkVersion|targetSdkVersion|application-label|native-code|uses-permission):" badging.txt
+          pkg=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" badging.txt)
+          vname=$(sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p" badging.txt)
+          [ "$pkg" = "sk.pirios.faraon" ] \
+              || { echo "::error::package is '$pkg', expected sk.pirios.faraon"; exit 1; }
+          [ "$vname" = "$v" ] \
+              || { echo "::error::APK versionName '$vname' != tag '$v' - bump version/name and version/code in export_presets.cfg"; exit 1; }
+          grep -q "^native-code: 'arm64-v8a'" badging.txt \
+              || { echo "::error::APK has no arm64-v8a native library"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/*.apk
+          if-no-files-found: error
+
+      # Separate x86_64 build for the emulator job only (the release APK is
+      # arm64-only and would not start on an x86_64 emulator). Best effort.
+      - name: Export Android emulator test build (x86_64, not released)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cp export_presets.cfg "$RUNNER_TEMP/export_presets.cfg"
+          trap 'cp "$RUNNER_TEMP/export_presets.cfg" export_presets.cfg' EXIT
+          sed -i 's|^architectures/x86_64=false$|architectures/x86_64=true|' export_presets.cfg
+          grep -q '^architectures/x86_64=true$' export_presets.cfg
+          mkdir -p build-test
+          ~/godot/godot --headless --path . --export-debug "Android" \
+              build-test/Faraon-emulator-x86_64.apk 2>&1 | tail -n 40
+          [ -s build-test/Faraon-emulator-x86_64.apk ]
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: android-emulator-apk
+          path: build-test/*.apk
+          if-no-files-found: warn
+          retention-days: 7
 
   smoke:
     needs: build
@@ -179,6 +328,49 @@ jobs:
           path: shots/*.png
           if-no-files-found: ignore
 
+  # Informational: boots the x86_64 test build on an Android emulator (log
+  # without SCRIPT ERROR, Back on the first-launch tutorial must not close
+  # the app). Emulators are slow and occasionally flaky, so a failure here
+  # never blocks the release - check its logcat/screenshot artifact instead.
+  android-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-emulator-apk
+          path: build-test
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+              | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot the APK on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          disable-animations: true
+          script: bash .github/scripts/android_emulator_smoke.sh build-test/Faraon-emulator-x86_64.apk emulator-out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-logs
+          path: emulator-out/
+          if-no-files-found: ignore
+
   release:
     needs: [meta, build, smoke]
     runs-on: ubuntu-latest
@@ -192,22 +384,28 @@ jobs:
           name: windows-exe
           path: build
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: build
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.meta.outputs.tag }}
         run: |
           set -euo pipefail
-          (cd build && sha256sum *.exe > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          ls -la build
+          (cd build && sha256sum *.exe *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
           notes=".github/release-notes/${TAG}.md"
           [ -f "$notes" ] || notes=/dev/null
           flags=()
           [[ "$TAG" == *-* ]] && flags+=(--prerelease)
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/*.exe build/SHA256SUMS.txt --clobber
+            gh release upload "$TAG" build/*.exe build/*.apk build/SHA256SUMS.txt --clobber
           else
             # --target creates the tag on this commit when it doesn't exist.
-            gh release create "$TAG" build/*.exe build/SHA256SUMS.txt \
+            gh release create "$TAG" build/*.exe build/*.apk build/SHA256SUMS.txt \
                 --target "$(git rev-parse HEAD)" \
                 --title "Faraón ${TAG#v}" --notes-file "$notes" "${flags[@]}"
           fi
